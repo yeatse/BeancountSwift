@@ -8,11 +8,17 @@
 import Foundation
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#common-properties
-public struct Directive {
+public struct Directive: Equatable {
     let meta: [String: Any]
     let date: Date
     let comment: String?
     let content: DirectiveContent
+    
+    public static func == (lhs: Directive, rhs: Directive) -> Bool {
+        lhs.date == rhs.date
+        && lhs.content == rhs.content
+        && lhs.meta.lineno == rhs.meta.lineno
+    }
 }
 
 /// A set of valid booking method names for positions on accounts.
@@ -42,7 +48,7 @@ public enum Booking: String {
     case HIFO
 }
 
-public enum DirectiveContent {
+public enum DirectiveContent: Equatable {
     case open(Open)
     case close(Close)
     case commodity(Commodity)
@@ -58,27 +64,27 @@ public enum DirectiveContent {
 }
 
 /// https://beancount.github.io/docs/beancount_language_syntax.html#open
-public struct Open {
+public struct Open: Equatable {
     public let account: Account
     public let currencies: [Currency]
     public let booking: Booking?
 }
 
 /// https://beancount.github.io/docs/beancount_language_syntax.html#open
-public struct Close  {
+public struct Close: Equatable {
     public let account: Account
 }
 
-public struct Commodity {
+public struct Commodity: Equatable {
     public let currency: Currency
 }
 
-public struct Pad {
+public struct Pad: Equatable {
     public let account: Account
     public let sourceAccount: Account
 }
 
-public struct Balance {
+public struct Balance: Equatable {
     public let account: Account
     public let amount: Amount
     public let tolerance: Decimal?
@@ -86,7 +92,7 @@ public struct Balance {
 }
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#transactions
-public struct Transaction {
+public struct Transaction: Equatable {
     public let flag: Character?
     public let payee: String?
     public let narration: String?
@@ -95,34 +101,38 @@ public struct Transaction {
     public let postings: [Posting]
 }
 
-public struct Note {
+public struct Note: Equatable {
     public let account: Account
     public let note: String
 }
 
-public struct Event {
+public struct Event: Equatable {
     public let type: String
     public let description: String
 }
 
-public struct Query {
+public struct Query: Equatable {
     public let name: String
     public let queryString: String
 }
 
-public struct Price {
+public struct Price: Equatable {
     public let currency: Currency
     public let amount: Amount
 }
 
-public struct Document {
+public struct Document: Equatable {
     public let account: Account
     public let filename: String
     public let tags: Set<String>?
     public let links: Set<String>?
 }
 
-public struct Custom {
+public struct Custom: Equatable {
     public let type: String
     public let values: [Any]
+    
+    public static func == (lhs: Custom, rhs: Custom) -> Bool {
+        lhs.type == rhs.type
+    }
 }

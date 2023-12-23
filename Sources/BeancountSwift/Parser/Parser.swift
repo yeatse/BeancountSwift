@@ -34,17 +34,30 @@ extension Dictionary where Key == String, Value == Array<Error> {
     }
 }
 
-extension Directive: Comparable {
-    public static func < (lhs: Directive, rhs: Directive) -> Bool {
-        if lhs.date == rhs.date, let ll = lhs.meta.lineno, let rl = rhs.meta.lineno {
-            return ll < rl
-        } else {
-            return lhs.date < rhs.date
+extension DirectiveContent {
+    var sortOrder: Int {
+        switch self {
+            case .open(_): -2
+            case .balance(_): -1
+            case .document(_): 1
+            case .close(_): 2
+            default: 0
         }
     }
-    
-    public static func == (lhs: Directive, rhs: Directive) -> Bool {
-        return lhs.date == rhs.date && lhs.meta.lineno == rhs.meta.lineno
+}
+
+extension Directive: Comparable {
+    public static func < (lhs: Directive, rhs: Directive) -> Bool {
+        if lhs.date != rhs.date {
+            return lhs.date < rhs.date
+        }
+        if lhs.content.sortOrder != rhs.content.sortOrder {
+            return lhs.content.sortOrder < rhs.content.sortOrder
+        }
+        if let l1 = lhs.meta.lineno, let l2 = rhs.meta.lineno {
+            return l1 < l2
+        }
+        return false
     }
 }
 

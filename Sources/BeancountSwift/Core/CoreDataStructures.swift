@@ -39,7 +39,7 @@ public struct Cost: Equatable, Hashable {
 }
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#costspec
-public struct CostSpec {
+public struct CostSpec: Equatable {
     public let numberPerUnit: Decimal?
     public let numberTotal: Decimal?
     public let currency: Currency?
@@ -48,7 +48,7 @@ public struct CostSpec {
     public let merge: Bool?
 }
 
-public enum CostOrCostSpec {
+public enum CostOrCostSpec: Equatable {
     case cost(Cost)
     case costSpec(CostSpec)
 }
@@ -60,7 +60,7 @@ public struct Position: Equatable, Hashable {
 }
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#posting
-public struct Posting {
+public struct Posting: Equatable {
     public let account: Account
     public let units: Amount
     public let cost: CostOrCostSpec?
@@ -68,6 +68,15 @@ public struct Posting {
     public let flag: Character?
     public let meta: [String: Any]?
     public let comment: String?
+    
+    public static func == (lhs: Posting, rhs: Posting) -> Bool {
+        lhs.account == rhs.account
+        && lhs.units == rhs.units
+        && lhs.cost == rhs.cost
+        && lhs.price == rhs.price
+        && lhs.flag == rhs.flag
+        && lhs.meta?.lineno == rhs.meta?.lineno
+    }
 }
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#inventory
