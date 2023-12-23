@@ -110,7 +110,6 @@ public struct Parser {
                 errors.addError(error, in: file)
             }
         }
-        
         for include in includes {
             do {
                 let ledger = try await parse(file: include, contentProvider: contentProvider)
@@ -122,7 +121,9 @@ public struct Parser {
                 errors.addError(error, in: file)
             }
         }
-        
+        if !tags.isEmpty {
+            errors.addError(ParserError.unbalancedTags(tags), in: file)
+        }
         return ParsedLedger(options: options,
                             plugins: plugins,
                             directives: directives.sorted(),
