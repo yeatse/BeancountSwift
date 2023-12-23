@@ -66,17 +66,23 @@ public struct Posting: Equatable {
     public let cost: CostOrCostSpec?
     public let price: Amount?
     public let flag: Character?
-    public let meta: [String: Any]?
+    public let meta: [String: MetaDataValue]?
     public let comment: String?
-    
-    public static func == (lhs: Posting, rhs: Posting) -> Bool {
-        lhs.account == rhs.account
-        && lhs.units == rhs.units
-        && lhs.cost == rhs.cost
-        && lhs.price == rhs.price
-        && lhs.flag == rhs.flag
-        && lhs.meta?.lineno == rhs.meta?.lineno
-    }
+}
+
+public struct Tag: Equatable, Hashable, Identifiable {
+    public let id: String
+}
+
+public enum MetaDataValue: Equatable {
+    case string(String)
+    case account(Account)
+    case currency(Currency)
+    case date(Date)
+    case tag(Tag)
+    case number(Decimal)
+    case bool(Bool)
+    case amount(Amount)
 }
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#inventory

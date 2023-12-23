@@ -13,11 +13,11 @@ protocol Parsable {
 }
 
 protocol AcceptingTagStack {
-    func mergingTags(_ tags: [String]) -> Self
+    func mergingTags(_ tags: [Tag]) -> Self
 }
 
 protocol AcceptingMetaStack {
-    func mergingMetaData(_ meta: [String: Any]) -> Self
+    func mergingMetaData(_ meta: [String: MetaDataValue]) -> Self
 }
 
 fileprivate let quoteCharacterSet = CharacterSet(charactersIn: "\"")
@@ -203,29 +203,6 @@ extension CompoundAmount: Parsable {
 }
 
 extension Node {
-    func parsedData(in content: String) throws -> Any? {
-        switch nodeType {
-            case "string":
-                try String(from: self, content: content).trimmingQuotes()
-            case "account":
-                try Account(from: self, content: content)
-            case "date":
-                try Date(from: self, content: content)
-            case "currency":
-                try Currency(from: self, content: content)
-            case "tag":
-                try String(from: self, content: content)
-            case "bool":
-                try Bool(from: self, content: content)
-            case "amount":
-                try Amount(from: self, content: content)
-            case "number", "unary_number_expr", "binary_number_expr":
-                try Decimal(from: self, content: content)
-            default:
-                nil
-        }
-    }
-    
     func repeatedChildren(byFieldName: String, type: String) -> [Node] {
         var result: [Node] = []
         if let node = self.child(byFieldName: byFieldName) {
@@ -239,14 +216,14 @@ extension Node {
         return result
     }
     
-    func parseTagsAndLinks(in content: String) throws -> (tags: Set<String>, links: Set<String>) {
-        var tags: Set<String> = []
+    func parseTagsAndLinks(in content: String) throws -> (tags: Set<Tag>, links: Set<String>) {
+        var tags: Set<Tag> = []
         var links: Set<String> = []
         enumerateChildren { child in
             if child.isNamed {
                 if child.nodeType == "link", let link = try? String(from: child, content: content) {
                     links.insert(link)
-                } else if child.nodeType == "tag", let tag = try? String(from: child, content: content) {
+                } else if child.nodeType == "tag", let tag = try? Tag(from: child, content: content) {
                     tags.insert(tag)
                 }
             }
@@ -255,20 +232,43 @@ extension Node {
     }
 }
 
+extension Tag: Parsable {
+    init(from node: Node, content: String) throws {
+        self.init(id: try String(from: node, content: content))
+    }
+}
+
+extension MetaDataValue: Parsable {
+    init(from node: Node, content: String) throws {
+        self = switch node.nodeType {
+            case "string": .string(try String(from: node, content: content).trimmingQuotes())
+            case "account": .account(try Account(from: node, content: content))
+            case "date": .date(try Date(from: node, content: content))
+            case "currency": .currency(try Currency(from: node, content: content))
+            case "tag": .tag(try Tag(from: node, content: content))
+            case "bool": .bool(try Bool(from: node, content: content))
+            case "amount": .amount(try Amount(from: node, content: content))
+            case "number", "unary_number_expr", "binary_number_expr":
+                    .number(try Decimal(from: node, content: content))
+            default: throw ParserError.badNode(node)
+        }
+    }
+}
+
 extension Directive: Parsable {
     init(from node: Node, content: String) throws {
         let date = try node.child(byFieldName: "date").map { try Date(from: $0, content: content) }
         guard let date else { throw ParserError.badNode(node) }
         let comment = try node.child(byFieldName: "comment").map { try String(from: $0, content: content) }
-        var meta: [String: Any] = [
-            "lineno": node.pointRange.lowerBound.row
+        var meta: [String: MetaDataValue] = [
+            "lineno": .number(Decimal(node.pointRange.lowerBound.row))
         ]
         var started = false
         for i in 0..<node.namedChildCount {
             if let child = node.namedChild(at: i), child.nodeType == "key_value" {
                 started = true
-                let key = child.child(at: 0).flatMap { try? String(from: $0, content: content) }
-                let value = child.child(at: 2).flatMap { try? $0.parsedData(in:content) }
+                let key = child.namedChild(at: 0).flatMap { try? String(from: $0, content: content) }
+                let value = child.namedChild(at: 1)?.firstChild.flatMap { try? MetaDataValue(from: $0, content: content) }
                 if let key, let value { meta[key] = value }
             } else if started {
                 break
@@ -294,7 +294,7 @@ extension Directive: Parsable {
 }
 
 extension Directive: AcceptingTagStack, AcceptingMetaStack {
-    func mergingTags(_ tags: [String]) -> Self {
+    func mergingTags(_ tags: [Tag]) -> Self {
         var newContent: DirectiveContent
         switch content {
             case .transaction(let transaction):
@@ -307,7 +307,7 @@ extension Directive: AcceptingTagStack, AcceptingMetaStack {
         return .init(meta: meta, date: date, comment: comment, content: newContent)
     }
     
-    func mergingMetaData(_ meta: [String : Any]) -> Directive {
+    func mergingMetaData(_ meta: [String : MetaDataValue]) -> Directive {
         let newContent: DirectiveContent
         switch content {
             case .transaction(let transaction):
@@ -366,7 +366,8 @@ extension Custom: Parsable {
     init(from node: Node, content: String) throws {
         let name = try node.child(byFieldName: "name").map { try String(from: $0, content: content).trimmingQuotes() }
         let values = try node.repeatedChildren(byFieldName: "custom_value_list", type: "custom_value")
-            .compactMap { try $0.parsedData(in: content) }
+            .compactMap { $0.firstChild }
+            .map { try MetaDataValue(from: $0, content: content) }
         guard let name else { throw ParserError.badNode(node) }
         self.init(type: name, values: values)
     }
@@ -387,7 +388,7 @@ extension Document: Parsable {
 }
 
 extension Document: AcceptingTagStack {
-    func mergingTags(_ tags: [String]) -> Document {
+    func mergingTags(_ tags: [Tag]) -> Document {
         return .init(account: account,
                      filename: filename,
                      tags: (self.tags ?? []).union(tags),
@@ -411,7 +412,7 @@ extension Transaction: Parsable {
         
         let narration = try node.child(byFieldName: "narration").map { try String(from: $0, content: content).trimmingQuotes() }
         let payee = try node.child(byFieldName: "payee").map { try String(from: $0, content: content).trimmingQuotes() }
-        var tags: Set<String> = []
+        var tags: Set<Tag> = []
         var links: Set<String> = []
         if let tagsLinks = node.child(byFieldName: "tags_links") {
             (tags, links) = try tagsLinks.parseTagsAndLinks(in: content)
@@ -422,24 +423,21 @@ extension Transaction: Parsable {
         var postings: [Posting] = []
         
         var curr = postingStart
-        var metadata: [String: Any] = [:]
         while let next = curr.nextNamedSibling {
             curr = next
             switch curr.nodeType {
                 case "posting":
-                    if let last = postings.last, !metadata.isEmpty {
-                        postings[postings.count - 1] = last.mergingMetaData(metadata)
-                        metadata = [:]
-                    }
                     postings.append(try Posting(from: curr, content: content))
                 case "tags_links":
                     let (t, l) = try curr.parseTagsAndLinks(in: content)
                     tags.formUnion(t)
                     links.formUnion(l)
                 case "key_value":
-                    let key = next.child(at: 0).flatMap { try? String(from: $0, content: content) }
-                    let value = next.child(at: 2).flatMap { try? $0.parsedData(in:content) }
-                    if let key, let value { metadata[key] = value }
+                    let key = next.namedChild(at: 0).flatMap { try? String(from: $0, content: content) }
+                    let value = next.namedChild(at: 1)?.firstChild.flatMap { try? MetaDataValue(from: $0, content: content) }
+                    if let key, let value, let last = postings.last {
+                        postings[postings.endIndex - 1] = last.mergingMetaData([key: value])
+                    }
                 default:
                     break
             }
@@ -454,7 +452,7 @@ extension Transaction: Parsable {
 }
 
 extension Transaction: AcceptingTagStack, AcceptingMetaStack {
-    func mergingTags(_ tags: [String]) -> Transaction {
+    func mergingTags(_ tags: [Tag]) -> Transaction {
         return .init(flag: flag,
                      payee: payee,
                      narration: narration,
@@ -463,7 +461,7 @@ extension Transaction: AcceptingTagStack, AcceptingMetaStack {
                      postings: postings)
     }
     
-    func mergingMetaData(_ meta: [String : Any]) -> Transaction {
+    func mergingMetaData(_ meta: [String : MetaDataValue]) -> Transaction {
         return .init(
             flag: flag,
             payee: payee,
@@ -518,18 +516,21 @@ extension Posting: Parsable {
         }
         
         guard let account else { throw ParserError.badNode(node) }
+        let meta: [String: MetaDataValue] = [
+            "lineno": .number(Decimal(node.pointRange.lowerBound.row))
+        ]
         self.init(account: account,
                   units: amount ?? .placeholder,
                   cost: costSpec,
                   price: priceAnnotation,
                   flag: flag,
-                  meta: ["lineno": node.pointRange.lowerBound.row],
+                  meta: meta,
                   comment: comment)
     }
 }
 
 extension Posting: AcceptingMetaStack {
-    func mergingMetaData(_ meta: [String : Any]) -> Posting {
+    func mergingMetaData(_ meta: [String : MetaDataValue]) -> Posting {
         return .init(account: account,
                      units: units,
                      cost: cost,

@@ -1,5 +1,5 @@
 //
-//  Parser.swift
+//  Loader.swift
 //
 //
 //  Created by Yeatse on 2023/12/21.
@@ -16,7 +16,7 @@ enum ParserError: Error {
     case badContent(file: String, content: String)
     case badNode(SwiftTreeSitter.Node)
     case popAbsentTag(SwiftTreeSitter.Node)
-    case unbalancedTags([String])
+    case unbalancedTags([Tag])
 }
 
 public struct ParsedLedger {
@@ -61,7 +61,7 @@ extension Directive: Comparable {
     }
 }
 
-public struct Parser {
+public struct Loader {
     let treeSitter: SwiftTreeSitter.Parser = {
         let parser = SwiftTreeSitter.Parser()
         let language = Language(language: tree_sitter_beancount())
@@ -69,7 +69,7 @@ public struct Parser {
         return parser
     }()
     
-    public func parse(file: String, contentProvider: ContentProviding) async throws -> ParsedLedger {
+    func parse(file: String, contentProvider: ContentProviding) async throws -> ParsedLedger {
         let content = try await contentProvider.provideContent(for: file)
         guard let tree = treeSitter.parse(content) else {
             throw ParserError.badContent(file: file, content: content)
@@ -80,16 +80,16 @@ public struct Parser {
         var errors: [String: [Error]] = [:]
         var includes: [String] = []
         
-        var tags: [String] = []
+        var tags: [Tag] = []
         tree.rootNode?.enumerateChildren { child in
             do {
                 switch child.nodeType {
                     case "pushtag":
-                        let tag = try child.namedChild(at: 0).map { try String(from: $0, content: content) }
+                        let tag = try child.namedChild(at: 0).map { try Tag(from: $0, content: content) }
                         guard let tag else { throw ParserError.badNode(child) }
                         tags.append(tag)
                     case "poptag":
-                        let tag = try child.namedChild(at: 0).map { try String(from: $0, content: content) }
+                        let tag = try child.namedChild(at: 0).map { try Tag(from: $0, content: content) }
                         guard let tag else { throw ParserError.badNode(child) }
                         if let idx = tags.firstIndex(of: tag) {
                             tags.remove(at: idx)
@@ -115,7 +115,7 @@ public struct Parser {
                         if !tags.isEmpty {
                             directive = directive.mergingTags(tags)
                         }
-                        directives.append(directive.mergingMetaData(["filename": file]))
+                        directives.append(directive.mergingMetaData(["filename": .string(file)]))
                     default:
                         break
                 }
@@ -141,6 +141,17 @@ public struct Parser {
                             plugins: plugins,
                             directives: directives.sorted(),
                             errors: errors)
+    }
+    
+    func book(ledger: ParsedLedger) -> ParsedLedger {
+        fatalError()
+    }
+    
+    func load(file: String, contentProvider: ContentProviding) async throws {
+        // parsing
+        let parsedResult = try await parse(file: file, contentProvider: contentProvider)
+        
+        // booking
     }
 }
 

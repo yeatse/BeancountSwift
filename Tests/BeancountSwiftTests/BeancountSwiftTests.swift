@@ -42,6 +42,8 @@ option "operating_currency" "CNY"
   Assets:US:Bank:Checking  -100.00 USD
   Expenses:SomeExpense     100.00 USD
 
+pushtag #hello
+
 2022-10-18 * "" "测试开销"
   Assets:Card         -500.00 CNY
   Expenses:Tax        500     CNY
@@ -61,15 +63,20 @@ option "operating_currency" "CNY"
   Income:ETrade:CapitalGains
 
 2012-11-03 * "Transfer to account in Canada"
+  time: "23:00:00"
+  test: Assets:MyBank
   Assets:MyBank:Checking            -400.00 USD @@ 436.01 CAD
+    my: Assets:MyBank
   Assets:FR:SocGen:Checking          436.01 CAD
 
 2014-02-11 * "Bought shares of S&P 500"
   Assets:ETrade:IVV                20 IVV {183.07 USD, "ref-001"}
 
+poptag #hello
+
 2020-03-31 note Assets:Etrade:IVV "Some"
 """
-        let parser = Parser()
+        let parser = Loader()
         let provider = ContentProvider(source: source)
         let ledger = try await parser.parse(file: "main.bean", contentProvider: provider)
         print(ledger)

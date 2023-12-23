@@ -9,16 +9,10 @@ import Foundation
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#common-properties
 public struct Directive: Equatable {
-    let meta: [String: Any]
+    let meta: [String: MetaDataValue]
     let date: Date
     let comment: String?
     let content: DirectiveContent
-    
-    public static func == (lhs: Directive, rhs: Directive) -> Bool {
-        lhs.date == rhs.date
-        && lhs.content == rhs.content
-        && lhs.meta.lineno == rhs.meta.lineno
-    }
 }
 
 /// A set of valid booking method names for positions on accounts.
@@ -96,7 +90,7 @@ public struct Transaction: Equatable {
     public let flag: Character?
     public let payee: String?
     public let narration: String?
-    public let tags: Set<String>
+    public let tags: Set<Tag>
     public let links: Set<String>
     public let postings: [Posting]
 }
@@ -124,15 +118,11 @@ public struct Price: Equatable {
 public struct Document: Equatable {
     public let account: Account
     public let filename: String
-    public let tags: Set<String>?
+    public let tags: Set<Tag>?
     public let links: Set<String>?
 }
 
 public struct Custom: Equatable {
     public let type: String
-    public let values: [Any]
-    
-    public static func == (lhs: Custom, rhs: Custom) -> Bool {
-        lhs.type == rhs.type
-    }
+    public let values: [MetaDataValue]
 }
