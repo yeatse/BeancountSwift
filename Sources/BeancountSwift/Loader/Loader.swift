@@ -14,24 +14,17 @@ public protocol ContentProviding {
 
 enum ParserError: Error {
     case badContent(file: String, content: String)
-    case badNode(SwiftTreeSitter.Node)
-    case popAbsentTag(SwiftTreeSitter.Node)
-    case unbalancedTags([Tag])
+    case invalidSyntax(file: String, lineno: UInt32, content: String?)
+    case duplicatedInclude(String)
+    case popAbsentTag(file: String, lineno: UInt32, tag: Tag)
+    case unbalancedTags(file: String, tags: [Tag])
 }
 
-public struct ParsedLedger {
-    let options: [Option]
-    let plugins: [Plugin]
-    let directives: [Directive]
-    let errors: [String: [Error]]
-}
-
-extension Dictionary where Key == String, Value == Array<Error> {
-    mutating func addError(_ error: Error, in file: String) {
-        var errors = self[file] ?? []
-        errors.append(error)
-        self[file] = errors
-    }
+public struct ParsedLedger<T: PostingCost> {
+    var options: [Option]
+    var plugins: [Plugin]
+    var directives: [Directive<T>]
+    var errors: [Error]
 }
 
 extension DirectiveContent {
@@ -69,15 +62,43 @@ public struct Loader {
         return parser
     }()
     
-    func parse(file: String, contentProvider: ContentProviding) async throws -> ParsedLedger {
+    func parse(file: String, contentProvider: ContentProviding) async throws -> ParsedLedger<CostSpec> {
         let content = try await contentProvider.provideContent(for: file)
+        var (ledger, includes) = try parse(content: content, in: file)
+        
+        var seenIncludes: Set<String> = [file]
+        while !includes.isEmpty {
+            let childFile = includes.popLast()!
+            do {
+                let childContent = try await contentProvider.provideContent(for: childFile)
+                let (childLedger, childIncludes) = try parse(content: childContent, in: file)
+                ledger.directives += childLedger.directives
+                ledger.errors += childLedger.errors
+                for include in childIncludes {
+                    if seenIncludes.contains(include) {
+                        throw ParserError.duplicatedInclude(include)
+                    } else {
+                        seenIncludes.insert(include)
+                        includes.append(include)
+                    }
+                }
+            } catch {
+                ledger.errors.append(error)
+            }
+        }
+        ledger.directives.sort()
+        return ledger
+    }
+    
+    private func parse(content: String, in file: String) throws -> (ParsedLedger<CostSpec>, includes: [String]) {
         guard let tree = treeSitter.parse(content) else {
             throw ParserError.badContent(file: file, content: content)
         }
+        
         var options: [Option] = []
         var plugins: [Plugin] = []
-        var directives: [Directive] = []
-        var errors: [String: [Error]] = [:]
+        var directives: [Directive<CostSpec>] = []
+        var errors: [Error] = []
         var includes: [String] = []
         
         var tags: [Tag] = []
@@ -86,15 +107,18 @@ public struct Loader {
                 switch child.nodeType {
                     case "pushtag":
                         let tag = try child.namedChild(at: 0).map { try Tag(from: $0, content: content) }
-                        guard let tag else { throw ParserError.badNode(child) }
+                        guard let tag else { throw SyntaxError.badNode(child) }
                         tags.append(tag)
                     case "poptag":
                         let tag = try child.namedChild(at: 0).map { try Tag(from: $0, content: content) }
-                        guard let tag else { throw ParserError.badNode(child) }
+                        guard let tag else { throw SyntaxError.badNode(child) }
                         if let idx = tags.firstIndex(of: tag) {
                             tags.remove(at: idx)
                         } else {
-                            throw ParserError.popAbsentTag(child)
+                            throw ParserError.popAbsentTag(
+                                file: file,
+                                lineno: child.pointRange.lowerBound.row,
+                                tag: tag)
                         }
                     case "pushmeta":
                         break
@@ -105,13 +129,13 @@ public struct Loader {
                         options.append(option)
                     case "include":
                         let include = try child.namedChild(at: 0).map { try String(from: $0, content: content) }
-                        guard let include else { throw ParserError.badNode(child) }
+                        guard let include else { throw SyntaxError.badNode(child) }
                         includes.append(include)
                     case "plugin":
                         let plugin = try Plugin(from: child, content: content)
                         plugins.append(plugin)
                     case "transaction", "balance", "open", "close", "pad", "document", "note", "event", "price", "commodity", "query", "custom":
-                        var directive = try Directive(from: child, content: content)
+                        var directive = try Directive<CostSpec>(from: child, content: content)
                         if !tags.isEmpty {
                             directive = directive.mergingTags(tags)
                         }
@@ -119,39 +143,49 @@ public struct Loader {
                     default:
                         break
                 }
+            } catch SyntaxError.badNode(let node) {
+                let err = ParserError.invalidSyntax(
+                    file: file,
+                    lineno: node.pointRange.lowerBound.row,
+                    content: try? String(from: node, content: content))
+                errors.append(err)
             } catch {
-                errors.addError(error, in: file)
-            }
-        }
-        for include in includes {
-            do {
-                let ledger = try await parse(file: include, contentProvider: contentProvider)
-                // options are ignored in the included files
-                plugins.append(contentsOf: ledger.plugins)
-                directives.append(contentsOf: ledger.directives)
-                errors.merge(ledger.errors) { old, new in old + new }
-            } catch {
-                errors.addError(error, in: file)
+                errors.append(error)
             }
         }
         if !tags.isEmpty {
-            errors.addError(ParserError.unbalancedTags(tags), in: file)
+            errors.append(ParserError.unbalancedTags(file: file, tags: tags))
         }
-        return ParsedLedger(options: options,
-                            plugins: plugins,
-                            directives: directives.sorted(),
-                            errors: errors)
+        return (
+            ParsedLedger(options: options, plugins: plugins, directives: directives, errors: errors),
+            includes
+        )
     }
     
-    func book(ledger: ParsedLedger) -> ParsedLedger {
+    func book(ledger: ParsedLedger<CostSpec>) -> ParsedLedger<Cost> {
+        return Booker().book(ledger: ledger)
+    }
+    
+    func transform(ledger: ParsedLedger<Cost>) -> ParsedLedger<Cost> {
         fatalError()
     }
     
-    func load(file: String, contentProvider: ContentProviding) async throws {
+    func validate(ledger: ParsedLedger<Cost>) -> ParsedLedger<Cost> {
+        fatalError()
+    }
+    
+    func load(file: String, contentProvider: ContentProviding) async throws -> ParsedLedger<Cost> {
         // parsing
         let parsedResult = try await parse(file: file, contentProvider: contentProvider)
         
         // booking
+        let bookedLedger = book(ledger: parsedResult)
+        
+        // transforming
+        let transformedLedger = transform(ledger: bookedLedger)
+        
+        // validation
+        return validate(ledger: transformedLedger)
     }
 }
 

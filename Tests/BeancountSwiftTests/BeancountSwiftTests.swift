@@ -80,5 +80,8 @@ poptag #hello
         let provider = ContentProvider(source: source)
         let ledger = try await parser.parse(file: "main.bean", contentProvider: provider)
         print(ledger)
+        
+        let loaded = try await parser.load(file: "main.bean", contentProvider: provider)
+        print(loaded)
     }
 }

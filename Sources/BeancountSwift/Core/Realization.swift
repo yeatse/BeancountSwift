@@ -9,6 +9,6 @@
 /// temporaries in lists of postings-of-entries, which is the product of a
 /// realization.
 public struct TxnPosting {
-    public let txn: Transaction
-    public let posting: Posting
+    public let txn: Transaction<Cost>
+    public let posting: Posting<Cost>
 }

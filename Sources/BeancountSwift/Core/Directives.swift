@@ -8,47 +8,20 @@
 import Foundation
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#common-properties
-public struct Directive: Equatable {
-    let meta: [String: MetaDataValue]
-    let date: Date
-    let comment: String?
-    let content: DirectiveContent
+public struct Directive<T: PostingCost>: Equatable {
+    var meta: [String: MetaDataValue]
+    var date: Date
+    var comment: String?
+    var content: DirectiveContent<T>
 }
 
-/// A set of valid booking method names for positions on accounts.
-/// See http://furius.ca/beancount/doc/inventories for a full explanation.
-public enum Booking: String {
-    /// Reject ambiguous matches with an error.
-    case STRICT
-
-    /// Strict booking method, but disambiguate further with sizes. Reject
-    /// ambiguous matches with an error but if a lot matches the size exactly,
-    /// accept it the oldest.
-    case STRICT_WITH_SIZE
-
-    /// Disable matching and accept the creation of mixed inventories.
-    case NONE
-
-    /// Average cost booking: merge all matching lots before and after.
-    case AVERAGE
-
-    /// First-in first-out in the case of ambiguity.
-    case FIFO
-
-    /// Last-in first-out in the case of ambiguity.
-    case LIFO
-
-    /// Highest-in first-out in the case of ambiguity.
-    case HIFO
-}
-
-public enum DirectiveContent: Equatable {
+public enum DirectiveContent<T: PostingCost>: Equatable {
     case open(Open)
     case close(Close)
     case commodity(Commodity)
     case pad(Pad)
     case balance(Balance)
-    case transaction(Transaction)
+    case transaction(Transaction<T>)
     case note(Note)
     case event(Event)
     case query(Query)
@@ -86,13 +59,13 @@ public struct Balance: Equatable {
 }
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#transactions
-public struct Transaction: Equatable {
+public struct Transaction<T: PostingCost>: Equatable {
     public let flag: Character?
     public let payee: String?
     public let narration: String?
     public let tags: Set<Tag>
     public let links: Set<String>
-    public let postings: [Posting]
+    public let postings: [Posting<T>]
 }
 
 public struct Note: Equatable {

@@ -11,6 +11,12 @@ public struct Currency: Identifiable, Equatable, Hashable {
     public let id: String
 }
 
+extension Currency: ExpressibleByStringLiteral {
+    public init(stringLiteral value: StringLiteralType) {
+        self.id = value
+    }
+}
+
 /// https://beancount.github.io/docs/beancount_design_doc.html#account
 public struct Account: Identifiable, Equatable, Hashable {
     public let id: String
@@ -30,8 +36,16 @@ public struct Amount: Equatable, Hashable {
     public let currency: Currency
 }
 
+extension Amount {
+    public static prefix func - (amount: Amount) -> Amount {
+        return Amount(number: -amount.number, currency: amount.currency)
+    }
+}
+
+public protocol PostingCost: Equatable, Hashable {}
+
 /// https://beancount.github.io/docs/beancount_design_doc.html#cost
-public struct Cost: Equatable, Hashable {
+public struct Cost: PostingCost {
     public let number: Decimal
     public let currency: Currency
     public let date: Date
@@ -39,7 +53,7 @@ public struct Cost: Equatable, Hashable {
 }
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#costspec
-public struct CostSpec: Equatable {
+public struct CostSpec: PostingCost {
     public let numberPerUnit: Decimal?
     public let numberTotal: Decimal?
     public let currency: Currency?
@@ -48,22 +62,11 @@ public struct CostSpec: Equatable {
     public let merge: Bool?
 }
 
-public enum CostOrCostSpec: Equatable {
-    case cost(Cost)
-    case costSpec(CostSpec)
-}
-
-/// https://beancount.github.io/docs/beancount_design_doc.html#position
-public struct Position: Equatable, Hashable {
-    public let units: Amount
-    public let cost: Cost?
-}
-
 /// https://beancount.github.io/docs/beancount_design_doc.html#posting
-public struct Posting: Equatable {
+public struct Posting<T: PostingCost>: Equatable {
     public let account: Account
     public let units: Amount
-    public let cost: CostOrCostSpec?
+    public let cost: T?
     public let price: Amount?
     public let flag: Character?
     public let meta: [String: MetaDataValue]?
@@ -83,11 +86,6 @@ public enum MetaDataValue: Equatable {
     case number(Decimal)
     case bool(Bool)
     case amount(Amount)
-}
-
-/// https://beancount.github.io/docs/beancount_design_doc.html#inventory
-public struct Inventory {
-    public let positions: [Position]
 }
 
 extension Dictionary where Key == String {
