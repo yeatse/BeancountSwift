@@ -29,4 +29,8 @@ extension Position {
     init(posting: Posting<Cost>) {
         self.init(units: posting.units, cost: posting.cost)
     }
+    
+    var currencyPair: (Currency, Currency?) {
+        return (units.currency, cost?.currency)
+    }
 }

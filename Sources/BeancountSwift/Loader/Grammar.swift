@@ -142,8 +142,6 @@ extension Amount: Parsable {
         guard let number, let currency else { throw SyntaxError.badNode(node) }
         self.init(number: number, currency: currency)
     }
-    
-    static let placeholder = Amount(number: .nan, currency: .init(id: ""))
 }
 
 struct AmountTolerance {
@@ -521,7 +519,7 @@ extension Posting<CostSpec>: Parsable {
             "lineno": .number(Decimal(node.pointRange.lowerBound.row))
         ]
         self.init(account: account,
-                  units: amount ?? .placeholder,
+                  units: amount ?? .missing,
                   cost: costSpec,
                   price: priceAnnotation,
                   flag: flag,

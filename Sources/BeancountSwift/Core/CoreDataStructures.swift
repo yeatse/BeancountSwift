@@ -8,7 +8,7 @@ import Foundation
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#commodity
 public struct Currency: Identifiable, Equatable, Hashable {
-    public let id: String
+    public var id: String
 }
 
 extension Currency: ExpressibleByStringLiteral {
@@ -17,9 +17,13 @@ extension Currency: ExpressibleByStringLiteral {
     }
 }
 
+extension Currency {
+    static let missing = Currency(id: "__MISSING__")
+}
+
 /// https://beancount.github.io/docs/beancount_design_doc.html#account
 public struct Account: Identifiable, Equatable, Hashable {
-    public let id: String
+    public var id: String
 }
 
 public enum AccountType: String {
@@ -32,8 +36,10 @@ public enum AccountType: String {
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#amount
 public struct Amount: Equatable, Hashable {
-    public let number: Decimal
-    public let currency: Currency
+    public var number: Decimal
+    public var currency: Currency
+    
+    static let missing = Amount(number: .nan, currency: .missing)
 }
 
 extension Amount {
@@ -46,35 +52,35 @@ public protocol PostingCost: Equatable, Hashable {}
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#cost
 public struct Cost: PostingCost {
-    public let number: Decimal
-    public let currency: Currency
-    public let date: Date
-    public let label: String?
+    public var number: Decimal
+    public var currency: Currency
+    public var date: Date
+    public var label: String?
 }
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#costspec
 public struct CostSpec: PostingCost {
-    public let numberPerUnit: Decimal?
-    public let numberTotal: Decimal?
-    public let currency: Currency?
-    public let date: Date?
-    public let label: String?
-    public let merge: Bool?
+    public var numberPerUnit: Decimal?
+    public var numberTotal: Decimal?
+    public var currency: Currency?
+    public var date: Date?
+    public var label: String?
+    public var merge: Bool?
 }
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#posting
 public struct Posting<T: PostingCost>: Equatable {
-    public let account: Account
-    public let units: Amount
-    public let cost: T?
-    public let price: Amount?
-    public let flag: Character?
-    public let meta: [String: MetaDataValue]?
-    public let comment: String?
+    public var account: Account
+    public var units: Amount
+    public var cost: T?
+    public var price: Amount?
+    public var flag: Character?
+    public var meta: [String: MetaDataValue]?
+    public var comment: String?
 }
 
 public struct Tag: Equatable, Hashable, Identifiable {
-    public let id: String
+    public var id: String
 }
 
 public enum MetaDataValue: Equatable {

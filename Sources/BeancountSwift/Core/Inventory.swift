@@ -1,6 +1,6 @@
 //
-//  File.swift
-//  
+//  Inventory.swift
+//
 //
 //  Created by Yeatse on 2023/12/24.
 //
@@ -8,15 +8,11 @@
 import Foundation
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#inventory
-public struct Inventory {
+public class Inventory {
     private var cache: [PositionKey: Position] = [:]
     
     init(positions: [Position] = []) {
         positions.forEach { addPosition($0) }
-    }
-    
-    var positions: any Collection<Position> {
-        cache.values
     }
     
     struct PositionKey: Hashable {
@@ -30,13 +26,63 @@ public struct Inventory {
         case augmented
         case ignored
     }
-    
-    
 }
 
 extension Inventory {
     var isEmpty: Bool {
         positions.isEmpty
+    }
+    
+    var positions: any Collection<Position> {
+        cache.values
+    }
+    
+    var currencies: any Collection<Currency> {
+        cache.keys.map { $0.currency }
+    }
+    
+    var costCurrencies: any Collection<Currency> {
+        cache.keys.compactMap { $0.cost?.currency }
+    }
+    
+    var currencyPairs: any Collection<(Currency, Currency?)> {
+        cache.values.map { $0.currencyPair }
+    }
+    
+    var onlyPosition: Position? {
+        return self.positions.first
+    }
+    
+    func getCurrencyUnits(in currency: Currency) -> Amount {
+        let totalUnits = positions
+            .filter { $0.units.currency == currency }
+            .reduce(0) { $0 + $1.units.number }
+        return Amount(number: totalUnits, currency: currency)
+    }
+    
+    func segregateUnits(by currencies: [Currency]) -> [Currency?: Inventory] {
+        var perCurrencyDict = [Currency?: Inventory]()
+        for currency in currencies {
+            perCurrencyDict[currency] = Inventory()
+        }
+        perCurrencyDict[nil] = Inventory()
+        for position in positions {
+            let currency = position.units.currency
+            let key = currencies.contains(currency) ? currency : nil
+            perCurrencyDict[key]!.addPosition(position)
+        }
+        return perCurrencyDict
+    }
+    
+    func split() -> [Currency: Inventory] {
+        var perCurrencyDict = [Currency: Inventory]()
+        for position in positions {
+            let key = position.units.currency
+            let inventory = perCurrencyDict[key, default: Inventory()]
+            inventory.addPosition(position)
+            perCurrencyDict[key] = inventory
+        }
+        return perCurrencyDict
     }
     
     func isSmall(tolerances: [Currency: Decimal]) -> Bool {
@@ -93,7 +139,7 @@ extension Inventory {
     }
     
     func negated() -> Inventory {
-        var negatedInventory = Inventory()
+        let negatedInventory = Inventory()
         for position in positions {
             var negatedPosition = position
             negatedPosition.units = -position.units
@@ -104,7 +150,7 @@ extension Inventory {
     
     // Absolute value
     var absolute: Inventory {
-        var absInventory = Inventory()
+        let absInventory = Inventory()
         for position in positions {
             var absPosition = position
             absPosition.units = .init(number: abs(position.units.number),
@@ -116,7 +162,7 @@ extension Inventory {
     
     // Multiplication by a scalar
     func multiplied(by scalar: Decimal) -> Inventory {
-        var multipliedInventory = Inventory()
+        let multipliedInventory = Inventory()
         for position in positions {
             var multipliedPosition = position
             multipliedPosition.units = .init(number: multipliedPosition.units.number * scalar,
@@ -127,7 +173,7 @@ extension Inventory {
     }
     
     @discardableResult
-    mutating func addAmount(_ units: Amount, cost: Cost? = nil) -> (Position?, MatchResult) {
+    func addAmount(_ units: Amount, cost: Cost? = nil) -> (Position?, MatchResult) {
         let key = PositionKey(currency: units.currency, cost: cost)
         let booking: MatchResult
         if let pos = cache[key] {
@@ -157,7 +203,7 @@ extension Inventory {
     
     // Add a position to the inventory
     @discardableResult
-    mutating func addPosition(_ position: Position) -> (Position?, MatchResult) {
+    func addPosition(_ position: Position) -> (Position?, MatchResult) {
         return addAmount(position.units, cost: position.cost)
     }
     

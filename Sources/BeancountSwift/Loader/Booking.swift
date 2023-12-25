@@ -15,6 +15,12 @@ extension Dictionary {
     }
 }
 
+enum CategorizationError: Error {
+    case failedToCategorize(txn: Transaction<CostSpec>, index: Int)
+    case extraAutoPostings(txn: Transaction<CostSpec>)
+    case cannotResolve(txn: Transaction<CostSpec>, name: String)
+}
+
 extension DirectiveContent<CostSpec> {
     func resolved() -> DirectiveContent<Cost> {
         switch self {
@@ -57,7 +63,7 @@ struct Booker {
             let newEntry: Directive<Cost>
             if case .transaction(let txn) = directive.content {
                 // Group postings by currency.
-                let (referGroups, catErrors) = categorizeByCurrency(entry: directive, balances: balances)
+                let (referGroups, catErrors) = categorizeByCurrency(transaction: txn, balances: balances)
                 guard catErrors.isEmpty else {
                     errors += catErrors
                     continue
@@ -103,7 +109,7 @@ struct Booker {
                 )
                 
                 for posting in replPostings {
-                    var balance = balances[posting.account, default: Inventory()]
+                    let balance = balances[posting.account, default: Inventory()]
                     balance.addPosition(.init(posting: posting))
                     balances[posting.account] = balance
                 }
@@ -122,12 +128,7 @@ struct Booker {
                      errors: ledger.errors + errors)
     }
     
-    struct Refer {
-        var index: Int
-        var unitsCurrency: Currency?
-        var costCurrency: Currency?
-        var priceCurrency: Currency?
-    }
+    typealias Refer = (index: Int, unitsCurrency: Currency?, costCurrency: Currency?, priceCurrency: Currency?)
     
     func getBucketCurrency(refer: Refer) -> Currency? {
         if let costCurrency = refer.costCurrency {
@@ -146,36 +147,33 @@ struct Booker {
         let priceCurrency: Currency?
     }
     
-    func categorizeByCurrency(entry: Directive<CostSpec>, balances: [Account: Inventory]) -> ([(Currency, Refer)], [Error]) {
-        #if false
-        var errors = [(Transaction, String)]() // To store errors with their associated transaction
+    func categorizeByCurrency(transaction: Transaction<CostSpec>, balances: [Account: Inventory]) -> ([(Currency, [Refer])], [Error]) {
+        var errors = [Error]()
         
         var groups = [Currency: [Refer]]()
         var sortDict = [Currency: Int]()
         var autoPostings = [Refer]()
         var unknown = [Refer]()
         
-        for (index, posting) in entry.postings.enumerated() {
-            let costCurrency = posting.cost.flatMap { spec in
-                switch spec {
-                    case .cost(let cost): cost.currency
-                    case .costSpec(let costSpec): costSpec.currency
-                }
+        for (index, posting) in transaction.postings.enumerated() {
+            let units = posting.units
+            let cost = posting.cost
+            let price = posting.price
+            
+            let unitsCurrency = units == .missing ? nil : units.currency
+            var costCurrency = cost?.currency
+            var priceCurrency = price == .missing ? nil : price?.currency
+            
+            if costCurrency == .missing, let priceCurrency, priceCurrency != .missing {
+                costCurrency = priceCurrency
             }
-            var refer = Refer(
-                index: index,
-                unitsCurrency: posting.units.currency,
-                costCurrency: costCurrency,
-                priceCurrency: posting.price?.currency
-            )
-            if refer.costCurrency == nil && refer.priceCurrency != nil {
-                refer.costCurrency = refer.priceCurrency
-            }
-            if refer.priceCurrency == nil && refer.costCurrency != nil {
-                refer.priceCurrency = refer.costCurrency
+            if priceCurrency == .missing, let costCurrency, costCurrency != .missing {
+                priceCurrency = costCurrency
             }
             
-            if posting.units == .placeholder && refer.priceCurrency == nil {
+            let refer: Refer = (index, unitsCurrency, costCurrency, priceCurrency)
+            
+            if units == .missing, priceCurrency == nil {
                 autoPostings.append(refer)
             } else {
                 if let currency = getBucketCurrency(refer: refer) {
@@ -190,28 +188,22 @@ struct Booker {
         // We look at the remaining postings... if they are all of a single currency,
         // the posting must be in that currency too.
         if unknown.count == 1 && groups.count == 1 {
-            let unknownPosting = unknown.popLast()!
+            var (index, unitsCurrency, costCurrency, priceCurrency) = unknown.popLast()!
             let otherCurrency = groups.keys.first!
-            
-            var unitsCurrency = unknownPosting.unitsCurrency
-            var costCurrency = unknownPosting.costCurrency
-            var priceCurrency = unknownPosting.priceCurrency
-            
             if priceCurrency == nil && costCurrency == nil {
                 unitsCurrency = otherCurrency
             } else {
-                priceCurrency = priceCurrency ?? otherCurrency
-                costCurrency = costCurrency ?? otherCurrency
+                if priceCurrency == .missing {
+                    priceCurrency = otherCurrency
+                }
+                if costCurrency == .missing {
+                    costCurrency = otherCurrency
+                }
             }
             
-            let refer = Refer(
-                index: unknownPosting.index,
-                unitsCurrency: unitsCurrency,
-                costCurrency: costCurrency,
-                priceCurrency: priceCurrency
-            )
+            let refer: Refer = (index, unitsCurrency, costCurrency, priceCurrency)
             let currency = getBucketCurrency(refer: refer)!
-            sortDict.putIfAbsent(key: currency, value: refer.index)
+            sortDict.putIfAbsent(key: currency, value: index)
             groups[currency, default: []].append(refer)
         }
         
@@ -219,50 +211,128 @@ struct Booker {
         // Finally, try to resolve all the unknown legs using the inventory contents
         // of each account.
         for refer in unknown {
-            var unitsCurrency = refer.unitsCurrency
-            var costCurrency = refer.costCurrency
-            var priceCurrency = refer.priceCurrency
-            let posting = entry.postings[refer.index]
+            var (index, unitsCurrency, costCurrency, priceCurrency) = refer
+            let posting = transaction.postings[index]
+            let balance = balances[posting.account, default: Inventory()]
             
-            let balance = balances[posting.account] ?? Inventory(positions: [])
-            
-            if unitsCurrency == nil {
-                let balanceCurrencies = balance.currencies()
+            if unitsCurrency == .missing {
+                let balanceCurrencies = balance.currencies
                 if balanceCurrencies.count == 1 {
                     unitsCurrency = balanceCurrencies.first
                 }
             }
             
-            if costCurrency == nil || priceCurrency == nil {
-                let balanceCostCurrencies = balance.costCurrencies()
+            if costCurrency == .missing || priceCurrency == .missing {
+                let balanceCostCurrencies = balance.costCurrencies
                 if balanceCostCurrencies.count == 1 {
                     let balanceCostCurrency = balanceCostCurrencies.first
-                    priceCurrency = priceCurrency ?? balanceCostCurrency
-                    costCurrency = costCurrency ?? balanceCostCurrency
+                    if priceCurrency == .missing {
+                        priceCurrency = balanceCostCurrency
+                    }
+                    if costCurrency == .missing {
+                        costCurrency = balanceCostCurrency
+                    }
                 }
             }
             
-            let inferredRefer = PostingReference(
-                posting: posting,
-                unitsCurrency: unitsCurrency,
-                costCurrency: costCurrency,
-                priceCurrency: priceCurrency
-            )
-            
-            if let currency = getBucketCurrency(refer: inferredRefer) {
-                categorizedPostings[currency, default: []].append(inferredRefer)
+            let refer: Refer = (index, unitsCurrency, costCurrency, priceCurrency)
+            if let currency = getBucketCurrency(refer: refer) {
+                sortDict.putIfAbsent(key: currency, value: index)
+                groups[currency, default: []].append(refer)
             } else {
-                errors.append((entry, "Failed to categorize posting: \(posting)"))
+                errors.append(CategorizationError.failedToCategorize(txn: transaction, index: index))
             }
         }
         
-        return categorizedPostings
-        #endif
-        fatalError()
+        // Fill in missing units currencies if some remain as missing. This may occur
+        // if we used the cost or price to bucket the currency but the units currency
+        // was missing.
+        for (currency, refers) in groups {
+            for (rindex, refer) in refers.enumerated() {
+                if refer.unitsCurrency == .missing {
+                    let posting = transaction.postings[refer.index]
+                    guard let balance = balances[posting.account] else {
+                        continue
+                    }
+                    let balanceCurrencies = balance.currencies
+                    if balanceCurrencies.count == 1 {
+                        groups[currency]![rindex] = (refer.index,
+                                                     balanceCurrencies.first,
+                                                     refer.costCurrency,
+                                                     refer.priceCurrency)
+                    }
+                }
+            }
+        }
+        
+        if autoPostings.count > 1 {
+            errors.append(CategorizationError.extraAutoPostings(txn: transaction))
+            autoPostings.removeSubrange(1...)
+        }
+        
+        for refer in autoPostings {
+            for currency in groups.keys {
+                sortDict.putIfAbsent(key: currency, value: refer.index)
+                groups[currency]!.append((refer.index, currency, nil, nil))
+            }
+        }
+        
+        for refers in groups.values {
+            for refer in refers {
+                for (currency, name) in [
+                    (refer.unitsCurrency, "units"),
+                    (refer.costCurrency, "cost"),
+                    (refer.priceCurrency, "price")
+                ] {
+                    if currency == .missing {
+                        errors.append(CategorizationError.cannotResolve(txn: transaction, name: name))
+                    }
+                }
+            }
+        }
+        
+        let sortedGroups = groups.sorted { lhs, rhs in
+            return sortDict[lhs.key, default: 0] < sortDict[rhs.key, default: 0]
+        }
+        return (sortedGroups, errors)
     }
     
-    func replaceCurrencies(postings: [Posting<CostSpec>], referGroups: [(Currency, Refer)]) -> [(Currency, [Posting<CostSpec>])] {
-        fatalError()
+    func replaceCurrencies(postings: [Posting<CostSpec>], referGroups: [(Currency, [Refer])]) -> [(Currency, [Posting<CostSpec>])] {
+        var newGroups = [(Currency, [Posting<CostSpec>])]()
+        for (currency, refers) in referGroups {
+            var newPostings = [Posting<CostSpec>]()
+            for refer in refers.sorted(by: { $0.index < $1.index }) {
+                var posting = postings[refer.index]
+                var units = posting.units
+                if units == .missing  {
+                    posting.units = Amount(number: .nan, currency: refer.unitsCurrency ?? .missing)
+                } else {
+                    var replace = false
+                    var cost = posting.cost
+                    var price = posting.price
+                    if units.currency == .missing {
+                        units = Amount(number: units.number, currency: refer.unitsCurrency ?? .missing)
+                        replace = true
+                    }
+                    if cost?.currency == .missing {
+                        cost?.currency = refer.costCurrency
+                        replace = true
+                    }
+                    if price?.currency == .missing {
+                        price = Amount(number: price?.number ?? .nan, currency: refer.priceCurrency ?? .missing)
+                        replace = true
+                    }
+                    if replace {
+                        posting.units = units
+                        posting.cost = cost
+                        posting.price = price
+                    }
+                }
+                newPostings.append(posting)
+            }
+            newGroups.append((currency, newPostings))
+        }
+        return newGroups
     }
     
     func bookReductions(entry: Directive<CostSpec>,
