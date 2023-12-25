@@ -131,20 +131,15 @@ struct Booker {
     typealias Refer = (index: Int, unitsCurrency: Currency?, costCurrency: Currency?, priceCurrency: Currency?)
     
     func getBucketCurrency(refer: Refer) -> Currency? {
-        if let costCurrency = refer.costCurrency {
+        if let costCurrency = refer.costCurrency, costCurrency != .missing {
             return costCurrency
-        }
-        if let priceCurrency = refer.priceCurrency {
+        } else if let priceCurrency = refer.priceCurrency, priceCurrency != .missing {
             return priceCurrency
+        } else if refer.costCurrency == nil, refer.priceCurrency == nil,
+                  let unitsCurrency = refer.unitsCurrency, unitsCurrency != .missing {
+            return unitsCurrency
         }
-        return refer.unitsCurrency
-    }
-    
-    struct PostingReference {
-        let posting: Posting<CostSpec>
-        let unitsCurrency: Currency?
-        let costCurrency: Currency?
-        let priceCurrency: Currency?
+        return nil
     }
     
     func categorizeByCurrency(transaction: Transaction<CostSpec>, balances: [Account: Inventory]) -> ([(Currency, [Refer])], [Error]) {
