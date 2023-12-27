@@ -77,7 +77,6 @@ struct Booker {
                 var replPostings = [Posting<Cost>]()
                 for (currency, groupPostings) in postingGroups {
                     let (bookedPostings, bookingErrors) = bookReductions(entry: directive,
-                                                                         transaction: txn,
                                                                          groupPostings: groupPostings,
                                                                          balances: balances,
                                                                          methods: bookingStore)
@@ -330,40 +329,44 @@ struct Booker {
         return newGroups
     }
     
+    enum BookedPosting {
+        case incomplete(Posting<CostSpec>)
+        case complete(Posting<Cost>)
+    }
+    
     func bookReductions(entry: Directive<CostSpec>,
-                        transaction: Transaction<CostSpec>,
                         groupPostings: [Posting<CostSpec>],
                         balances: [Account: Inventory],
                         methods: BookingMethodStore) ->
-    ([Posting<CostSpec>], [Error]) {
-        #if false
+    ([BookedPosting], [Error]) {
         var errors = [Error]()
         var localBalances = [Account: Inventory]()
         
-        var empty = Inventory()
-        var bookedPostings = [Posting]()
+        let empty = Inventory()
+        var bookedPostings = [BookedPosting]()
         
         for posting in groupPostings {
             let units = posting.units
-            let costSpec = posting.costSpec
+            let costSpec = posting.cost
             let account = posting.account
             
             if !localBalances.keys.contains(account) {
-                localBalances[account] = balances[account, default: empty]
+                let previousBalance = balances[account, default: empty]
+                localBalances[account] = previousBalance.copy() as? Inventory
             }
-            var balance = localBalances[account]
+            let balance = localBalances[account]
             
             guard let costSpec, units.number != .nan else {
-                bookedPostings.append(posting)
+                bookedPostings.append(.incomplete(posting))
                 continue
             }
             
-            let method = booking[account]
-            if method != .NONE, var balance, balance.isReducedBy(units) {
+            let method = methods[account]
+            if method != .NONE, let balance, balance.isReducedBy(units) {
                 let costNumber = costSpec.computeCostNumber(by: units)
                 var matches = [Position]()
                 for position in balance.positions {
-                    if units.currency != "" && position.units.currency != units.currency {
+                    if position.units.currency != units.currency {
                         continue
                     }
                     if position.cost == nil {
@@ -372,7 +375,7 @@ struct Booker {
                     if costNumber != nil && position.cost?.number != costNumber {
                         continue
                     }
-                    if costSpec.currency != nil && position.cost?.currency != costSpec.currency {
+                    if costSpec.currency != .missing, position.cost?.currency != costSpec.currency {
                         continue
                     }
                     if costSpec.date != nil && position.cost?.date != costSpec.date {
@@ -388,25 +391,31 @@ struct Booker {
                     return ([], errors)
                 }
                 
-                let (reductionPostings, _, ambiErrors) = method.handleAmbiguousMatches(entry: entry, posting: posting, matches: matches)
+                let (reductionPostings, _, ambiErrors) = handleAmbiguousMatches(entry: entry, posting: posting, matches: matches, method: method)
                 if !ambiErrors.isEmpty {
                     errors += ambiErrors
                     return ([], errors)
                 }
                 
-                bookedPostings += reductionPostings
+                bookedPostings.append(contentsOf: reductionPostings.map({ .complete($0) }))
                 
                 for posting in reductionPostings {
                     balance.addPosition(.init(posting: posting))
-                    localBalances[account] = balance
                 }
+            } else {
+                var posting = posting
+                if costSpec.date == nil {
+                    var datedCostSpec = costSpec
+                    datedCostSpec.date = entry.date
+                    posting.cost = datedCostSpec
+                }
+                bookedPostings.append(.incomplete(posting))
             }
         }
-        #endif
-        fatalError()
+        return (bookedPostings, errors)
     }
     
-    func interpolateGroup(postings: [Posting<CostSpec>], currency: Currency, tolerances: Interpolate.ToleranceMapping) -> ([Posting<Cost>], [Error]) {
+    func interpolateGroup(postings: [BookedPosting], currency: Currency, tolerances: Interpolate.ToleranceMapping) -> ([Posting<Cost>], [Error]) {
         fatalError()
     }
 }

@@ -78,7 +78,7 @@ struct BookingMethodStore {
 }
 
 enum BookingError: Error {
-    case reduction(Transaction<CostSpec>)
+    case reduction(Directive<CostSpec>)
     case ambiguousMatch(Transaction<CostSpec>)
 }
 

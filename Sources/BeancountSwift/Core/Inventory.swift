@@ -9,7 +9,7 @@ import Foundation
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#inventory
 public class Inventory {
-    private var cache: [PositionKey: Position] = [:]
+    fileprivate var cache: [PositionKey: Position] = [:]
     
     init(positions: [Position] = []) {
         positions.forEach { addPosition($0) }
@@ -25,6 +25,14 @@ public class Inventory {
         case reduced
         case augmented
         case ignored
+    }
+}
+
+extension Inventory: NSCopying {
+    public func copy(with zone: NSZone? = nil) -> Any {
+        let copied = Inventory()
+        copied.cache = cache
+        return copied
     }
 }
 
