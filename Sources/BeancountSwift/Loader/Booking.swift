@@ -7,18 +7,18 @@
 
 import Foundation
 
-extension Dictionary {
-    mutating func putIfAbsent(key: Key, value: Value) {
-        if !keys.contains(key) {
-            self[key] = value
-        }
-    }
-}
-
 enum CategorizationError: Error {
     case failedToCategorize(txn: Transaction<CostSpec>, index: Int)
     case extraAutoPostings(txn: Transaction<CostSpec>)
     case cannotResolve(txn: Transaction<CostSpec>, name: String)
+}
+
+enum InterpolationError: Error {
+    case tooManyMissingNumbers(currency: Currency)
+    case cannotInferPerUnitCost
+    case cannotInferPrice
+    case amountIsZero
+    case costIsNegative
 }
 
 extension DirectiveContent<CostSpec> {
@@ -329,9 +329,37 @@ struct Booker {
         return newGroups
     }
     
-    enum BookedPosting {
+    enum BookedPosting: Equatable {
         case incomplete(Posting<CostSpec>)
         case complete(Posting<Cost>)
+        
+        var units: Amount {
+            switch self {
+                case .incomplete(let posting): posting.units
+                case .complete(let posting): posting.units
+            }
+        }
+        
+        var price: Amount? {
+            switch self {
+                case .incomplete(let posting): posting.price
+                case .complete(let posting): posting.price
+            }
+        }
+        
+        var meta: [String: MetaDataValue]? {
+            switch self {
+                case .incomplete(let posting): posting.meta
+                case .complete(let posting): posting.meta
+            }
+        }
+        
+        var complete: Posting<Cost>? {
+            switch self {
+                case .incomplete(_): nil
+                case .complete(let posting): posting
+            }
+        }
     }
     
     func bookReductions(entry: Directive<CostSpec>,
@@ -415,8 +443,161 @@ struct Booker {
         return (bookedPostings, errors)
     }
     
+    enum MissingType {
+        case units
+        case costPer
+        case costTotal
+        case price
+    }
+    
     func interpolateGroup(postings: [BookedPosting], currency: Currency, tolerances: Interpolate.ToleranceMapping) -> ([Posting<Cost>], [Error]) {
-        fatalError()
+        var errors = [Error]()
+        var incomplete = [(MissingType, Int)]()
+        
+        for (index, posting) in postings.enumerated() {
+            if case .incomplete(let posting) = posting {
+                if posting.units.number == .nan {
+                    incomplete.append((.units, index))
+                }
+                if let cost = posting.cost {
+                    if cost.numberPerUnit == .nan {
+                        incomplete.append((.costPer, index))
+                    }
+                    if cost.numberTotal == .nan {
+                        incomplete.append((.costTotal, index))
+                    }
+                }
+                if let price = posting.price, price.number == .nan {
+                    incomplete.append((.price, index))
+                }
+            }
+        }
+        
+        let newPosting: Posting<CostSpec>?
+        var outPostings: [Posting<Cost>] = []
+        
+        if incomplete.isEmpty {
+            outPostings = postings.map { posting in
+                switch posting {
+                    case .incomplete(let posting): posting.resolvedCost()
+                    case .complete(let posting): posting
+                }
+            }
+        } else if incomplete.count > 1 {
+            errors.append(InterpolationError.tooManyMissingNumbers(currency: currency))
+        } else {
+            let (missing, index) = incomplete[0]
+            let incompletePosting = switch postings[index] {
+            case .incomplete(let posting): posting
+            case .complete(_): fatalError()
+            }
+            var newPostings = postings.enumerated().map { idx, posting in
+                if index == idx {
+                    return posting
+                } else if case .incomplete(let posting) = posting {
+                    return .complete(posting.resolvedCost())
+                } else {
+                    return posting
+                }
+            }
+            let postingsToCompute = newPostings.enumerated().filter { idx, _ in idx != index }.map { $1 }
+            let residual = Interpolate().computeResidual(postings: postingsToCompute)
+            
+            let weight: Decimal
+            if !residual.isEmpty {
+                let respos = residual.positions.first!
+                weight = -respos.units.number
+            } else {
+                weight = .zero
+            }
+            switch missing {
+                case .units:
+                    let units = incompletePosting.units
+                    let unitsNumber: Decimal
+                    if let cost = incompletePosting.cost {
+                        if cost.numberPerUnit == .zero {
+                            errors.append(InterpolationError.cannotInferPerUnitCost)
+                            return (
+                                postings.compactMap { $0.complete },
+                                errors
+                            )
+                        } else {
+                            let costTotal = cost.numberTotal ?? .zero
+                            unitsNumber = (weight - costTotal) / cost.numberPerUnit!
+                        }
+                    } else if let price = incompletePosting.price {
+                        unitsNumber = weight / price.number
+                    } else {
+                        unitsNumber = weight
+                    }
+                    if weight != .zero {
+                        var pos = incompletePosting
+                        pos.units = Amount(number: unitsNumber, currency: units.currency)
+                        pos.cost = incompletePosting.cost
+                        newPosting = pos
+                    } else {
+                        newPosting = nil
+                    }
+                case .costPer:
+                    let units = incompletePosting.units
+                    var cost = incompletePosting.cost!
+                    if units.number != .zero {
+                        cost.numberPerUnit = (weight - (cost.numberTotal ?? .zero)) / units.number
+                        var pos = incompletePosting
+                        pos.units = units
+                        pos.cost = cost
+                        newPosting = pos
+                    } else {
+                        newPosting = nil
+                    }
+                case .costTotal:
+                    let units = incompletePosting.units
+                    var cost = incompletePosting.cost!
+                    cost.numberTotal = weight - cost.numberPerUnit! * units.number
+                    var pos = incompletePosting
+                    pos.units = units
+                    pos.cost = cost
+                    newPosting = pos
+                case .price:
+                    let units = incompletePosting.units
+                    if incompletePosting.cost != nil {
+                        errors.append(InterpolationError.cannotInferPrice)
+                        return (
+                            postings.compactMap { $0.complete },
+                            errors
+                        )
+                    } else {
+                        let price = incompletePosting.price!
+                        var pos = incompletePosting
+                        pos.price = Amount(number: abs(weight / units.number),
+                                           currency: price.currency)
+                        newPosting = pos
+                    }
+            }
+            if var newPosting {
+                if newPosting.meta == nil {
+                    newPosting.meta = [:]
+                }
+                newPosting.meta![Interpolate.automaticMeta] = .bool(true)
+                newPostings[index] = .complete(newPosting.resolvedCost())
+            } else {
+                newPostings.remove(at: index)
+            }
+            outPostings = newPostings.compactMap { $0.complete }
+        }
+        
+        for posting in outPostings {
+            guard let cost = posting.cost else {
+                continue
+            }
+            if posting.units.number == .zero {
+                errors.append(InterpolationError.amountIsZero)
+            }
+            if cost.number < .zero {
+                errors.append(InterpolationError.costIsNegative)
+            }
+        }
+        return (outPostings, errors)
     }
 }
 
@@ -441,7 +622,7 @@ extension CostSpec {
 }
 
 extension Posting<CostSpec> {
-    func resolvingCost() -> Posting<Cost> {
+    fileprivate func resolvedCost() -> Posting<Cost> {
         guard let cost else {
             return .init(account: account,
                          units: units,

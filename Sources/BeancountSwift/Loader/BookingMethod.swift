@@ -46,8 +46,6 @@ extension Booking {
             case .HIFO: fatalError()
         }
     }
-    
-    
 }
 
 extension Booker {
@@ -56,15 +54,12 @@ extension Booker {
                                 matches: [Position],
                                 method: Booking) ->
     (reductions: [Posting<Cost>], matches: [Position], errors: [Error]) {
-        #if false
-        let result = method(entry, posting, matches)
+        let result = method.method(entry, posting, matches)
         var errors = result.errors
         if result.insufficient {
             errors.append(BookingError.ambiguousMatch(entry))
         }
         return (result.bookedReductions, result.bookedMatches, errors)
-        #endif
-        fatalError()
     }
 }
 
@@ -79,10 +74,10 @@ struct BookingMethodStore {
 
 enum BookingError: Error {
     case reduction(Directive<CostSpec>)
-    case ambiguousMatch(Transaction<CostSpec>)
+    case ambiguousMatch(Directive<CostSpec>)
 }
 
-typealias BookingMethod = (Transaction<CostSpec>, Posting<CostSpec>, Array<Position>) -> (bookedReductions: [Posting<Cost>], bookedMatches: [Position], errors: [Error], insufficient: Bool)
+typealias BookingMethod = (Directive<CostSpec>, Posting<CostSpec>, Array<Position>) -> (bookedReductions: [Posting<Cost>], bookedMatches: [Position], errors: [Error], insufficient: Bool)
 
 let strictBooking: BookingMethod = { entry, posting, matches in
     var bookedReductions = [Posting<Cost>]()

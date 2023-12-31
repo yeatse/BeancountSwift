@@ -113,14 +113,6 @@ extension Decimal: Parsable {
                 throw SyntaxError.badNode(node)
         }
     }
-    
-    var leastSignificantDigit: Decimal {
-        if exponent < 0 {
-            return Decimal(sign: .plus, exponent: exponent, significand: 1)
-        } else {
-            return 1
-        }
-    }
 }
 
 extension Currency: Parsable {
