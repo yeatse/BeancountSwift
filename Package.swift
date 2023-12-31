@@ -8,10 +8,14 @@ let package = Package(
     products: [
         .library(
             name: "BeancountSwift",
-            targets: ["BeancountSwift"]),
+            targets: ["BeancountSwift"]
+        )
     ],
     dependencies: [
-        .package(url: "https://github.com/ChimeHQ/SwiftTreeSitter.git", .upToNextMajor(from: "0.7.2")),
+        .package(
+            url: "https://github.com/ChimeHQ/SwiftTreeSitter.git",
+            .upToNextMajor(from: "0.7.2")
+        ),
         .package(url: "https://github.com/polarmutex/tree-sitter-beancount.git", branch: "master"),
     ],
     targets: [
@@ -24,6 +28,7 @@ let package = Package(
         ),
         .testTarget(
             name: "BeancountSwiftTests",
-            dependencies: ["BeancountSwift"]),
+            dependencies: ["BeancountSwift"]
+        ),
     ]
 )

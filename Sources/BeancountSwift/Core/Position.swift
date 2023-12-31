@@ -1,6 +1,6 @@
 //
 //  Position.swift
-//  
+//
 //
 //  Created by Yeatse on 2023/12/24.
 //
@@ -22,14 +22,14 @@ let currencyOrder: [Currency: Int] = [
     "GBP": 4,
     "AUD": 5,
     "NZD": 6,
-    "CHF": 7
+    "CHF": 7,
 ]
 
 extension Position {
     init(posting: Posting<Cost>) {
         self.init(units: posting.units, cost: posting.cost)
     }
-    
+
     var currencyPair: (Currency, Currency?) {
         return (units.currency, cost?.currency)
     }

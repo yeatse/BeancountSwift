@@ -1,6 +1,6 @@
 //
 //  BookingMethod.swift
-//  
+//
 //
 //  Created by Yeatse on 2023/12/24.
 //
@@ -37,23 +37,24 @@ public enum Booking: String {
 extension Booking {
     var method: BookingMethod {
         switch self {
-            case .STRICT: strictBooking
-            case .STRICT_WITH_SIZE: fatalError()
-            case .NONE: fatalError()
-            case .AVERAGE: fatalError()
-            case .FIFO: fatalError()
-            case .LIFO: fatalError()
-            case .HIFO: fatalError()
+        case .STRICT: strictBooking
+        case .STRICT_WITH_SIZE: fatalError()
+        case .NONE: fatalError()
+        case .AVERAGE: fatalError()
+        case .FIFO: fatalError()
+        case .LIFO: fatalError()
+        case .HIFO: fatalError()
         }
     }
 }
 
 extension Booker {
-    func handleAmbiguousMatches(entry: Directive<CostSpec>,
-                                posting: Posting<CostSpec>,
-                                matches: [Position],
-                                method: Booking) ->
-    (reductions: [Posting<Cost>], matches: [Position], errors: [Error]) {
+    func handleAmbiguousMatches(
+        entry: Directive<CostSpec>,
+        posting: Posting<CostSpec>,
+        matches: [Position],
+        method: Booking
+    ) -> (reductions: [Posting<Cost>], matches: [Position], errors: [Error]) {
         let result = method.method(entry, posting, matches)
         var errors = result.errors
         if result.insufficient {
@@ -66,7 +67,7 @@ extension Booker {
 struct BookingMethodStore {
     var mappings: [Account: Booking]
     var defaultMethod: Booking
-    
+
     subscript(account: Account) -> Booking {
         mappings[account, default: defaultMethod]
     }
@@ -77,49 +78,57 @@ enum BookingError: Error {
     case ambiguousMatch(Directive<CostSpec>)
 }
 
-typealias BookingMethod = (Directive<CostSpec>, Posting<CostSpec>, Array<Position>) -> (bookedReductions: [Posting<Cost>], bookedMatches: [Position], errors: [Error], insufficient: Bool)
+typealias BookingMethod = (Directive<CostSpec>, Posting<CostSpec>, [Position]) -> (
+    bookedReductions: [Posting<Cost>], bookedMatches: [Position], errors: [Error],
+    insufficient: Bool
+)
 
 let strictBooking: BookingMethod = { entry, posting, matches in
     var bookedReductions = [Posting<Cost>]()
     var bookedMatches = [Position]()
     var errors = [Error]()
     var insufficient = false
-    
+
     if matches.count > 1 {
         let sumMatches = matches.reduce(Decimal(0)) { val, pos in
             val + pos.units.number
         }
         if sumMatches == -posting.units.number {
             bookedReductions += matches.map { match in
-                return .init(account: posting.account,
-                             units: -match.units,
-                             cost: match.cost,
-                             price: posting.price,
-                             flag: posting.flag,
-                             meta: posting.meta,
-                             comment: posting.comment)
+                return .init(
+                    account: posting.account,
+                    units: -match.units,
+                    cost: match.cost,
+                    price: posting.price,
+                    flag: posting.flag,
+                    meta: posting.meta,
+                    comment: posting.comment
+                )
             }
-        } else {
+        }
+        else {
             errors.append(BookingError.ambiguousMatch(entry))
         }
-    } else {
+    }
+    else {
         let match = matches[0]
         let sign: Decimal = posting.units.number < 0 ? -1 : 1
         let number = min(abs(match.units.number), abs(posting.units.number))
         let matchUnits = Amount(number: number * sign, currency: match.units.currency)
-        
-        var posting = Posting(account: posting.account,
-                              units: matchUnits,
-                              cost: match.cost,
-                              price: posting.price,
-                              flag: posting.flag,
-                              meta: posting.meta,
-                              comment: posting.comment)
+
+        var posting = Posting(
+            account: posting.account,
+            units: matchUnits,
+            cost: match.cost,
+            price: posting.price,
+            flag: posting.flag,
+            meta: posting.meta,
+            comment: posting.comment
+        )
         bookedReductions.append(posting)
         bookedMatches.append(match)
         insufficient = matchUnits.number != posting.units.number
     }
-    
+
     return (bookedReductions, bookedMatches, errors, insufficient)
 }
-

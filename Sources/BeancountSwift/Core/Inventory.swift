@@ -10,16 +10,16 @@ import Foundation
 /// https://beancount.github.io/docs/beancount_design_doc.html#inventory
 public class Inventory {
     fileprivate var cache: [PositionKey: Position] = [:]
-    
+
     init(positions: [Position] = []) {
         positions.forEach { addPosition($0) }
     }
-    
+
     struct PositionKey: Hashable {
         let currency: Currency
         let cost: Cost?
     }
-    
+
     enum MatchResult {
         case created
         case reduced
@@ -40,34 +40,35 @@ extension Inventory {
     var isEmpty: Bool {
         positions.isEmpty
     }
-    
+
     var positions: any Collection<Position> {
         cache.values
     }
-    
+
     var currencies: any Collection<Currency> {
         cache.keys.map { $0.currency }
     }
-    
+
     var costCurrencies: any Collection<Currency> {
         cache.keys.compactMap { $0.cost?.currency }
     }
-    
+
     var currencyPairs: any Collection<(Currency, Currency?)> {
         cache.values.map { $0.currencyPair }
     }
-    
+
     var onlyPosition: Position? {
         return self.positions.first
     }
-    
+
     func getCurrencyUnits(in currency: Currency) -> Amount {
-        let totalUnits = positions
+        let totalUnits =
+            positions
             .filter { $0.units.currency == currency }
             .reduce(0) { $0 + $1.units.number }
         return Amount(number: totalUnits, currency: currency)
     }
-    
+
     func segregateUnits(by currencies: [Currency]) -> [Currency?: Inventory] {
         var perCurrencyDict = [Currency?: Inventory]()
         for currency in currencies {
@@ -81,7 +82,7 @@ extension Inventory {
         }
         return perCurrencyDict
     }
-    
+
     func split() -> [Currency: Inventory] {
         var perCurrencyDict = [Currency: Inventory]()
         for position in positions {
@@ -92,7 +93,7 @@ extension Inventory {
         }
         return perCurrencyDict
     }
-    
+
     func isSmall(tolerances: [Currency: Decimal]) -> Bool {
         for position in positions {
             let tolerance = tolerances[position.units.currency, default: .zero]
@@ -102,7 +103,7 @@ extension Inventory {
         }
         return true
     }
-    
+
     func isSmall(tolerance: Decimal) -> Bool {
         for position in positions {
             if abs(position.units.number) > tolerance {
@@ -111,41 +112,42 @@ extension Inventory {
         }
         return true
     }
-    
+
     func isMixed() -> Bool {
         var currencySigns: [Currency: Bool] = [:]
-        
+
         for position in positions {
             let currency = position.units.currency
             let sign = position.units.number >= 0
-            
+
             if let prevSign = currencySigns[currency] {
                 if sign != prevSign {
                     return true
                 }
-            } else {
+            }
+            else {
                 currencySigns[currency] = sign
             }
         }
-        
+
         return false
     }
-    
+
     func isReducedBy(_ ramount: Amount) -> Bool {
         if ramount.number == .zero {
             return false
         }
-        
+
         for position in positions {
             let units = position.units
             if ramount.currency == units.currency && ramount.number.sign != units.number.sign {
                 return true
             }
         }
-        
+
         return false
     }
-    
+
     func negated() -> Inventory {
         let negatedInventory = Inventory()
         for position in positions {
@@ -155,31 +157,35 @@ extension Inventory {
         }
         return negatedInventory
     }
-    
+
     // Absolute value
     var absolute: Inventory {
         let absInventory = Inventory()
         for position in positions {
             var absPosition = position
-            absPosition.units = .init(number: abs(position.units.number),
-                                      currency: absPosition.units.currency)
+            absPosition.units = .init(
+                number: abs(position.units.number),
+                currency: absPosition.units.currency
+            )
             absInventory.addPosition(absPosition)
         }
         return absInventory
     }
-    
+
     // Multiplication by a scalar
     func multiplied(by scalar: Decimal) -> Inventory {
         let multipliedInventory = Inventory()
         for position in positions {
             var multipliedPosition = position
-            multipliedPosition.units = .init(number: multipliedPosition.units.number * scalar,
-                                             currency: multipliedPosition.units.currency)
+            multipliedPosition.units = .init(
+                number: multipliedPosition.units.number * scalar,
+                currency: multipliedPosition.units.currency
+            )
             multipliedInventory.addPosition(multipliedPosition)
         }
         return multipliedInventory
     }
-    
+
     @discardableResult
     func addAmount(_ units: Amount, cost: Cost? = nil) -> (Position?, MatchResult) {
         let key = PositionKey(currency: units.currency, cost: cost)
@@ -187,36 +193,42 @@ extension Inventory {
         if let pos = cache[key] {
             if pos.units.number.sign != units.number.sign {
                 booking = .reduced
-            } else {
+            }
+            else {
                 booking = .augmented
             }
-            
+
             let number = pos.units.number + units.number
             if number == .zero {
                 cache.removeValue(forKey: key)
-            } else {
-                cache[key] = Position(units: Amount(number: number, currency: units.currency), cost: cost)
+            }
+            else {
+                cache[key] = Position(
+                    units: Amount(number: number, currency: units.currency),
+                    cost: cost
+                )
             }
             return (pos, booking)
-        } else {
+        }
+        else {
             if units.number == .zero {
                 booking = .ignored
-            } else {
+            }
+            else {
                 cache[key] = Position(units: units, cost: cost)
                 booking = .created
             }
             return (nil, booking)
         }
     }
-    
+
     // Add a position to the inventory
     @discardableResult
     func addPosition(_ position: Position) -> (Position?, MatchResult) {
         return addAmount(position.units, cost: position.cost)
     }
-    
+
     // Other methods like isSmall, isMixed, reduce, etc., can be added similarly
     // ...
-    
-    
+
 }

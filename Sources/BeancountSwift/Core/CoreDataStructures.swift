@@ -38,7 +38,7 @@ public enum AccountType: String {
 public struct Amount: Equatable, Hashable {
     public var number: Decimal
     public var currency: Currency
-    
+
     static let missing = Amount(number: .nan, currency: .missing)
 }
 
@@ -98,7 +98,7 @@ extension Dictionary where Key == String {
     var lineno: UInt32? {
         return self["lineno"] as? UInt32
     }
-    
+
     var filename: String? {
         return self["filename"] as? String
     }
