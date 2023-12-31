@@ -167,11 +167,19 @@ public struct Loader {
     }
     
     func transform(ledger: ParsedLedger<Cost>) -> ParsedLedger<Cost> {
-        fatalError()
+        var result = ledger
+        for plugin in ledger.plugins {
+            let (entries, errors) = plugin.process(entries: result.directives, options: result.options)
+            result.directives = entries
+            result.errors += errors
+        }
+        result.directives.sort()
+        return result
     }
     
     func validate(ledger: ParsedLedger<Cost>) -> ParsedLedger<Cost> {
-        fatalError()
+        // TODO: validate
+        return ledger
     }
     
     func load(file: String, contentProvider: ContentProviding) async throws -> ParsedLedger<Cost> {

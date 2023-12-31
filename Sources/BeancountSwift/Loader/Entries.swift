@@ -8,8 +8,3 @@ struct Option {
     let key: String
     let value: String
 }
-
-struct Plugin {
-    let name: String
-    let config: String?
-}
