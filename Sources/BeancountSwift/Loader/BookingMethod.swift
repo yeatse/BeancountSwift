@@ -105,12 +105,10 @@ let strictBooking: BookingMethod = { entry, posting, matches in
                     comment: posting.comment
                 )
             }
-        }
-        else {
+        } else {
             errors.append(BookingError.ambiguousMatch(entry))
         }
-    }
-    else {
+    } else {
         let match = matches[0]
         let sign: Decimal = posting.units.number < 0 ? -1 : 1
         let number = min(abs(match.units.number), abs(posting.units.number))

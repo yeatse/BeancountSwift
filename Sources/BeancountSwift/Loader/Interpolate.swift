@@ -40,3 +40,5 @@ struct Interpolate {
         return inventory
     }
 }
+
+let interpolate = Interpolate()

@@ -43,8 +43,7 @@ extension Character: Parsable {
     init(from node: Node, content: String) throws {
         if let first = try String(from: node, content: content).first {
             self = first
-        }
-        else {
+        } else {
             throw SyntaxError.badNode(node)
         }
     }
@@ -56,8 +55,7 @@ extension Date: Parsable {
         formatter.dateFormat = "yyyy-MM-dd"
         if let date = formatter.date(from: try String(from: node, content: content)) {
             self = date
-        }
-        else {
+        } else {
             throw SyntaxError.badNode(node)
         }
     }
@@ -87,8 +85,7 @@ extension Decimal: Parsable {
             let decimal = try Decimal(from: val, content: content)
             if sign.nodeType == "plus" {
                 self = decimal
-            }
-            else {
+            } else {
                 self = -decimal
             }
         case "binary_number_expr":
@@ -222,8 +219,8 @@ extension Node {
             if child.isNamed {
                 if child.nodeType == "link", let link = try? String(from: child, content: content) {
                     links.insert(link)
-                }
-                else if child.nodeType == "tag", let tag = try? Tag(from: child, content: content) {
+                } else if child.nodeType == "tag", let tag = try? Tag(from: child, content: content)
+                {
                     tags.insert(tag)
                 }
             }
@@ -277,8 +274,7 @@ extension Directive<CostSpec>: Parsable {
                     try? MetaDataValue(from: $0, content: content)
                 }
                 if let key, let value { meta[key] = value }
-            }
-            else if started {
+            } else if started {
                 break
             }
         }
@@ -412,8 +408,7 @@ extension Document: Parsable {
         if let tagsLinks = node.child(byFieldName: "tags_links") {
             let (tags, links) = try tagsLinks.parseTagsAndLinks(in: content)
             self.init(account: account, filename: filename, tags: tags, links: links)
-        }
-        else {
+        } else {
             self.init(account: account, filename: filename, tags: nil, links: nil)
         }
     }

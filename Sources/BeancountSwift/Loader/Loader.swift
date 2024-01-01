@@ -79,14 +79,12 @@ public struct Loader {
                 for include in childIncludes {
                     if seenIncludes.contains(include) {
                         throw ParserError.duplicatedInclude(include)
-                    }
-                    else {
+                    } else {
                         seenIncludes.insert(include)
                         includes.append(include)
                     }
                 }
-            }
-            catch {
+            } catch {
                 ledger.errors.append(error)
             }
         }
@@ -124,8 +122,7 @@ public struct Loader {
                     guard let tag else { throw SyntaxError.badNode(child) }
                     if let idx = tags.firstIndex(of: tag) {
                         tags.remove(at: idx)
-                    }
-                    else {
+                    } else {
                         throw ParserError.popAbsentTag(
                             file: file,
                             lineno: child.pointRange.lowerBound.row,
@@ -159,16 +156,14 @@ public struct Loader {
                 default:
                     break
                 }
-            }
-            catch SyntaxError.badNode(let node) {
+            } catch SyntaxError.badNode(let node) {
                 let err = ParserError.invalidSyntax(
                     file: file,
                     lineno: node.pointRange.lowerBound.row,
                     content: try? String(from: node, content: content)
                 )
                 errors.append(err)
-            }
-            catch {
+            } catch {
                 errors.append(error)
             }
         }
@@ -187,7 +182,7 @@ public struct Loader {
     }
 
     func book(ledger: ParsedLedger<CostSpec>) -> ParsedLedger<Cost> {
-        return Booker().book(ledger: ledger)
+        return booker.book(ledger: ledger)
     }
 
     func transform(ledger: ParsedLedger<Cost>) -> ParsedLedger<Cost> {

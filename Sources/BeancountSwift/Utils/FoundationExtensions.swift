@@ -31,8 +31,7 @@ extension Decimal {
     var leastSignificantDigit: Decimal {
         if exponent < 0 {
             return Decimal(sign: .plus, exponent: exponent, significand: 1)
-        }
-        else {
+        } else {
             return 1
         }
     }

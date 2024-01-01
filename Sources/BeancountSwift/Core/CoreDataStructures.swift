@@ -26,6 +26,12 @@ public struct Account: Identifiable, Equatable, Hashable {
     public var id: String
 }
 
+extension Account: ExpressibleByStringLiteral {
+    public init(stringLiteral value: StringLiteralType) {
+        self.id = value
+    }
+}
+
 public enum AccountType: String {
     case Assets
     case Liabilities

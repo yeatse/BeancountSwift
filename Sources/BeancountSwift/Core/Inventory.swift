@@ -124,8 +124,7 @@ extension Inventory {
                 if sign != prevSign {
                     return true
                 }
-            }
-            else {
+            } else {
                 currencySigns[currency] = sign
             }
         }
@@ -193,28 +192,24 @@ extension Inventory {
         if let pos = cache[key] {
             if pos.units.number.sign != units.number.sign {
                 booking = .reduced
-            }
-            else {
+            } else {
                 booking = .augmented
             }
 
             let number = pos.units.number + units.number
             if number == .zero {
                 cache.removeValue(forKey: key)
-            }
-            else {
+            } else {
                 cache[key] = Position(
                     units: Amount(number: number, currency: units.currency),
                     cost: cost
                 )
             }
             return (pos, booking)
-        }
-        else {
+        } else {
             if units.number == .zero {
                 booking = .ignored
-            }
-            else {
+            } else {
                 cache[key] = Position(units: units, cost: cost)
                 booking = .created
             }
@@ -228,7 +223,8 @@ extension Inventory {
         return addAmount(position.units, cost: position.cost)
     }
 
-    // Other methods like isSmall, isMixed, reduce, etc., can be added similarly
-    // ...
-
+    @discardableResult
+    func addPosition(_ position: Posting<Cost>) -> (Position?, MatchResult) {
+        return addAmount(position.units, cost: position.cost)
+    }
 }

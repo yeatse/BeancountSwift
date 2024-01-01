@@ -78,7 +78,7 @@ struct Booker {
                 )
 
                 // Get the list of tolerances.
-                let tolerances = Interpolate().inferTolerances(postings: txn.postings, options: [:])
+                let tolerances = interpolate.inferTolerances(postings: txn.postings, options: [:])
 
                 // Resolve reductions to a particular lot in their inventory balance.
                 var replPostings = [Posting<Cost>]()
@@ -127,8 +127,7 @@ struct Booker {
                     balance.addPosition(.init(posting: posting))
                     balances[posting.account] = balance
                 }
-            }
-            else {
+            } else {
                 newEntry = .init(
                     meta: directive.meta,
                     date: directive.date,
@@ -154,11 +153,9 @@ struct Booker {
     func getBucketCurrency(refer: Refer) -> Currency? {
         if let costCurrency = refer.costCurrency, costCurrency != .missing {
             return costCurrency
-        }
-        else if let priceCurrency = refer.priceCurrency, priceCurrency != .missing {
+        } else if let priceCurrency = refer.priceCurrency, priceCurrency != .missing {
             return priceCurrency
-        }
-        else if refer.costCurrency == nil, refer.priceCurrency == nil,
+        } else if refer.costCurrency == nil, refer.priceCurrency == nil,
             let unitsCurrency = refer.unitsCurrency, unitsCurrency != .missing
         {
             return unitsCurrency
@@ -198,13 +195,11 @@ struct Booker {
 
             if units == .missing, priceCurrency == nil {
                 autoPostings.append(refer)
-            }
-            else {
+            } else {
                 if let currency = getBucketCurrency(refer: refer) {
                     sortDict.putIfAbsent(key: currency, value: index)
                     groups[currency, default: []].append(refer)
-                }
-                else {
+                } else {
                     unknown.append(refer)
                 }
             }
@@ -217,8 +212,7 @@ struct Booker {
             let otherCurrency = groups.keys.first!
             if priceCurrency == nil && costCurrency == nil {
                 unitsCurrency = otherCurrency
-            }
-            else {
+            } else {
                 if priceCurrency == .missing {
                     priceCurrency = otherCurrency
                 }
@@ -264,8 +258,7 @@ struct Booker {
             if let currency = getBucketCurrency(refer: refer) {
                 sortDict.putIfAbsent(key: currency, value: index)
                 groups[currency, default: []].append(refer)
-            }
-            else {
+            } else {
                 errors.append(
                     CategorizationError.failedToCategorize(txn: transaction, index: index)
                 )
@@ -340,8 +333,7 @@ struct Booker {
                 var units = posting.units
                 if units == .missing {
                     posting.units = Amount(number: .nan, currency: refer.unitsCurrency ?? .missing)
-                }
-                else {
+                } else {
                     var replace = false
                     var cost = posting.cost
                     var price = posting.price
@@ -483,8 +475,7 @@ struct Booker {
                 for posting in reductionPostings {
                     balance.addPosition(.init(posting: posting))
                 }
-            }
-            else {
+            } else {
                 var posting = posting
                 if costSpec.date == nil {
                     var datedCostSpec = costSpec
@@ -541,11 +532,9 @@ struct Booker {
                 case .complete(let posting): posting
                 }
             }
-        }
-        else if incomplete.count > 1 {
+        } else if incomplete.count > 1 {
             errors.append(InterpolationError.tooManyMissingNumbers(currency: currency))
-        }
-        else {
+        } else {
             let (missing, index) = incomplete[0]
             let incompletePosting =
                 switch postings[index] {
@@ -555,25 +544,22 @@ struct Booker {
             var newPostings = postings.enumerated().map { idx, posting in
                 if index == idx {
                     return posting
-                }
-                else if case .incomplete(let posting) = posting {
+                } else if case .incomplete(let posting) = posting {
                     return .complete(posting.resolvedCost())
-                }
-                else {
+                } else {
                     return posting
                 }
             }
             let postingsToCompute = newPostings.enumerated().filter { idx, _ in idx != index }.map {
                 $1
             }
-            let residual = Interpolate().computeResidual(postings: postingsToCompute)
+            let residual = interpolate.computeResidual(postings: postingsToCompute)
 
             let weight: Decimal
             if !residual.isEmpty {
                 let respos = residual.positions.first!
                 weight = -respos.units.number
-            }
-            else {
+            } else {
                 weight = .zero
             }
             switch missing {
@@ -587,16 +573,13 @@ struct Booker {
                             postings.compactMap { $0.complete },
                             errors
                         )
-                    }
-                    else {
+                    } else {
                         let costTotal = cost.numberTotal ?? .zero
                         unitsNumber = (weight - costTotal) / cost.numberPerUnit!
                     }
-                }
-                else if let price = incompletePosting.price {
+                } else if let price = incompletePosting.price {
                     unitsNumber = weight / price.number
-                }
-                else {
+                } else {
                     unitsNumber = weight
                 }
                 if weight != .zero {
@@ -604,8 +587,7 @@ struct Booker {
                     pos.units = Amount(number: unitsNumber, currency: units.currency)
                     pos.cost = incompletePosting.cost
                     newPosting = pos
-                }
-                else {
+                } else {
                     newPosting = nil
                 }
             case .costPer:
@@ -617,8 +599,7 @@ struct Booker {
                     pos.units = units
                     pos.cost = cost
                     newPosting = pos
-                }
-                else {
+                } else {
                     newPosting = nil
                 }
             case .costTotal:
@@ -637,8 +618,7 @@ struct Booker {
                         postings.compactMap { $0.complete },
                         errors
                     )
-                }
-                else {
+                } else {
                     let price = incompletePosting.price!
                     var pos = incompletePosting
                     pos.price = Amount(
@@ -654,8 +634,7 @@ struct Booker {
                 }
                 newPosting.meta![Interpolate.automaticMeta] = .bool(true)
                 newPostings[index] = .complete(newPosting.resolvedCost())
-            }
-            else {
+            } else {
                 newPostings.remove(at: index)
             }
             outPostings = newPostings.compactMap { $0.complete }
@@ -688,8 +667,7 @@ extension CostSpec {
                 costTotal += numberPerUnit * unitsNumber
             }
             return costTotal / unitsNumber
-        }
-        else {
+        } else {
             return numberPerUnit
         }
     }
@@ -718,8 +696,7 @@ extension Posting<CostSpec> {
                 costTotal += numberPerUnit * unitsNumber
             }
             unitCost = costTotal / unitsNumber
-        }
-        else {
+        } else {
             unitCost = numberPerUnit!
         }
         return .init(
@@ -738,3 +715,5 @@ extension Posting<CostSpec> {
         )
     }
 }
+
+let booker = Booker()

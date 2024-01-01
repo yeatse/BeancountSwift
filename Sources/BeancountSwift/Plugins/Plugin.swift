@@ -21,8 +21,7 @@ extension Plugin {
         }
         do {
             return try plugin.process(entries: entries, options: options, config: config)
-        }
-        catch {
+        } catch {
             return (entries, [error])
         }
     }
@@ -52,8 +51,7 @@ struct AutoInsertOpenPlugin: BeancountPlugin {
             entries.compactMap { entry in
                 if case let .open(open) = entry.content {
                     open.account
-                }
-                else {
+                } else {
                     nil
                 }
             }
