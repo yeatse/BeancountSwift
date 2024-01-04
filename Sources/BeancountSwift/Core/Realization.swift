@@ -5,19 +5,115 @@
 //  Created by Yeatse on 2023/12/21.
 //
 
+import Foundation
+
 /// A pair of a Posting and its parent Transaction. This is inserted as
 /// temporaries in lists of postings-of-entries, which is the product of a
 /// realization.
-public struct TxnPosting {
+public struct TxnPosting: Equatable {
     public let entry: Directive<Cost>
     public let txn: Transaction<Cost>
     public let posting: Posting<Cost>
 }
 
-enum TxnPostingsType {
+enum TxnPostingsType: Equatable {
     case directive(Directive<Cost>)
     case txnPosting(TxnPosting)
-    case posting(Posting<Cost>)
+}
+
+fileprivate extension Array<TxnPostingsType> {
+    mutating func append(_ directive: Directive<Cost>) {
+        append(.directive(directive))
+    }
+    
+    mutating func append(_ txnPosting: TxnPosting) {
+        append(.txnPosting(txnPosting))
+    }
+}
+
+extension TxnPostingsType: Comparable {
+    static func < (lhs: TxnPostingsType, rhs: TxnPostingsType) -> Bool {
+        let dl = switch lhs {
+        case .directive(let directive): directive
+        case .txnPosting(let txnPosting): txnPosting.entry
+        }
+        let dr = switch rhs {
+        case .directive(let directive): directive
+        case .txnPosting(let txnPosting): txnPosting.entry
+        }
+        return dl < dr
+    }
+}
+
+struct BalanceIterationResult {
+    var entry: Directive<Cost>
+    var postings: [Posting<Cost>]
+    var change: Inventory
+    var balance: Inventory
+}
+
+struct BalanceIterator: IteratorProtocol {
+    var txnPostings: [TxnPostingsType]
+    
+    var index = 0
+    let runningBalance = Inventory()
+    
+    struct DateEntryItem {
+        var entry: Directive<Cost>
+        var postings: [Posting<Cost>]
+    }
+    
+    var prevDate: Date?
+    var prevDateItems = [DateEntryItem]()
+    var prevDateChange = Inventory()
+    var dateChanged = false
+    
+    mutating func next() -> BalanceIterationResult? {
+        if dateChanged && !prevDateItems.isEmpty {
+            let item = prevDateItems.removeFirst()
+            for posting in item.postings {
+                prevDateChange.addPosition(posting)
+                runningBalance.addPosition(posting)
+            }
+            return BalanceIterationResult(entry: item.entry,
+                                          postings: item.postings,
+                                          change: prevDateChange,
+                                          balance: runningBalance)
+        }
+        dateChanged = false
+        
+        guard index < txnPostings.count else {
+            return nil
+        }
+        
+        let txnPosting = txnPostings[index]
+        index += 1
+        
+        let posting: Posting<Cost>?
+        let entry: Directive<Cost>
+        switch txnPosting {
+            case .directive(let directive):
+                posting = nil
+                entry = directive
+            case .txnPosting(let txnPosting):
+                posting = txnPosting.posting
+                entry = txnPosting.entry
+        }
+        if let posting {
+            if let index = prevDateItems.firstIndex(where: { $0.entry == entry }) {
+                prevDateItems[index].postings.append(posting)
+            } else {
+                prevDateItems.append(.init(entry: entry, postings: [posting]))
+            }
+        } else {
+            prevDateItems.append(.init(entry: entry, postings: []))
+        }
+        if entry.date != prevDate || index == txnPostings.count {
+            prevDateChange = Inventory()
+            dateChanged = true
+        }
+        return next()
+    }
 }
 
 /// A realized account, inserted in a tree, that contains the list of realized entries.
@@ -94,6 +190,31 @@ extension RealAccount {
             return nil
         }
     }
+    
+    func childAccounts(leafOnly: Bool = false) -> any Sequence<RealAccount> {
+        AnySequence {
+            var stack: [RealAccount] = [self]
+            return AnyIterator {
+                while let current = stack.popLast() {
+                    if !leafOnly || current.children.isEmpty {
+                        stack.append(contentsOf: current.children.values)
+                        return current
+                    } else if !current.children.isEmpty {
+                        stack.append(contentsOf: current.children.values)
+                    }
+                }
+                return nil
+            }
+        }.lazy
+    }
+    
+    var postings: [TxnPostingsType] {
+        childAccounts().flatMap(\.txnPostings).sorted()
+    }
+    
+    func computeBalance(leafOnly: Bool = false) -> Inventory {
+        childAccounts(leafOnly: leafOnly).map(\.balance).reduce(Inventory(), +)
+    }
 }
 
 struct Realization {
@@ -117,25 +238,25 @@ struct Realization {
             case .transaction(let transaction):
                 for posting in transaction.postings {
                     let item = TxnPosting(entry: entry, txn: transaction, posting: posting)
-                    txnPostingsMap[posting.account, default: []].append(.txnPosting(item))
+                    txnPostingsMap[posting.account, default: []].append(item)
                 }
             case .open(let open):
-                txnPostingsMap[open.account, default: []].append(.directive(entry))
+                txnPostingsMap[open.account, default: []].append(entry)
             case .close(let close):
-                txnPostingsMap[close.account, default: []].append(.directive(entry))
+                txnPostingsMap[close.account, default: []].append(entry)
             case .pad(let pad):
-                txnPostingsMap[pad.account, default: []].append(.directive(entry))
-                txnPostingsMap[pad.sourceAccount, default: []].append(.directive(entry))
+                txnPostingsMap[pad.account, default: []].append(entry)
+                txnPostingsMap[pad.sourceAccount, default: []].append(entry)
             case .balance(let balance):
-                txnPostingsMap[balance.account, default: []].append(.directive(entry))
+                txnPostingsMap[balance.account, default: []].append(entry)
             case .note(let note):
-                txnPostingsMap[note.account, default: []].append(.directive(entry))
+                txnPostingsMap[note.account, default: []].append(entry)
             case .document(let document):
-                txnPostingsMap[document.account, default: []].append(.directive(entry))
+                txnPostingsMap[document.account, default: []].append(entry)
             case .custom(let custom):
                 for customValue in custom.values {
                     if case .account(let account) = customValue {
-                        txnPostingsMap[account, default: []].append(.directive(entry))
+                        txnPostingsMap[account, default: []].append(entry)
                     }
                 }
             case .commodity(_), .event(_), .query(_), .price(_):
@@ -146,16 +267,18 @@ struct Realization {
     }
 
     func computeBalance(in postings: [TxnPostingsType]) -> Inventory {
-        let finalBalance = Inventory()
+        let balance = Inventory()
         for posting in postings {
-            switch posting {
-            case .directive(_): break
-            case .txnPosting(let txnPosting):
-                finalBalance.addPosition(txnPosting.posting)
-            case .posting(let posting):
-                finalBalance.addPosition(posting)
+            if case .txnPosting(let txnPosting) = posting {
+                balance.addPosition(txnPosting.posting)
             }
         }
-        return finalBalance
+        return balance
+    }
+    
+    func balanceChanges(in postings: [TxnPostingsType]) -> any Sequence<BalanceIterationResult> {
+        AnySequence {
+            BalanceIterator(txnPostings: postings)
+        }.lazy
     }
 }

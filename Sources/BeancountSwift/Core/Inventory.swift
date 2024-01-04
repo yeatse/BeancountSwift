@@ -146,6 +146,12 @@ extension Inventory {
 
         return false
     }
+    
+    static func + (lhs: Inventory, rhs: Inventory) -> Inventory {
+        let ret = lhs.copy() as! Inventory
+        ret.addInventory(rhs)
+        return ret
+    }
 
     func negated() -> Inventory {
         let negatedInventory = Inventory()
@@ -226,5 +232,13 @@ extension Inventory {
     @discardableResult
     func addPosition(_ position: Posting<Cost>) -> (Position?, MatchResult) {
         return addAmount(position.units, cost: position.cost)
+    }
+    
+    func addInventory(_ inventory: Inventory) {
+        if isEmpty {
+            cache = inventory.cache
+        } else {
+            inventory.positions.forEach { addPosition($0) }
+        }
     }
 }
