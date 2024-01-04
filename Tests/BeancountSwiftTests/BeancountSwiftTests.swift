@@ -2,14 +2,6 @@ import XCTest
 
 @testable import BeancountSwift
 
-struct ContentProvider: ContentProviding {
-    let source: String
-
-    func provideContent(for name: String) async throws -> String {
-        return source
-    }
-}
-
 final class BeancountSwiftTests: XCTestCase {
     func testParser() async throws {
         let source = """
@@ -77,12 +69,8 @@ final class BeancountSwiftTests: XCTestCase {
 
             2020-03-31 note Assets:Etrade:IVV "Some"
             """
-        let parser = Loader()
         let provider = ContentProvider(source: source)
         let ledger = try await parser.parse(file: "main.bean", contentProvider: provider)
         print(ledger)
-
-        let loaded = try await parser.load(file: "main.bean", contentProvider: provider)
-        print(loaded)
     }
 }

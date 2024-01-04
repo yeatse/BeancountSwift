@@ -15,9 +15,21 @@ public class Inventory {
         positions.forEach { addPosition($0) }
     }
 
-    struct PositionKey: Hashable {
+    struct PositionKey: Equatable, Hashable, Comparable {
         let currency: Currency
         let cost: Cost?
+
+        static func < (lhs: Inventory.PositionKey, rhs: Inventory.PositionKey) -> Bool {
+            if lhs.currency != rhs.currency {
+                return lhs.currency < rhs.currency
+            } else if let lc = lhs.cost, let rc = rhs.cost {
+                return lc < rc
+            } else if lhs.cost == nil {
+                return true
+            } else {
+                return false
+            }
+        }
     }
 
     enum MatchResult {
@@ -58,7 +70,7 @@ extension Inventory {
     }
 
     var onlyPosition: Position? {
-        return self.positions.first
+        return positions.first
     }
 
     func getCurrencyUnits(in currency: Currency) -> Amount {
@@ -146,50 +158,6 @@ extension Inventory {
 
         return false
     }
-    
-    static func + (lhs: Inventory, rhs: Inventory) -> Inventory {
-        let ret = lhs.copy() as! Inventory
-        ret.addInventory(rhs)
-        return ret
-    }
-
-    func negated() -> Inventory {
-        let negatedInventory = Inventory()
-        for position in positions {
-            var negatedPosition = position
-            negatedPosition.units = -position.units
-            negatedInventory.addPosition(negatedPosition)
-        }
-        return negatedInventory
-    }
-
-    // Absolute value
-    var absolute: Inventory {
-        let absInventory = Inventory()
-        for position in positions {
-            var absPosition = position
-            absPosition.units = .init(
-                number: abs(position.units.number),
-                currency: absPosition.units.currency
-            )
-            absInventory.addPosition(absPosition)
-        }
-        return absInventory
-    }
-
-    // Multiplication by a scalar
-    func multiplied(by scalar: Decimal) -> Inventory {
-        let multipliedInventory = Inventory()
-        for position in positions {
-            var multipliedPosition = position
-            multipliedPosition.units = .init(
-                number: multipliedPosition.units.number * scalar,
-                currency: multipliedPosition.units.currency
-            )
-            multipliedInventory.addPosition(multipliedPosition)
-        }
-        return multipliedInventory
-    }
 
     @discardableResult
     func addAmount(_ units: Amount, cost: Cost? = nil) -> (Position?, MatchResult) {
@@ -233,12 +201,73 @@ extension Inventory {
     func addPosition(_ position: Posting<Cost>) -> (Position?, MatchResult) {
         return addAmount(position.units, cost: position.cost)
     }
-    
+
     func addInventory(_ inventory: Inventory) {
         if isEmpty {
             cache = inventory.cache
         } else {
             inventory.positions.forEach { addPosition($0) }
         }
+    }
+}
+
+extension Inventory: Equatable, Comparable {
+    public static func < (lhs: Inventory, rhs: Inventory) -> Bool {
+        let lkeys = lhs.cache.keys.sorted()
+        let rkeys = rhs.cache.keys.sorted()
+        var i = 0
+        while true {
+            guard i < rkeys.count else { return false }
+            guard i < lkeys.count else { return true }
+            if lkeys[i] < rkeys[i] { return true }
+            i += 1
+        }
+    }
+
+    public static func == (lhs: Inventory, rhs: Inventory) -> Bool {
+        return lhs.cache == rhs.cache
+    }
+
+    static func + (lhs: Inventory, rhs: Inventory) -> Inventory {
+        let ret = lhs.copy() as! Inventory
+        ret.addInventory(rhs)
+        return ret
+    }
+
+    prefix static func - (inventory: Inventory) -> Inventory {
+        let negatedInventory = Inventory()
+        for position in inventory.positions {
+            var negatedPosition = position
+            negatedPosition.units = -position.units
+            negatedInventory.addPosition(negatedPosition)
+        }
+        return negatedInventory
+    }
+
+    static func * (lhs: Inventory, rhs: Decimal) -> Inventory {
+        let multipliedInventory = Inventory()
+        for position in lhs.positions {
+            var multipliedPosition = position
+            multipliedPosition.units = .init(
+                number: multipliedPosition.units.number * rhs,
+                currency: multipliedPosition.units.currency
+            )
+            multipliedInventory.addPosition(multipliedPosition)
+        }
+        return multipliedInventory
+    }
+
+    // Absolute value
+    var absolute: Inventory {
+        let absInventory = Inventory()
+        for position in positions {
+            var absPosition = position
+            absPosition.units = .init(
+                number: abs(position.units.number),
+                currency: absPosition.units.currency
+            )
+            absInventory.addPosition(absPosition)
+        }
+        return absInventory
     }
 }

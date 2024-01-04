@@ -17,6 +17,12 @@ extension Currency: ExpressibleByStringLiteral {
     }
 }
 
+extension Currency: Comparable {
+    public static func < (lhs: Currency, rhs: Currency) -> Bool {
+        lhs.id < rhs.id
+    }
+}
+
 extension Currency {
     static let missing = Currency(id: "__MISSING__")
 }
@@ -48,7 +54,15 @@ public struct Amount: Equatable, Hashable {
     static let missing = Amount(number: .nan, currency: .missing)
 }
 
-extension Amount {
+extension Amount: Comparable {
+    public static func < (lhs: Amount, rhs: Amount) -> Bool {
+        if lhs.currency != rhs.currency {
+            return lhs.currency < rhs.currency
+        } else {
+            return lhs.number < rhs.number
+        }
+    }
+
     public static prefix func - (amount: Amount) -> Amount {
         return Amount(number: -amount.number, currency: amount.currency)
     }
@@ -62,6 +76,24 @@ public struct Cost: PostingCost {
     public var currency: Currency
     public var date: Date
     public var label: String?
+}
+
+extension Cost: Comparable {
+    public static func < (lhs: Cost, rhs: Cost) -> Bool {
+        if lhs.number != rhs.number {
+            return lhs.number < rhs.number
+        } else if lhs.currency != rhs.currency {
+            return lhs.currency < rhs.currency
+        } else if lhs.date != rhs.date {
+            return lhs.date < rhs.date
+        } else if let ll = lhs.label, let rl = rhs.label {
+            return ll < rl
+        } else if lhs.label == nil {
+            return true
+        } else {
+            return false
+        }
+    }
 }
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#costspec
@@ -100,12 +132,20 @@ public enum MetaDataValue: Equatable {
     case amount(Amount)
 }
 
-extension Dictionary where Key == String {
+extension Dictionary where Key == String, Value == MetaDataValue {
     var lineno: UInt32? {
-        return self["lineno"] as? UInt32
+        if case .number(let val) = self["lineno"] {
+            return .init(exactly: NSDecimalNumber(decimal: val))
+        } else {
+            return nil
+        }
     }
 
     var filename: String? {
-        return self["filename"] as? String
+        if case .string(let val) = self["filename"] {
+            return val
+        } else {
+            return nil
+        }
     }
 }

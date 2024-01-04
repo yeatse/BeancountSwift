@@ -21,26 +21,28 @@ enum TxnPostingsType: Equatable {
     case txnPosting(TxnPosting)
 }
 
-fileprivate extension Array<TxnPostingsType> {
-    mutating func append(_ directive: Directive<Cost>) {
+extension [TxnPostingsType] {
+    fileprivate mutating func append(_ directive: Directive<Cost>) {
         append(.directive(directive))
     }
-    
-    mutating func append(_ txnPosting: TxnPosting) {
+
+    fileprivate mutating func append(_ txnPosting: TxnPosting) {
         append(.txnPosting(txnPosting))
     }
 }
 
 extension TxnPostingsType: Comparable {
     static func < (lhs: TxnPostingsType, rhs: TxnPostingsType) -> Bool {
-        let dl = switch lhs {
-        case .directive(let directive): directive
-        case .txnPosting(let txnPosting): txnPosting.entry
-        }
-        let dr = switch rhs {
-        case .directive(let directive): directive
-        case .txnPosting(let txnPosting): txnPosting.entry
-        }
+        let dl =
+            switch lhs {
+            case .directive(let directive): directive
+            case .txnPosting(let txnPosting): txnPosting.entry
+            }
+        let dr =
+            switch rhs {
+            case .directive(let directive): directive
+            case .txnPosting(let txnPosting): txnPosting.entry
+            }
         return dl < dr
     }
 }
@@ -54,20 +56,20 @@ struct BalanceIterationResult {
 
 struct BalanceIterator: IteratorProtocol {
     var txnPostings: [TxnPostingsType]
-    
+
     var index = 0
     let runningBalance = Inventory()
-    
+
     struct DateEntryItem {
         var entry: Directive<Cost>
         var postings: [Posting<Cost>]
     }
-    
+
     var prevDate: Date?
     var prevDateItems = [DateEntryItem]()
     var prevDateChange = Inventory()
     var dateChanged = false
-    
+
     mutating func next() -> BalanceIterationResult? {
         if dateChanged && !prevDateItems.isEmpty {
             let item = prevDateItems.removeFirst()
@@ -75,29 +77,30 @@ struct BalanceIterator: IteratorProtocol {
                 prevDateChange.addPosition(posting)
                 runningBalance.addPosition(posting)
             }
-            return BalanceIterationResult(entry: item.entry,
-                                          postings: item.postings,
-                                          change: prevDateChange,
-                                          balance: runningBalance)
+            return BalanceIterationResult(
+                entry: item.entry,
+                postings: item.postings,
+                change: prevDateChange,
+                balance: runningBalance)
         }
         dateChanged = false
-        
+
         guard index < txnPostings.count else {
             return nil
         }
-        
+
         let txnPosting = txnPostings[index]
         index += 1
-        
+
         let posting: Posting<Cost>?
         let entry: Directive<Cost>
         switch txnPosting {
-            case .directive(let directive):
-                posting = nil
-                entry = directive
-            case .txnPosting(let txnPosting):
-                posting = txnPosting.posting
-                entry = txnPosting.entry
+        case .directive(let directive):
+            posting = nil
+            entry = directive
+        case .txnPosting(let txnPosting):
+            posting = txnPosting.posting
+            entry = txnPosting.entry
         }
         if let posting {
             if let index = prevDateItems.firstIndex(where: { $0.entry == entry }) {
@@ -190,7 +193,7 @@ extension RealAccount {
             return nil
         }
     }
-    
+
     func childAccounts(leafOnly: Bool = false) -> any Sequence<RealAccount> {
         AnySequence {
             var stack: [RealAccount] = [self]
@@ -207,11 +210,11 @@ extension RealAccount {
             }
         }.lazy
     }
-    
+
     var postings: [TxnPostingsType] {
         childAccounts().flatMap(\.txnPostings).sorted()
     }
-    
+
     func computeBalance(leafOnly: Bool = false) -> Inventory {
         childAccounts(leafOnly: leafOnly).map(\.balance).reduce(Inventory(), +)
     }
@@ -275,7 +278,7 @@ struct Realization {
         }
         return balance
     }
-    
+
     func balanceChanges(in postings: [TxnPostingsType]) -> any Sequence<BalanceIterationResult> {
         AnySequence {
             BalanceIterator(txnPostings: postings)
