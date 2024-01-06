@@ -6,6 +6,7 @@
 //
 
 import BeancountSwift
+import Foundation
 
 struct ContentProvider: ContentProviding {
     let source: String
@@ -18,5 +19,19 @@ struct ContentProvider: ContentProviding {
 extension ContentProvider: ExpressibleByStringLiteral {
     init(stringLiteral value: StringLiteralType) {
         source = value
+    }
+}
+
+extension Decimal: ExpressibleByStringLiteral {
+    public init(stringLiteral value: StringLiteralType) {
+        self.init(string: value)!
+    }
+}
+
+extension Date: ExpressibleByStringLiteral {
+    public init(stringLiteral value: StringLiteralType) {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        self = formatter.date(from: value)!
     }
 }

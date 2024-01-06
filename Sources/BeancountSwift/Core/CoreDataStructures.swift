@@ -64,7 +64,34 @@ extension Amount: Comparable {
     }
 
     public static prefix func - (amount: Amount) -> Amount {
-        return Amount(number: -amount.number, currency: amount.currency)
+        Amount(number: -amount.number, currency: amount.currency)
+    }
+
+    var absolute: Amount {
+        if number >= .zero {
+            self
+        } else {
+            Amount(number: -number, currency: currency)
+        }
+    }
+
+    static func * (lhs: Amount, rhs: Decimal) -> Amount {
+        Amount(number: lhs.number * rhs, currency: lhs.currency)
+    }
+}
+
+extension Amount: ExpressibleByStringLiteral {
+    public init(stringLiteral value: StringLiteralType) {
+        guard
+            let match = value.wholeMatch(
+                of:
+                    #/\s*([+-]?[0-9.]+)\s+([A-Z][A-Z0-9'\.\_\-]*[A-Z0-9]?\b|/[A-Z0-9'\.\_\-]*[A-Z](?:[A-Z0-9'\.\_\-]*[A-Z0-9])?)/#
+            )
+        else {
+            fatalError()
+        }
+        self.number = Decimal(string: String(match.1))!
+        self.currency = Currency(id: String(match.2))
     }
 }
 

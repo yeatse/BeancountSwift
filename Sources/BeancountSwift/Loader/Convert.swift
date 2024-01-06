@@ -15,6 +15,14 @@ extension Position {
             return units
         }
     }
+
+    var totalCost: Amount {
+        if let cost, cost.number != .nan {
+            return Amount(number: cost.number * units.number, currency: cost.currency)
+        } else {
+            return units
+        }
+    }
 }
 
 extension Posting<Cost> {
@@ -29,6 +37,14 @@ extension Posting<Cost> {
                 convertedNumber = price.number * units.number
             }
             return Amount(number: convertedNumber, currency: price.currency)
+        } else {
+            return units
+        }
+    }
+
+    var totalCost: Amount {
+        if let cost, cost.number != .nan {
+            return Amount(number: cost.number * units.number, currency: cost.currency)
         } else {
             return units
         }
@@ -48,5 +64,9 @@ extension Posting<CostSpec> {
         } else {
             return units
         }
+    }
+
+    var totalCost: Amount {
+        return units
     }
 }

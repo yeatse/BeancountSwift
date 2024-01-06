@@ -8,7 +8,7 @@
 import Foundation
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#inventory
-public class Inventory {
+public final class Inventory {
     fileprivate var cache: [PositionKey: Position] = [:]
 
     init(positions: [Position] = []) {
@@ -54,7 +54,7 @@ extension Inventory {
     }
 
     var positions: any Collection<Position> {
-        cache.values
+        cache.sorted { $0.key < $1.key }.map(\.value)
     }
 
     var currencies: any Collection<Currency> {
@@ -142,6 +142,14 @@ extension Inventory {
         }
 
         return false
+    }
+
+    func reduce(by reducer: (Position) -> Amount) -> Inventory {
+        let inventory = Inventory()
+        for position in positions {
+            inventory.addAmount(reducer(position))
+        }
+        return inventory
     }
 
     func isReducedBy(_ ramount: Amount) -> Bool {
@@ -269,5 +277,57 @@ extension Inventory: Equatable, Comparable {
             absInventory.addPosition(absPosition)
         }
         return absInventory
+    }
+
+    var average: Inventory {
+        struct GroupKey: Hashable {
+            let currency: Currency
+            let costCurrency: Currency?
+        }
+
+        var groups = [GroupKey: [Position]]()
+        for position in positions {
+            let key = GroupKey(
+                currency: position.units.currency, costCurrency: position.cost?.currency)
+            groups[key, default: []].append(position)
+        }
+        let averageInventory = Inventory()
+        for (key, positions) in groups {
+            let totalUnits: Decimal = positions.reduce(0) { $0 + $1.units.number }
+            if totalUnits == .zero {
+                continue
+            }
+            let unitsAmount = Amount(number: totalUnits, currency: key.currency)
+            let cost: Cost?
+            if let costCurrency = key.costCurrency {
+                let totalCost: Decimal = positions.reduce(0) { $0 + $1.totalCost.number }
+                let costNumber: Decimal =
+                    totalUnits == .zero ? .greatestFiniteMagnitude : totalCost / totalUnits
+                let minDate: Date =
+                    positions.reduce(nil) { result, pos in
+                        guard let posDate = pos.cost?.date else { return result }
+                        guard let result else { return posDate }
+                        return min(result, posDate)
+                    } ?? .distantPast
+                cost = Cost(number: costNumber, currency: costCurrency, date: minDate)
+            } else {
+                cost = nil
+            }
+            averageInventory.addAmount(unitsAmount, cost: cost)
+        }
+        return averageInventory
+    }
+}
+
+extension Inventory: ExpressibleByStringLiteral {
+    public convenience init(stringLiteral value: StringLiteralType) {
+        let matches = value.matches(of: #/([-+]?[0-9,.]+\s+[A-Z]+\s*(?:{[^}]*})?)\s*,?\s*/#).map {
+            String($0.1)
+        }
+        var positions = [Position]()
+        for match in matches {
+            positions.append(Position(stringLiteral: match))
+        }
+        self.init(positions: positions)
     }
 }
