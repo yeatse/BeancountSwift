@@ -716,4 +716,4 @@ extension Posting<CostSpec> {
     }
 }
 
-let booker = Booker()
+let booking = Booker()

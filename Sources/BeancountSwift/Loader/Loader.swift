@@ -42,7 +42,7 @@ public struct Loader {
         let parsedResult = try await parser.parse(file: file, contentProvider: contentProvider)
 
         // booking
-        let bookedLedger = booker.book(ledger: parsedResult)
+        let bookedLedger = booking.book(ledger: parsedResult)
 
         // transforming
         let transformedLedger = transform(ledger: bookedLedger)
