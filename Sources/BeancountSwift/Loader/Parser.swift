@@ -132,7 +132,7 @@ struct Parser {
         var includes: [String] = []
 
         var tags: [Tag] = []
-        tree.rootNode?.enumerateChildren { child in
+        func process(child: Node) {
             do {
                 switch child.nodeType {
                 case "pushtag":
@@ -181,6 +181,8 @@ struct Parser {
                     directives.append(directive.mergingMetaData(["filename": .string(file)]))
                 case "ERROR":
                     throw SyntaxError.badNode(child)
+                case "section":
+                    processChildren(of: child)
                 default:
                     break
                 }
@@ -195,6 +197,13 @@ struct Parser {
                 errors.append(error)
             }
         }
+        func processChildren(of node: Node) {
+            for i in 0..<node.namedChildCount {
+                guard let child = node.namedChild(at: i) else { continue }
+                process(child: child)
+            }
+        }
+        tree.rootNode.map(processChildren(of:))
         if !tags.isEmpty {
             errors.append(ParserError.unbalancedTags(file: file, tags: tags))
         }
