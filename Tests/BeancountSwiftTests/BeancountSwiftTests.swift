@@ -4,7 +4,7 @@ import XCTest
 
 final class BeancountSwiftTests: XCTestCase {
     func testParser() async throws {
-        let source = """
+        let p: ContentProvider = """
             option "title" "我的账本"
             option "operating_currency" "CNY"
 
@@ -69,8 +69,7 @@ final class BeancountSwiftTests: XCTestCase {
 
             2020-03-31 note Assets:Etrade:IVV "Some"
             """
-        let provider = ContentProvider(source: source)
-        let ledger = try await parser.parse(file: "main.bean", contentProvider: provider)
+        let ledger = try await p.parseLedger()
         print(ledger)
     }
 }

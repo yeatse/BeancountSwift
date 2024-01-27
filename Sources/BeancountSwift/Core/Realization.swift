@@ -16,7 +16,7 @@ public struct TxnPosting: Equatable {
     public let posting: Posting<Cost>
 }
 
-enum TxnPostingsType: Equatable {
+public enum TxnPostingsType: Equatable {
     case directive(Directive<Cost>)
     case txnPosting(TxnPosting)
 }
@@ -32,7 +32,7 @@ extension [TxnPostingsType] {
 }
 
 extension TxnPostingsType: Comparable {
-    static func < (lhs: TxnPostingsType, rhs: TxnPostingsType) -> Bool {
+    public static func < (lhs: TxnPostingsType, rhs: TxnPostingsType) -> Bool {
         let dl =
             switch lhs {
             case .directive(let directive): directive
@@ -120,10 +120,10 @@ struct BalanceIterator: IteratorProtocol {
 }
 
 /// A realized account, inserted in a tree, that contains the list of realized entries.
-class RealAccount {
-    fileprivate(set) var account: Account
-    fileprivate(set) var txnPostings: [TxnPostingsType]
-    fileprivate(set) var balance: Inventory
+public class RealAccount {
+    fileprivate(set) public var account: Account
+    fileprivate(set) public var txnPostings: [TxnPostingsType]
+    fileprivate(set) public var balance: Inventory
 
     private var children = [String: RealAccount]()
 
@@ -133,7 +133,7 @@ class RealAccount {
         self.balance = Inventory()
     }
 
-    subscript(key: String) -> RealAccount? {
+    public private(set) subscript(key: String) -> RealAccount? {
         get {
             children[key]
         }
@@ -215,13 +215,13 @@ extension RealAccount {
         childAccounts().flatMap(\.txnPostings).sorted()
     }
 
-    func computeBalance(leafOnly: Bool = false) -> Inventory {
+    public func computeBalance(leafOnly: Bool = false) -> Inventory {
         childAccounts(leafOnly: leafOnly).map(\.balance).reduce(Inventory(), +)
     }
 }
 
-struct Realization {
-    func realize(entries: [Directive<Cost>], computeBalance: Bool = true) -> RealAccount {
+public struct Realization {
+    public func realize(entries: [Directive<Cost>], computeBalance: Bool = true) -> RealAccount {
         let txnPostingsMap = groupPostingsByAccount(entries)
         let realRoot = RealAccount(account: "")
         for (accountName, txnPostings) in txnPostingsMap {

@@ -53,7 +53,7 @@ extension Inventory {
         positions.isEmpty
     }
 
-    var positions: any Collection<Position> {
+    public var positions: any Collection<Position> {
         cache.sorted { $0.key < $1.key }.map(\.value)
     }
 

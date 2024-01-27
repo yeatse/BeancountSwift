@@ -41,6 +41,8 @@ extension DirectiveContent<CostSpec> {
 }
 
 struct Booker {
+    let interpolate = Interpolate()
+    
     func book(ledger: ParsedLedger<CostSpec>) -> ParsedLedger<Cost> {
         let method = ledger.options
             .first { $0.key == "booking_method" }
@@ -715,5 +717,3 @@ extension Posting<CostSpec> {
         )
     }
 }
-
-let booking = Booker()

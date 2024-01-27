@@ -7,9 +7,9 @@
 
 import Foundation
 
-struct Plugin {
-    let name: String
-    let config: String?
+public struct Plugin {
+    public let name: String
+    public let config: String?
 }
 
 extension Plugin {

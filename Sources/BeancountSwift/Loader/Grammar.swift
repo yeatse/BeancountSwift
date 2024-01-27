@@ -51,9 +51,7 @@ extension Character: Parsable {
 
 extension Date: Parsable {
     init(from node: Node, content: String) throws {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        if let date = formatter.date(from: try String(from: node, content: content)) {
+        if let date = Date.fromDateString(try String(from: node, content: content)) {
             self = date
         } else {
             throw SyntaxError.badNode(node)

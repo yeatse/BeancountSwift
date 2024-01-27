@@ -218,5 +218,3 @@ struct Parser {
         )
     }
 }
-
-let parser = Parser()

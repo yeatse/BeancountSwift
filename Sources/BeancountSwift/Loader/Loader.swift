@@ -11,13 +11,16 @@ public protocol ContentProviding {
 }
 
 public struct ParsedLedger<T: PostingCost> {
-    var options: [Option]
-    var plugins: [Plugin]
-    var directives: [Directive<T>]
-    var errors: [Error]
+    public var options: [Option]
+    public var plugins: [Plugin]
+    public var directives: [Directive<T>]
+    public var errors: [Error]
 }
 
 public struct Loader {
+    let booking = Booker()
+    let parser = Parser()
+    
     func transform(ledger: ParsedLedger<Cost>) -> ParsedLedger<Cost> {
         var result = ledger
         for plugin in ledger.plugins {
@@ -37,7 +40,7 @@ public struct Loader {
         return ledger
     }
 
-    func load(file: String, contentProvider: ContentProviding) async throws -> ParsedLedger<Cost> {
+    public func load(file: String, contentProvider: ContentProviding) async throws -> ParsedLedger<Cost> {
         // parsing
         let parsedResult = try await parser.parse(file: file, contentProvider: contentProvider)
 
@@ -51,5 +54,3 @@ public struct Loader {
         return validate(ledger: transformedLedger)
     }
 }
-
-public let loader = Loader()

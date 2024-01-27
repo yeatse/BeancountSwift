@@ -17,6 +17,7 @@ let package = Package(
             .upToNextMajor(from: "0.7.2")
         ),
         .package(url: "https://github.com/polarmutex/tree-sitter-beancount.git", branch: "master"),
+        .package(url: "https://github.com/apple/swift-algorithms", from: "1.2.0"),
     ],
     targets: [
         .target(
@@ -24,6 +25,7 @@ let package = Package(
             dependencies: [
                 .product(name: "SwiftTreeSitter", package: "SwiftTreeSitter"),
                 .product(name: "TreeSitterBeancount", package: "tree-sitter-beancount"),
+                .product(name: "Algorithms", package: "swift-algorithms"),
             ]
         ),
         .testTarget(

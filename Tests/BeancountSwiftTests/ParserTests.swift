@@ -21,7 +21,7 @@ final class ParserTests: XCTestCase {
               Liabilities:US:Amex:BlueCash    -22.02 USD
               Expenses:Food:Grocery
             """
-        let ledger = try await parser.parse(file: "main", contentProvider: p)
+        let ledger = try await p.parseLedger()
         XCTAssertFalse(ledger.directives[0].isIncomplete)
         XCTAssertTrue(ledger.directives[1].isIncomplete)
     }
@@ -33,7 +33,7 @@ final class ParserTests: XCTestCase {
               Expenses:Restaurant         100 USD
               Assets:US:Cash
             """
-        let ledger = try await parser.parse(file: "main", contentProvider: p)
+        let ledger = try await p.parseLedger()
         XCTAssert(!ledger.errors.isEmpty)
     }
 
@@ -44,13 +44,13 @@ final class ParserTests: XCTestCase {
               Expenses:Restaurant         100 USD
               Assets:US:Cash             -100 USD
             """
-        let ledger = try await parser.parse(file: "main", contentProvider: p)
+        let ledger = try await p.parseLedger()
         XCTAssert(ledger.errors.isEmpty)
     }
 
     func testParseEmptyString() async throws {
         let p: ContentProvider = ""
-        let ledger = try await parser.parse(file: "main", contentProvider: p)
+        let ledger = try await p.parseLedger()
         XCTAssertEqual(ledger.directives.count, 0)
         XCTAssertEqual(ledger.errors.count, 0)
     }
@@ -60,7 +60,7 @@ final class ParserTests: XCTestCase {
             """
             2015-05-23 note Assets:Something "a¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼ z"
             """
-        let ledger = try await parser.parse(file: "main", contentProvider: p)
+        let ledger = try await p.parseLedger()
         XCTAssertEqual(ledger.directives.count, 1)
         XCTAssertEqual(ledger.errors.count, 0)
     }
@@ -72,7 +72,7 @@ final class ParserTests: XCTestCase {
               Assets:Checking   101.23 USD
               Equity:Blah
             """
-        let ledger = try await parser.parse(file: "main", contentProvider: p)
+        let ledger = try await p.parseLedger()
         guard case .transaction(let txn) = ledger.directives[0].content else {
             return XCTFail()
         }
@@ -82,7 +82,7 @@ final class ParserTests: XCTestCase {
 
     func testLineno() async throws {
         let p: ContentProvider = "2020-07-30 open Assets:Test"
-        let ledger = try await parser.parse(file: "main", contentProvider: p)
+        let ledger = try await p.parseLedger()
         XCTAssertEqual(ledger.directives[0].meta["lineno"], .number(0))
     }
 
@@ -99,7 +99,7 @@ final class ParserTests: XCTestCase {
 
               2013-05-20 note  Assets:US:Cash   "Something"
             """
-        let ledger = try await parser.parse(file: "main", contentProvider: p)
+        let ledger = try await p.parseLedger()
         XCTAssertEqual(ledger.directives.count, 4)
         XCTAssertEqual(ledger.directives[0].meta.lineno, 0)
         XCTAssertEqual(ledger.directives[1].meta.lineno, 2)
@@ -126,7 +126,7 @@ final class ParserTests: XCTestCase {
 
               2013-05-20 note  Assets:US:Cash   "Something"
             """
-        let ledger = try await parser.parse(file: "main", contentProvider: p)
+        let ledger = try await Parser().parse(file: "main", contentProvider: p)
         XCTAssertEqual(ledger.directives.count, 4)
         XCTAssertEqual(ledger.directives[0].meta.filename, "main")
         XCTAssertEqual(ledger.directives[1].meta.filename, "main")

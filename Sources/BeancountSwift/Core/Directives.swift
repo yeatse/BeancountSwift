@@ -9,10 +9,10 @@ import Foundation
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#common-properties
 public struct Directive<T: PostingCost>: Equatable {
-    var meta: [String: MetaDataValue]
-    var date: Date
-    var comment: String?
-    var content: DirectiveContent<T>
+    public var meta: [String: MetaDataValue]
+    public var date: Date
+    public var comment: String?
+    public var content: DirectiveContent<T>
 }
 
 public enum DirectiveContent<T: PostingCost>: Equatable {
