@@ -27,25 +27,6 @@ extension Currency {
     static let missing = Currency(id: "__MISSING__")
 }
 
-/// https://beancount.github.io/docs/beancount_design_doc.html#account
-public struct Account: Identifiable, Equatable, Hashable {
-    public var id: String
-}
-
-extension Account: ExpressibleByStringLiteral {
-    public init(stringLiteral value: StringLiteralType) {
-        self.id = value
-    }
-}
-
-public enum AccountType: String {
-    case Assets
-    case Liabilities
-    case Equity
-    case Income
-    case Expenses
-}
-
 /// https://beancount.github.io/docs/beancount_design_doc.html#amount
 public struct Amount: Equatable, Hashable {
     public var number: Decimal

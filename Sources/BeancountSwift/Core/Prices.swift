@@ -12,6 +12,11 @@ public struct CurrencyPair: Hashable {
     public let base: Currency
     public let quote: Currency
     
+    public init(base: Currency, quote: Currency) {
+        self.base = base
+        self.quote = quote
+    }
+    
     func inversed() -> CurrencyPair {
         return CurrencyPair(base: quote, quote: base)
     }
