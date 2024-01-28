@@ -87,13 +87,13 @@ struct Parser {
         try! parser.setLanguage(language)
         return parser
     }()
-
+    
     func parse(file: String, contentProvider: ContentProviding) async throws -> ParsedLedger<
         CostSpec
     > {
         let content = try await contentProvider.provideContent(for: file)
         var (ledger, includes) = try parse(content: content, in: file)
-
+        
         var seenIncludes: Set<String> = [file]
         while !includes.isEmpty {
             let childFile = includes.popLast()!
@@ -117,74 +117,72 @@ struct Parser {
         ledger.directives.sort()
         return ledger
     }
-
+    
     private func parse(content: String, in file: String) throws -> (
         ParsedLedger<CostSpec>, includes: [String]
     ) {
         guard let tree = treeSitter.parse(content) else {
             throw ParserError.badContent(file: file, content: content)
         }
-
+        
         var options: [Option] = []
         var plugins: [Plugin] = []
         var directives: [Directive<CostSpec>] = []
         var errors: [Error] = []
         var includes: [String] = []
-
+        
         var tags: [Tag] = []
         func process(child: Node) {
             do {
                 switch child.nodeType {
-                case "pushtag":
-                    let tag = try child.namedChild(at: 0).map {
-                        try Tag(from: $0, content: content)
-                    }
-                    guard let tag else { throw SyntaxError.badNode(child) }
-                    tags.append(tag)
-                case "poptag":
-                    let tag = try child.namedChild(at: 0).map {
-                        try Tag(from: $0, content: content)
-                    }
-                    guard let tag else { throw SyntaxError.badNode(child) }
-                    if let idx = tags.firstIndex(of: tag) {
-                        tags.remove(at: idx)
-                    } else {
-                        throw ParserError.popAbsentTag(
-                            file: file,
-                            lineno: child.pointRange.lowerBound.row,
-                            tag: tag
-                        )
-                    }
-                case "pushmeta":
-                    break
-                case "popmeta":
-                    break
-                case "option":
-                    let option = try Option(from: child, content: content)
-                    options.append(option)
-                case "include":
-                    let include = try child.namedChild(at: 0).map {
-                        try String(from: $0, content: content)
-                    }
-                    guard let include else { throw SyntaxError.badNode(child) }
-                    includes.append(include)
-                case "plugin":
-                    let plugin = try Plugin(from: child, content: content)
-                    plugins.append(plugin)
-                case "transaction", "balance", "open", "close", "pad", "document", "note", "event",
-                    "price",
-                    "commodity", "query", "custom":
-                    var directive = try Directive<CostSpec>(from: child, content: content)
-                    if !tags.isEmpty {
-                        directive = directive.mergingTags(tags)
-                    }
-                    directives.append(directive.mergingMetaData(["filename": .string(file)]))
-                case "ERROR":
-                    throw SyntaxError.badNode(child)
-                case "section":
-                    processChildren(of: child)
-                default:
-                    break
+                    case "pushtag":
+                        let tag = try child.namedChild(at: 0).map {
+                            try Tag(from: $0, content: content)
+                        }
+                        guard let tag else { throw SyntaxError.badNode(child) }
+                        tags.append(tag)
+                    case "poptag":
+                        let tag = try child.namedChild(at: 0).map {
+                            try Tag(from: $0, content: content)
+                        }
+                        guard let tag else { throw SyntaxError.badNode(child) }
+                        if let idx = tags.firstIndex(of: tag) {
+                            tags.remove(at: idx)
+                        } else {
+                            throw ParserError.popAbsentTag(
+                                file: file,
+                                lineno: child.pointRange.lowerBound.row,
+                                tag: tag
+                            )
+                        }
+                    case "pushmeta":
+                        break
+                    case "popmeta":
+                        break
+                    case "option":
+                        let option = try Option(from: child, content: content)
+                        options.append(option)
+                    case "include":
+                        let include = try child.namedChild(at: 0).map {
+                            try String(from: $0, content: content)
+                        }
+                        guard let include else { throw SyntaxError.badNode(child) }
+                        includes.append(include)
+                    case "plugin":
+                        let plugin = try Plugin(from: child, content: content)
+                        plugins.append(plugin)
+                    case "transaction", "balance", "open", "close", "pad", "document", "note", "event", "price", "commodity", "query", "custom":
+                        var directive = try Directive<CostSpec>(from: child, content: content)
+                        if !tags.isEmpty {
+                            directive = directive.mergingTags(tags)
+                        }
+                        directives.append(directive.mergingMetaData(["filename": .string(file)]))
+                    case "ERROR":
+                        throw SyntaxError.badNode(child)
+                    case "section":
+                        processChildren(of: child)
+                    default:
+                        break
                 }
             } catch SyntaxError.badNode(let node) {
                 let err = ParserError.invalidSyntax(

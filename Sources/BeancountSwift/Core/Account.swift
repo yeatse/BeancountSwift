@@ -38,6 +38,14 @@ extension Account {
         }
     }
     
+    func isChild(of account: Account) -> Bool {
+        let regex = Regex {
+            account.id
+            ChoiceOf { Anchor.endOfLine; ":" }
+        }
+        return id.contains(regex)
+    }
+    
     var leaf: String {
         guard let lastSep = id.lastIndex(of: ":") else { return id }
         return String(id[id.index(after: lastSep)...])
@@ -155,7 +163,7 @@ extension Account {
     }
 }
 
-public enum AccountType {
+public enum AccountType: Comparable {
     case assets
     case liabilities
     case equity

@@ -51,6 +51,14 @@ final class AccountTests: XCTestCase {
         XCTAssertNil(Account(id: "").parent)
     }
     
+    func testIsChildAccount() {
+        let parent = Account(id: "Assets:Bank:Checking")
+        XCTAssertTrue(Account(id: "Assets:Bank:Checking").isChild(of: parent))
+        XCTAssertTrue(Account(id: "Assets:Bank:Checking:SubAccount").isChild(of: parent))
+        XCTAssertFalse(Account(id: "Assets:Bank:CheckingOld").isChild(of: parent))
+        XCTAssertFalse(Account(id: "Assets:Bank:Checking-Old").isChild(of: parent))
+    }
+    
     func testLeafAccount() {
         XCTAssertEqual(Account(id: "Expenses:Toys:Computer").leaf, "Computer")
         XCTAssertEqual(Account(id: "Expenses:Toys").leaf, "Toys")

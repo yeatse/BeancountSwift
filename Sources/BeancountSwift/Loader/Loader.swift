@@ -20,10 +20,13 @@ public struct ParsedLedger<T: PostingCost> {
 public struct Loader {
     let booking = Booker()
     let parser = Parser()
+    let defaultPlugins: [Plugin] = [
+        .init(name: PadPlugin.name, config: nil),
+    ]
     
     func transform(ledger: ParsedLedger<Cost>) -> ParsedLedger<Cost> {
         var result = ledger
-        for plugin in ledger.plugins {
+        for plugin in defaultPlugins + ledger.plugins {
             let (entries, errors) = plugin.process(
                 entries: result.directives,
                 options: result.options

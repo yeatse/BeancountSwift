@@ -27,55 +27,6 @@ extension Currency {
     static let missing = Currency(id: "__MISSING__")
 }
 
-/// https://beancount.github.io/docs/beancount_design_doc.html#amount
-public struct Amount: Equatable, Hashable {
-    public var number: Decimal
-    public var currency: Currency
-
-    static let missing = Amount(number: .nan, currency: .missing)
-}
-
-extension Amount: Comparable {
-    public static func < (lhs: Amount, rhs: Amount) -> Bool {
-        if lhs.currency != rhs.currency {
-            return lhs.currency < rhs.currency
-        } else {
-            return lhs.number < rhs.number
-        }
-    }
-
-    public static prefix func - (amount: Amount) -> Amount {
-        Amount(number: -amount.number, currency: amount.currency)
-    }
-
-    var absolute: Amount {
-        if number >= .zero {
-            self
-        } else {
-            Amount(number: -number, currency: currency)
-        }
-    }
-
-    static func * (lhs: Amount, rhs: Decimal) -> Amount {
-        Amount(number: lhs.number * rhs, currency: lhs.currency)
-    }
-}
-
-extension Amount: ExpressibleByStringLiteral {
-    public init(stringLiteral value: StringLiteralType) {
-        guard
-            let match = value.wholeMatch(
-                of:
-                    #/\s*([+-]?[0-9.]+)\s+([A-Z][A-Z0-9'\.\_\-]*[A-Z0-9]?\b|/[A-Z0-9'\.\_\-]*[A-Z](?:[A-Z0-9'\.\_\-]*[A-Z0-9])?)/#
-            )
-        else {
-            fatalError()
-        }
-        self.number = Decimal(string: String(match.1))!
-        self.currency = Currency(id: String(match.2))
-    }
-}
-
 public protocol PostingCost: Equatable, Hashable {}
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#cost
@@ -101,6 +52,22 @@ extension Cost: Comparable {
         } else {
             return false
         }
+    }
+}
+
+extension Cost: CustomStringConvertible {
+    public var description: String {
+        var strlist: [String] = []
+        if number != .nan {
+            strlist.append(Amount(number: number, currency: currency).description)
+        }
+        if date != .distantPast {
+            strlist.append(date.isoDescription)
+        }
+        if let label {
+            strlist.append("\"\(label)\"")
+        }
+        return strlist.joined(separator: ", ")
     }
 }
 

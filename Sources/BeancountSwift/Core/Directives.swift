@@ -68,6 +68,16 @@ public struct Transaction<T: PostingCost>: Equatable {
     public let postings: [Posting<T>]
 }
 
+extension Character {
+    static let okeyFlag: Character = "*"
+    static let warningFlag: Character = "!"
+    static let paddingFlag: Character = "P"
+    static let summarizeFlag: Character = "S"
+    static let transferFlag: Character = "T"
+    static let conversionsFlag: Character = "C"
+    static let mergingFlag: Character = "M"
+}
+
 public struct Note: Equatable {
     public let account: Account
     public let note: String

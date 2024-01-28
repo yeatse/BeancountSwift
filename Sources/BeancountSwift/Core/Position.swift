@@ -29,6 +29,13 @@ extension Position {
     init(posting: Posting<Cost>) {
         self.init(units: posting.units, cost: posting.cost)
     }
+    
+    init(units: Amount, costAmount: Amount?) {
+        let cost = costAmount.map { amount in
+            Cost(number: amount.number, currency: amount.currency, date: .distantPast)
+        }
+        self.init(units: units, cost: cost)
+    }
 
     var currencyPair: (Currency, Currency?) {
         return (units.currency, cost?.currency)
@@ -78,6 +85,17 @@ extension Position {
     }
 }
 
+extension Position: CustomStringConvertible {
+    public var description: String {
+        var posStr = units.description
+        if let cost {
+            posStr += " " + cost.description
+        }
+        return posStr
+    }
+}
+
+#if DEBUG
 extension Position: ExpressibleByStringLiteral {
     public init(stringLiteral value: StringLiteralType) {
         guard
@@ -131,3 +149,4 @@ extension Position: ExpressibleByStringLiteral {
         self.init(units: Amount(number: number, currency: currency), cost: cost)
     }
 }
+#endif
