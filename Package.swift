@@ -12,10 +12,7 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(
-            url: "https://github.com/ChimeHQ/SwiftTreeSitter.git",
-            .upToNextMajor(from: "0.7.2")
-        ),
+        .package(url: "https://github.com/ChimeHQ/SwiftTreeSitter.git", from: "0.8.0"),
         .package(url: "https://github.com/polarmutex/tree-sitter-beancount.git", branch: "master"),
         .package(url: "https://github.com/apple/swift-algorithms", from: "1.2.0"),
     ],

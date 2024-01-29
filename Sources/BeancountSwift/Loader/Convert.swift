@@ -42,14 +42,14 @@ fileprivate func getValue(_ units: Amount, _ cost: Cost?, _ price: Amount?, _ pr
 }
 
 extension Position {
-    var totalCost: Amount { getCost(units, cost) }
-    var weight: Amount { getWeight(units, cost) }
+    public var totalCost: Amount { getCost(units, cost) }
+    public var weight: Amount { getWeight(units, cost) }
     
-    func marketValue(from priceMap: PriceMap, date: Date? = nil) -> Amount {
+    public func marketValue(from priceMap: PriceMap, date: Date? = nil) -> Amount {
         getValue(units, cost, nil, priceMap, date)
     }
     
-    func converted(to target: Currency, priceMap: PriceMap, date: Date? = nil) -> Amount {
+    public func converted(to target: Currency, priceMap: PriceMap, date: Date? = nil) -> Amount {
         units.converted(to: target, priceMap: priceMap, date: date, via: cost.map { [$0.currency] })
     }
 }

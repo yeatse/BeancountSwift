@@ -36,11 +36,15 @@ extension Amount: Comparable {
         }
     }
 
-    static func * (lhs: Amount, rhs: Decimal) -> Amount {
+    public static func * (lhs: Amount, rhs: Decimal) -> Amount {
         Amount(number: lhs.number * rhs, currency: lhs.currency)
     }
     
-    static func - (lhs: Amount, rhs: Amount) -> Amount {
+    public static func + (lhs: Amount, rhs: Amount) -> Amount {
+        Amount(number: lhs.number + rhs.number, currency: lhs.currency)
+    }
+    
+    public static func - (lhs: Amount, rhs: Amount) -> Amount {
         Amount(number: lhs.number - rhs.number, currency: lhs.currency)
     }
 }
