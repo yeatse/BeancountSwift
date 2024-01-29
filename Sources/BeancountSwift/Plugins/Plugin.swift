@@ -13,9 +13,7 @@ public struct Plugin {
 }
 
 extension Plugin {
-    func process(entries: [Directive<Cost>], options: [Option]) -> (
-        entries: [Directive<Cost>], errors: [Error]
-    ) {
+    func process(entries: [Directive<Cost>], options: Options) -> (entries: [Directive<Cost>], errors: [Error]) {
         guard let plugin = allPlugins[name] else {
             return (entries, [PluginError.notImplemented(name)])
         }
@@ -34,7 +32,7 @@ enum PluginError: Error {
 protocol BeancountPlugin {
     static var name: String { get }
     
-    func process(entries: [Directive<Cost>], options: [Option], config: String?) throws -> (
+    func process(entries: [Directive<Cost>], options: Options, config: String?) throws -> (
         entries: [Directive<Cost>], errors: [Error]
     )
 }

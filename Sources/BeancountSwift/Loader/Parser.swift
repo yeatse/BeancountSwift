@@ -207,7 +207,7 @@ struct Parser {
         }
         return (
             ParsedLedger(
-                options: options,
+                options: Options(from: options),
                 plugins: plugins,
                 directives: directives,
                 errors: errors

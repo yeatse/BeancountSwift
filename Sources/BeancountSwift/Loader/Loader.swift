@@ -11,7 +11,7 @@ public protocol ContentProviding {
 }
 
 public struct ParsedLedger<T: PostingCost> {
-    public var options: [Option]
+    public var options: Options
     public var plugins: [Plugin]
     public var directives: [Directive<T>]
     public var errors: [Error]

@@ -10,7 +10,7 @@ import Foundation
 struct ForecastPlugin: BeancountPlugin {
     static let name = "forecast_plugin"
     
-    func process(entries: [Directive<Cost>], options: [Option], config: String?) throws -> (
+    func process(entries: [Directive<Cost>], options: Options, config: String?) throws -> (
         entries: [Directive<Cost>], errors: [Error]
     ) {
         return (entries, [])

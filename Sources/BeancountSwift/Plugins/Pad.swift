@@ -18,7 +18,7 @@ struct PadPlugin: BeancountPlugin {
         case unusedPad(pad: Directive<Cost>)
     }
     
-    func process(entries: [Directive<Cost>], options: [Option], config: String?) throws -> (entries: [Directive<Cost>], errors: [Error]) {
+    func process(entries: [Directive<Cost>], options: Options, config: String?) throws -> (entries: [Directive<Cost>], errors: [Error]) {
         var padErrors: [Error] = []
         
         struct EntryPad {
@@ -66,8 +66,7 @@ struct PadPlugin: BeancountPlugin {
                                 let checkAmount = balance.amount
                                 let balanceAmount = padBalance.getCurrencyUnits(in: checkAmount.currency)
                                 let diffAmount = balanceAmount - checkAmount
-                                // FIXME: read tolerance from configuration
-                                let tolerance = balance.tolerance ?? 0.005
+                                let tolerance = balance.tolerance(options: options)
                                 if diffAmount.number.magnitude > tolerance {
                                     if let activePad, !paddedLots.contains(checkAmount.currency) {
                                         let positions = padBalance.positions.filter { $0.units.currency == checkAmount.currency }

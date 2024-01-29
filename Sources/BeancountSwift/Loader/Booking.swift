@@ -44,9 +44,7 @@ struct Booker {
     let interpolate = Interpolate()
     
     func book(ledger: ParsedLedger<CostSpec>) -> ParsedLedger<Cost> {
-        let method = ledger.options
-            .first { $0.key == "booking_method" }
-            .flatMap { Booking(rawValue: $0.value) }
+        let method = ledger.options.bookingMethod
         var bookings: [Account: Booking] = [:]
         for directive in ledger.directives {
             if case .open(let open) = directive.content, let booking = open.booking {
@@ -55,7 +53,7 @@ struct Booker {
         }
         let bookingStore = BookingMethodStore(
             mappings: bookings,
-            defaultMethod: method ?? .STRICT
+            defaultMethod: method
         )
 
         var newEntries = [Directive<Cost>]()

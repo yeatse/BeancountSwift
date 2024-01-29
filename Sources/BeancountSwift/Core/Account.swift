@@ -106,7 +106,7 @@ extension Account {
 
 // MARK: types
 extension Account {
-    func type(config: AccountTypeConfig = .default) -> AccountType? {
+    func type(config: AccountTypeConfiguration = .default) -> AccountType? {
         return switch root {
             case config.assets: .assets
             case config.liabilities: .liabilities
@@ -121,7 +121,7 @@ extension Account {
         return try! #/[A-Z][A-Za-z0-9\\-]+/#.wholeMatch(in: id) != nil
     }
     
-    func isBalanceSheet(config: AccountTypeConfig) -> Bool {
+    func isBalanceSheet(config: AccountTypeConfiguration) -> Bool {
         return switch root {
             case config.assets: true
             case config.liabilities: true
@@ -130,7 +130,7 @@ extension Account {
         }
     }
     
-    func isIncomeStatement(config: AccountTypeConfig) -> Bool {
+    func isIncomeStatement(config: AccountTypeConfiguration) -> Bool {
         return switch root {
             case config.income: true
             case config.expenses: true
@@ -138,14 +138,14 @@ extension Account {
         }
     }
     
-    func isEquity(config: AccountTypeConfig) -> Bool {
+    func isEquity(config: AccountTypeConfiguration) -> Bool {
         return switch root {
             case config.equity: true
             default: false
         }
     }
     
-    func isInverted(config: AccountTypeConfig) -> Bool {
+    func isInverted(config: AccountTypeConfiguration) -> Bool {
         return switch root {
             case config.income: true
             case config.liabilities: true
@@ -154,7 +154,7 @@ extension Account {
         }
     }
     
-    func sign(config: AccountTypeConfig) -> FloatingPointSign {
+    func sign(config: AccountTypeConfiguration) -> FloatingPointSign {
         return switch root {
             case config.assets: .plus
             case config.expenses: .plus
@@ -171,14 +171,14 @@ public enum AccountType: Comparable {
     case expenses
 }
 
-public struct AccountTypeConfig {
+public struct AccountTypeConfiguration {
     var assets: String
     var liabilities: String
     var equity: String
     var income: String
     var expenses: String
     
-    static let `default` = AccountTypeConfig(
+    static let `default` = AccountTypeConfiguration(
         assets: "Assets",
         liabilities: "Liabilities",
         equity: "Equity",

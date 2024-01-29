@@ -7,6 +7,18 @@
 
 import Foundation
 
+public struct ToleranceConfiguration {
+    var interFromCost: Bool
+    var multiplier: Decimal
+    var defaultTolerances: [Currency: Decimal]
+    
+    static let `default` = ToleranceConfiguration(
+        interFromCost: false,
+        multiplier: Decimal(string: "0.5")!,
+        defaultTolerances: [:]
+    )
+}
+
 struct Interpolate {
     struct ToleranceMapping {
         let mapping: [Currency: Decimal]
