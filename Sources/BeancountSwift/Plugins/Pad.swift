@@ -49,7 +49,7 @@ struct PadPlugin: BeancountPlugin {
             postings.sort()
             
             var paddedLots: Set<Currency> = []
-            let padBalance = Inventory()
+            var padBalance = Inventory()
             
             for entry in postings {
                 switch entry {

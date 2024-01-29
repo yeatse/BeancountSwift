@@ -36,9 +36,14 @@ extension Position {
         }
         self.init(units: units, cost: cost)
     }
+    
+    struct CurrencyPair: Equatable, Hashable {
+        let unit: Currency
+        let cost: Currency?
+    }
 
-    var currencyPair: (Currency, Currency?) {
-        return (units.currency, cost?.currency)
+    var currencyPair: CurrencyPair {
+        return CurrencyPair(unit: units.currency, cost: cost?.currency)
     }
 }
 
@@ -149,4 +154,12 @@ extension Position: ExpressibleByStringLiteral {
         self.init(units: Amount(number: number, currency: currency), cost: cost)
     }
 }
+
+extension Position.CurrencyPair: ExpressibleByArrayLiteral {
+    public init(arrayLiteral elements: StringLiteralType?...) {
+        self.init(unit: Currency(stringLiteral: elements[0]!),
+                  cost: elements[1].map { Currency(stringLiteral: $0) })
+    }
+}
+
 #endif

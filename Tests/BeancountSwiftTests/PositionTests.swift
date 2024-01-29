@@ -105,12 +105,12 @@ final class PositionTests: XCTestCase {
 
     func testCurrencyPair() {
         var pair = Position(units: "100 USD").currencyPair
-        XCTAssert(pair.0 == "USD" && pair.1 == nil)
+        XCTAssert(pair.unit == "USD" && pair.cost == nil)
 
-        pair =
-            Position(
-                units: "100 AAPL", cost: Cost(number: "43.23", currency: "USD", date: .distantPast)
-            ).currencyPair
-        XCTAssertEqual(pair.0 == "AAPL", pair.1 == "USD")
+        pair = Position(
+            units: "100 AAPL",
+            cost: Cost(number: "43.23", currency: "USD", date: .distantPast)
+        ).currencyPair
+        XCTAssertEqual(pair.unit == "AAPL", pair.cost == "USD")
     }
 }

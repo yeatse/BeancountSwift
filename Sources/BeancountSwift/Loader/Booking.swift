@@ -125,9 +125,7 @@ struct Booker {
                 )
 
                 for posting in replPostings {
-                    let balance = balances[posting.account, default: Inventory()]
-                    balance.addPosition(.init(posting: posting))
-                    balances[posting.account] = balance
+                    balances[posting.account, default: Inventory()].addPosition(.init(posting: posting))
                 }
             } else {
                 newEntry = .init(
@@ -411,8 +409,6 @@ struct Booker {
     ) -> ([BookedPosting], [Error]) {
         var errors = [Error]()
         var localBalances = [Account: Inventory]()
-
-        let empty = Inventory()
         var bookedPostings = [BookedPosting]()
 
         for posting in groupPostings {
@@ -420,19 +416,14 @@ struct Booker {
             let costSpec = posting.cost
             let account = posting.account
 
-            if !localBalances.keys.contains(account) {
-                let previousBalance = balances[account, default: empty]
-                localBalances[account] = previousBalance.copy() as? Inventory
-            }
-            let balance = localBalances[account]
-
+            var balance = localBalances[account, default: balances[account, default: Inventory()]]
             guard let costSpec, units.number != .nan else {
                 bookedPostings.append(.incomplete(posting))
                 continue
             }
 
             let method = methods[account]
-            if method != .NONE, let balance, balance.isReducedBy(units) {
+            if method != .NONE, balance.isReducedBy(units) {
                 let costNumber = costSpec.computeCostNumber(by: units)
                 var matches = [Position]()
                 for position in balance.positions {
@@ -477,6 +468,7 @@ struct Booker {
                 for posting in reductionPostings {
                     balance.addPosition(.init(posting: posting))
                 }
+                localBalances[account] = balance
             } else {
                 var posting = posting
                 if costSpec.date == nil {

@@ -23,18 +23,15 @@ struct Interpolate {
     }
 
     func computeResidual(postings: [Booker.BookedPosting]) -> Inventory {
-        let inventory = Inventory()
+        var inventory = Inventory()
         for posting in postings {
-            if let meta = posting.meta,
-                meta[Interpolate.automaticResidual, default: .bool(false)] == .bool(true)
-            {
+            if let meta = posting.meta, meta[Interpolate.automaticResidual, default: .bool(false)] == .bool(true) {
                 continue
             }
-            let weight =
-                switch posting {
-                case .incomplete(let posting): posting.weight
-                case .complete(let posting): posting.weight
-                }
+            let weight = switch posting {
+            case .incomplete(let posting): posting.weight
+            case .complete(let posting): posting.weight
+            }
             inventory.addAmount(weight)
         }
         return inventory

@@ -58,7 +58,7 @@ struct BalanceIterator: IteratorProtocol {
     var txnPostings: [TxnPostingsType]
 
     var index = 0
-    let runningBalance = Inventory()
+    var runningBalance = Inventory()
 
     struct DateEntryItem {
         var entry: Directive<Cost>
@@ -270,7 +270,7 @@ public struct Realization {
     }
 
     func computeBalance(in postings: [TxnPostingsType]) -> Inventory {
-        let balance = Inventory()
+        var balance = Inventory()
         for posting in postings {
             if case .txnPosting(let txnPosting) = posting {
                 balance.addPosition(txnPosting.posting)

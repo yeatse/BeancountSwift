@@ -56,7 +56,7 @@ extension CurrencyPair: ExpressibleByStringLiteral {
 }
 
 extension DailyPrice: ExpressibleByArrayLiteral {
-    public init(arrayLiteral elements: String...) {
+    public init(arrayLiteral elements: StringLiteralType...) {
         let date = Date(stringLiteral: elements[0])
         let rate = Decimal(stringLiteral: elements[1])
         self.init(date: date, rate: rate)

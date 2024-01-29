@@ -83,11 +83,11 @@ final class InventoryTests: XCTestCase {
     }
 
     func testCopy() {
-        let inv = Inventory()
+        var inv = Inventory()
         inv.addAmount("100.00 USD")
         checkAmount(inventory: inv, number: 100, currency: "USD")
 
-        let inv2 = inv.copy() as! Inventory
+        var inv2 = inv
         inv2.addAmount("50.00 USD")
         checkAmount(inventory: inv2, number: 150, currency: "USD")
 
@@ -193,7 +193,7 @@ final class InventoryTests: XCTestCase {
     }
 
     func testNegOp() {
-        let inv = Inventory()
+        var inv = Inventory()
         inv.addAmount("10 USD")
         checkAmount(inventory: -inv, number: -10, currency: "USD")
 
@@ -321,13 +321,9 @@ final class InventoryTests: XCTestCase {
         XCTAssertTrue(inv.currencyPairs.isEmpty)
 
         inv = "40 USD {1.01 CAD}, 40 USD"
-        var pairs: [(Currency, Currency?)] = [("USD", "CAD"), ("USD", nil)]
+        var pairs: [Position.CurrencyPair] = [["USD", "CAD"], ["USD", nil]]
         for pair in inv.currencyPairs {
-            guard
-                let index = pairs.firstIndex(where: { (a, b) in
-                    pair.0 == a && pair.1 == b
-                })
-            else {
+            guard let index = pairs.firstIndex(of: pair) else {
                 return XCTFail()
             }
             pairs.remove(at: index)
@@ -335,13 +331,9 @@ final class InventoryTests: XCTestCase {
         XCTAssert(pairs.isEmpty)
 
         inv = "40 AAPL {1.01 USD}, 10 HOOL {2.02 USD}"
-        pairs = [("AAPL", "USD"), ("HOOL", "USD")]
+        pairs = [["AAPL", "USD"], ["HOOL", "USD"]]
         for pair in inv.currencyPairs {
-            guard
-                let index = pairs.firstIndex(where: { (a, b) in
-                    pair.0 == a && pair.1 == b
-                })
-            else {
+            guard let index = pairs.firstIndex(of: pair) else {
                 return XCTFail()
             }
             pairs.remove(at: index)
@@ -349,7 +341,7 @@ final class InventoryTests: XCTestCase {
     }
 
     func testAddAmount() {
-        let inv = Inventory()
+        var inv = Inventory()
         inv.addAmount("100.00 USD")
         checkAmount(inventory: inv, number: 100, currency: "USD")
 
@@ -370,13 +362,13 @@ final class InventoryTests: XCTestCase {
     }
 
     func testAddAmountZero() {
-        let inv = Inventory()
+        var inv = Inventory()
         inv.addAmount("0 USD")
         XCTAssertEqual(inv.positions.count, 0)
     }
 
     func testAddAmountBooking() {
-        let inv = Inventory()
+        var inv = Inventory()
         var (_, booking) = inv.addAmount("100.00 USD")
         XCTAssertEqual(booking, .created)
 
@@ -391,7 +383,7 @@ final class InventoryTests: XCTestCase {
     }
 
     func testAddAmountMultiCurrency() {
-        let inv = Inventory()
+        var inv = Inventory()
         inv.addAmount("100 USD")
         inv.addAmount("100 CAD")
         checkAmount(inventory: inv, number: 100, currency: "USD")
@@ -456,7 +448,7 @@ final class InventoryTests: XCTestCase {
     }
 
     func testAddPosition() {
-        let inv = Inventory()
+        var inv = Inventory()
         for position in allKindsOfPositions {
             inv.addPosition(position)
         }
@@ -473,16 +465,16 @@ final class InventoryTests: XCTestCase {
     }
 
     func testUpdate() {
-        let inv1: Inventory = "11 USD"
+        var inv1: Inventory = "11 USD"
         inv1.addInventory("12 CAD")
         XCTAssertEqual(inv1, "11 USD, 12 CAD")
     }
 
     func testSumInventories() {
-        let inv1 = Inventory()
+        var inv1 = Inventory()
         inv1.addAmount("10 USD")
 
-        let inv2 = Inventory()
+        var inv2 = Inventory()
         inv2.addAmount("20 CAD")
         inv2.addAmount("55 HOOL")
 
