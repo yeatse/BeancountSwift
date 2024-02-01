@@ -17,7 +17,7 @@ public struct Options {
     public private(set) var operatingCurrencies: [Currency] = [
         Currency(id: Locale.current.currency?.identifier ?? "USD")
     ]
-    public private(set) var bookingMethod: Booking = .STRICT
+    public private(set) var bookingMethod: BookingMethod = .STRICT
     public private(set) var accountNames: AccountTypeConfiguration = .default
     public private(set) var tolerances: ToleranceConfiguration = .default
     
@@ -47,7 +47,7 @@ public struct Options {
                         }
                     }
                 case "booking_method":
-                    if let method = Booking(rawValue: values[0]) {
+                    if let method = BookingMethod(rawValue: values[0]) {
                         bookingMethod = method
                     }
                 default:

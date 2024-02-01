@@ -34,7 +34,7 @@ struct Interpolate {
         return .init(mapping: [:], default: .zero)
     }
 
-    func computeResidual(postings: [Booker.BookedPosting]) -> Inventory {
+    func computeResidual(postings: [Booking.BookedPosting]) -> Inventory {
         var inventory = Inventory()
         for posting in postings {
             if let meta = posting.meta, meta[Interpolate.automaticResidual, default: .bool(false)] == .bool(true) {

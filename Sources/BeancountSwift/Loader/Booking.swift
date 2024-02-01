@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  Booking.swift
 //
 //
 //  Created by Yeatse on 2023/12/24.
@@ -40,12 +40,12 @@ extension DirectiveContent<CostSpec> {
     }
 }
 
-struct Booker {
+struct Booking {
     let interpolate = Interpolate()
     
     func book(ledger: ParsedLedger<CostSpec>) -> ParsedLedger<Cost> {
         let method = ledger.options.bookingMethod
-        var bookings: [Account: Booking] = [:]
+        var bookings: [Account: BookingMethod] = [:]
         for directive in ledger.directives {
             if case .open(let open) = directive.content, let booking = open.booking {
                 bookings[open.account] = booking

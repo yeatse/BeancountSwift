@@ -352,7 +352,7 @@ extension Open: Parsable {
         }
         let booking = try node.child(byFieldName: "opt_booking")
             .flatMap { try String(from: $0, content: content) }
-            .flatMap { Booking(rawValue: $0) }
+            .flatMap { BookingMethod(rawValue: $0) }
         guard let account else { throw SyntaxError.badNode(node) }
         self.init(account: account, currencies: currencies, booking: booking)
     }

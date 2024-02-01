@@ -9,7 +9,7 @@ import Foundation
 
 /// A set of valid booking method names for positions on accounts.
 /// See http://furius.ca/beancount/doc/inventories for a full explanation.
-public enum Booking: String {
+public enum BookingMethod: String {
     /// Reject ambiguous matches with an error.
     case STRICT
 
@@ -34,8 +34,8 @@ public enum Booking: String {
     case HIFO
 }
 
-extension Booking {
-    var method: BookingMethod {
+extension BookingMethod {
+    var impl: BookingMethodImpl {
         switch self {
         case .STRICT: strictBooking
         case .STRICT_WITH_SIZE: fatalError()
@@ -48,14 +48,14 @@ extension Booking {
     }
 }
 
-extension Booker {
+extension Booking {
     func handleAmbiguousMatches(
         entry: Directive<CostSpec>,
         posting: Posting<CostSpec>,
         matches: [Position],
-        method: Booking
+        method: BookingMethod
     ) -> (reductions: [Posting<Cost>], matches: [Position], errors: [Error]) {
-        let result = method.method(entry, posting, matches)
+        let result = method.impl(entry, posting, matches)
         var errors = result.errors
         if result.insufficient {
             errors.append(BookingError.ambiguousMatch(entry))
@@ -65,10 +65,10 @@ extension Booker {
 }
 
 struct BookingMethodStore {
-    var mappings: [Account: Booking]
-    var defaultMethod: Booking
+    var mappings: [Account: BookingMethod]
+    var defaultMethod: BookingMethod
 
-    subscript(account: Account) -> Booking {
+    subscript(account: Account) -> BookingMethod {
         mappings[account, default: defaultMethod]
     }
 }
@@ -78,12 +78,12 @@ enum BookingError: Error {
     case ambiguousMatch(Directive<CostSpec>)
 }
 
-typealias BookingMethod = (Directive<CostSpec>, Posting<CostSpec>, [Position]) -> (
+typealias BookingMethodImpl = (Directive<CostSpec>, Posting<CostSpec>, [Position]) -> (
     bookedReductions: [Posting<Cost>], bookedMatches: [Position], errors: [Error],
     insufficient: Bool
 )
 
-let strictBooking: BookingMethod = { entry, posting, matches in
+let strictBooking: BookingMethodImpl = { entry, posting, matches in
     var bookedReductions = [Posting<Cost>]()
     var bookedMatches = [Position]()
     var errors = [Error]()

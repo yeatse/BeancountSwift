@@ -10,7 +10,7 @@ import XCTest
 @testable import BeancountSwift
 
 final class BookingTests: XCTestCase {
-    let booking = Booker()
+    let booking = Booking()
     
     func testZeroAmount() async throws {
         let p: ContentProvider =

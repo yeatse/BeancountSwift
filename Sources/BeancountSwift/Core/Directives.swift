@@ -34,7 +34,7 @@ public enum DirectiveContent<T: PostingCost>: Equatable {
 public struct Open: Equatable {
     public let account: Account
     public let currencies: [Currency]
-    public let booking: Booking?
+    public let booking: BookingMethod?
 }
 
 /// https://beancount.github.io/docs/beancount_language_syntax.html#open

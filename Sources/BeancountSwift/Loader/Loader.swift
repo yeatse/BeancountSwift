@@ -18,7 +18,7 @@ public struct ParsedLedger<T: PostingCost> {
 }
 
 public struct Loader {
-    let booking = Booker()
+    let booking = Booking()
     let parser = Parser()
     let defaultPlugins: [Plugin] = [
         .init(name: PadPlugin.name, config: nil),
