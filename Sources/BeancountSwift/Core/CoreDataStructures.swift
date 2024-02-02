@@ -24,7 +24,7 @@ extension Currency: Comparable {
 }
 
 extension Currency {
-    static let missing = Currency(id: "__MISSING__")
+    static let missing = Currency(id: "")
 }
 
 public protocol PostingCost: Equatable, Hashable {}

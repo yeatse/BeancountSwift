@@ -62,32 +62,118 @@ final class BookingTests: XCTestCase {
         XCTAssertEqual(bookedLedger.errors.count, 1)
         XCTAssert(bookedLedger.errors[0] is InterpolationError)
     }
+    
+    func testAllCurrencyInterpolations() async throws {
+        let p: ContentProvider =
+"""
+2015-10-02 *
+    Assets:Account  100.00 USD
+    Assets:Other
 
-    let inputStr =
+2015-10-02 *
+    Assets:Account  100.00 USD @ 1.20 CAD
+    Assets:Other
+
+2015-10-02 *
+    Assets:Account  10 HOOL {{100.00 USD}} @ 120.00 USD
+    Assets:Other
+"""
+        let ledger = try await p.loadLedger()
+        XCTAssert(ledger.errors.isEmpty)
+    }
+    
+    func indexes(of groups: [(Currency, [Booking.Refer])]) -> [Currency: Set<Int>] {
+        var result: [Currency: Set<Int>] = [:]
+        for (currency, refers) in groups {
+            result[currency] = refers.reduce([], { p, refers in
+                p.union([refers.index])
+            })
+        }
+        return result
+    }
+    
+    func testCategorizeUnitsUnambiguous() async throws {
+        let p: ContentProvider =
         """
-                2014-01-01 open Assets:Investments:Cash
-                2014-01-01 open Assets:Investments:Stock
-
-                2014-06-22 * "Add some positive units"
-                  Assets:Investments:Stock    1 HOOL {500 USD}
-                  Assets:Investments:Cash  -500 USD
-
-                2014-06-23 * "Down to zero"
-                  Assets:Investments:Stock   -1 HOOL {500 USD}
-                  Assets:Investments:Cash   500 USD
-
-                2014-06-24 * "Go negative from zero"
-                  Assets:Investments:Stock   -1 HOOL {500 USD}
-                  Assets:Investments:Cash   500 USD
-
-                2014-06-25 * "Go positive much"
-                  Assets:Investments:Stock    11 HOOL {500 USD}
-                  Assets:Investments:Cash  -5500 USD
-
-                2014-06-26 * "Cross to negative from above zero"
-                  Assets:Investments:Stock  -15 HOOL {500 USD}
-                  Assets:Investments:Cash  7500 USD
+            2015-10-02 *
+              Assets:Account  100.00 USD
+              Assets:Other   -100.00 USD
+        
+            2015-10-02 *
+              Assets:Account         USD
+              Assets:Other   -100.00 USD
         """
+        let _ = try await p.parseLedger()
+        // TOOD: not supported yet
+    }
+    
+    func testCategorizeUnitsAmbiguous() async throws {
+        let p: ContentProvider =
+        """
+        ;; Uses the other legs to disambiguate.
+        2015-10-02 *
+          Assets:Account  100.00
+          Assets:Other   -100.00 USD
 
-    let bookmeth = BookingMethodStore(mappings: [:], defaultMethod: .STRICT)
+        ;; Uses the inventory contents to disambiguate.
+        2015-10-02 *
+          Assets:Account  100.00
+          Assets:Other
+        """
+        let ledger = try await p.parseLedger()
+        var (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[0].transaction,
+                                                            balances: [:])
+        XCTAssert(errors.isEmpty)
+        XCTAssertEqual(indexes(of: groups), [
+            "USD": [0, 1]
+        ])
+        
+        (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[1].transaction,
+                                                        balances: ["Assets:Account": "1.00 USD"])
+        XCTAssert(errors.isEmpty)
+        XCTAssertEqual(indexes(of: groups), [
+            "USD": [0, 1]
+        ])
+        
+        (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[1].transaction,
+                                                        balances: [:])
+        XCTAssert(!errors.isEmpty)
+        XCTAssert(String(describing: errors[0]).contains("failedToCategorize"))
+        XCTAssertEqual(indexes(of: groups), [:])
+    }
+    
+    func testCategorizeUnitsPriceUnambiguous() async throws {
+        let p: ContentProvider =
+        """
+        2015-10-02 *
+          Assets:Account  100.00 USD @ 1.20 CAD
+          Assets:Other   -120.00 CAD
+
+        2015-10-02 *
+          Assets:Account  100.00     @ 1.20 CAD
+          Assets:Other   -120.00 CAD
+        """
+        let ledger = try await p.parseLedger()
+        var (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[0].transaction,
+                                                            balances: [:])
+        XCTAssert(errors.isEmpty)
+        XCTAssertEqual(indexes(of: groups), [
+            "CAD": [0, 1]
+        ])
+        
+        (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[1].transaction,
+                                                        balances: ["Assets:Account": "1.00 USD"])
+        XCTAssert(errors.isEmpty)
+        XCTAssertEqual(indexes(of: groups), [
+            "CAD": [0, 1]
+        ])
+        
+        (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[1].transaction,
+                                                        balances: [:])
+        XCTAssert(!errors.isEmpty)
+        XCTAssert(String(describing: errors[0]).contains("cannotResolve"))
+        XCTAssertEqual(indexes(of: groups), [
+            "CAD": [0, 1]
+        ])
+    }
 }

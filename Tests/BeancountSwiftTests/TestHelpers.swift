@@ -98,6 +98,14 @@ extension Directive {
     func removingMeta() -> Self {
         return .init(meta: [:], date: date, comment: comment, content: content.removingMeta())
     }
+    
+    var transaction: Transaction<T> {
+        if case .transaction(let txn) = content {
+            return txn
+        } else {
+            fatalError()
+        }
+    }
 }
 
 func equalEntries<T>(_ lhs: [Directive<T>], _ rhs: [Directive<T>]) -> Bool {
