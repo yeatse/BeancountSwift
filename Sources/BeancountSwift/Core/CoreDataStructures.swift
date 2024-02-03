@@ -7,8 +7,12 @@
 import Foundation
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#commodity
-public struct Currency: Identifiable, Equatable, Hashable {
+public struct Currency: Identifiable, Hashable {
     public var id: String
+    
+    public init(id: String) {
+        self.id = id
+    }
 }
 
 extension Currency: ExpressibleByStringLiteral {
@@ -27,7 +31,7 @@ extension Currency {
     static let missing = Currency(id: "")
 }
 
-public protocol PostingCost: Equatable, Hashable {}
+public protocol PostingCost: Hashable {}
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#cost
 public struct Cost: PostingCost {
@@ -82,7 +86,7 @@ public struct CostSpec: PostingCost {
 }
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#posting
-public struct Posting<T: PostingCost>: Equatable {
+public struct Posting<T: PostingCost>: Hashable {
     public var account: Account
     public var units: Amount
     public var cost: T?
@@ -92,11 +96,11 @@ public struct Posting<T: PostingCost>: Equatable {
     public var comment: String?
 }
 
-public struct Tag: Equatable, Hashable, Identifiable {
+public struct Tag: Hashable, Identifiable {
     public var id: String
 }
 
-public enum MetaDataValue: Equatable {
+public enum MetaDataValue: Hashable {
     case string(String)
     case account(Account)
     case currency(Currency)
@@ -108,7 +112,7 @@ public enum MetaDataValue: Equatable {
 }
 
 extension Dictionary where Key == String, Value == MetaDataValue {
-    var lineno: UInt32? {
+    public var lineno: UInt32? {
         if case .number(let val) = self["lineno"] {
             return .init(exactly: NSDecimalNumber(decimal: val))
         } else {
@@ -116,7 +120,7 @@ extension Dictionary where Key == String, Value == MetaDataValue {
         }
     }
 
-    var filename: String? {
+    public var filename: String? {
         if case .string(let val) = self["filename"] {
             return val
         } else {

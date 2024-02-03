@@ -13,6 +13,11 @@ public struct Amount: Equatable, Hashable {
     public var currency: Currency
 
     static let missing = Amount(number: .nan, currency: .missing)
+    
+    public init(number: Decimal, currency: Currency) {
+        self.number = number
+        self.currency = currency
+    }
 }
 
 extension Amount: Comparable {

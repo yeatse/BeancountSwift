@@ -211,7 +211,7 @@ extension RealAccount {
         }.lazy
     }
 
-    var postings: [TxnPostingsType] {
+    public var postings: [TxnPostingsType] {
         childAccounts().flatMap(\.txnPostings).sorted()
     }
 

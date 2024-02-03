@@ -15,8 +15,11 @@ struct Option {
 public struct Options {
     public private(set) var title: String = ""
     public private(set) var operatingCurrencies: [Currency] = [
-        Currency(id: Locale.current.currency?.identifier ?? "USD")
+        Currency(id: "USD")
     ]
+    public var defaultCurrency: Currency {
+        operatingCurrencies.first ?? Currency(id: "USD")
+    }
     public private(set) var bookingMethod: BookingMethod = .STRICT
     public private(set) var accountNames: AccountTypeConfiguration = .default
     public private(set) var tolerances: ToleranceConfiguration = .default

@@ -55,26 +55,26 @@ extension Position {
 }
 
 extension Posting<Cost> {
-    var totalCost: Amount { getCost(units, cost) }
-    var weight: Amount { getWeight(units, cost, price) }
+    public var totalCost: Amount { getCost(units, cost) }
+    public var weight: Amount { getWeight(units, cost, price) }
     
-    func marketValue(from priceMap: PriceMap, date: Date? = nil) -> Amount {
+    public func marketValue(from priceMap: PriceMap, date: Date? = nil) -> Amount {
         getValue(units, cost, price, priceMap, date)
     }
     
-    func converted(to target: Currency, priceMap: PriceMap, date: Date? = nil) -> Amount {
+    public func converted(to target: Currency, priceMap: PriceMap, date: Date? = nil) -> Amount {
         let via = cost.map { [$0.currency] } ?? price.map { [$0.currency] }
         return units.converted(to: target, priceMap: priceMap, date: date, via: via)
     }
 }
 
 extension Posting<CostSpec> {
-    var totalCost: Amount { getCost(units, nil) }
-    var weight: Amount { getWeight(units, nil, price) }
-    func marketValue(from priceMap: PriceMap, date: Date? = nil) -> Amount {
+    public var totalCost: Amount { getCost(units, nil) }
+    public var weight: Amount { getWeight(units, nil, price) }
+    public func marketValue(from priceMap: PriceMap, date: Date? = nil) -> Amount {
         getValue(units, nil, price, priceMap, date)
     }
-    func converted(to target: Currency, priceMap: PriceMap, date: Date? = nil) -> Amount {
+    public func converted(to target: Currency, priceMap: PriceMap, date: Date? = nil) -> Amount {
         units.converted(to: target, priceMap: priceMap, date: date, via: price.map { [$0.currency] })
     }
 }

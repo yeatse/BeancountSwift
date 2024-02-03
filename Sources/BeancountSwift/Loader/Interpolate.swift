@@ -8,9 +8,9 @@
 import Foundation
 
 public struct ToleranceConfiguration {
-    var interFromCost: Bool
-    var multiplier: Decimal
-    var defaultTolerances: [Currency: Decimal]
+    public var interFromCost: Bool
+    public var multiplier: Decimal
+    public var defaultTolerances: [Currency: Decimal]
     
     static let `default` = ToleranceConfiguration(
         interFromCost: false,

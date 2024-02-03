@@ -72,3 +72,11 @@ extension Date {
         return Self.isoDateFormatter.string(from: self)
     }
 }
+
+#if DEBUG
+extension Date: ExpressibleByStringLiteral {
+    public init(stringLiteral value: StringLiteralType) {
+        self = .fromDateString(value)!
+    }
+}
+#endif

@@ -106,7 +106,7 @@ extension Account {
 
 // MARK: types
 extension Account {
-    func type(config: AccountTypeConfiguration = .default) -> AccountType? {
+    public func type(config: AccountTypeConfiguration = .default) -> AccountType? {
         return switch root {
             case config.assets: .assets
             case config.liabilities: .liabilities
@@ -172,13 +172,13 @@ public enum AccountType: Comparable {
 }
 
 public struct AccountTypeConfiguration {
-    var assets: String
-    var liabilities: String
-    var equity: String
-    var income: String
-    var expenses: String
+    public var assets: String
+    public var liabilities: String
+    public var equity: String
+    public var income: String
+    public var expenses: String
     
-    static let `default` = AccountTypeConfiguration(
+    static public let `default` = AccountTypeConfiguration(
         assets: "Assets",
         liabilities: "Liabilities",
         equity: "Equity",

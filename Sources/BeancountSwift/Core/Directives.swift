@@ -8,14 +8,14 @@
 import Foundation
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#common-properties
-public struct Directive<T: PostingCost>: Equatable {
+public struct Directive<T: PostingCost>: Hashable {
     public var meta: [String: MetaDataValue]
     public var date: Date
     public var comment: String?
     public var content: DirectiveContent<T>
 }
 
-public enum DirectiveContent<T: PostingCost>: Equatable {
+public enum DirectiveContent<T: PostingCost>: Hashable {
     case open(Open)
     case close(Close)
     case commodity(Commodity)
@@ -31,27 +31,27 @@ public enum DirectiveContent<T: PostingCost>: Equatable {
 }
 
 /// https://beancount.github.io/docs/beancount_language_syntax.html#open
-public struct Open: Equatable {
+public struct Open: Hashable {
     public let account: Account
     public let currencies: [Currency]
     public let booking: BookingMethod?
 }
 
 /// https://beancount.github.io/docs/beancount_language_syntax.html#open
-public struct Close: Equatable {
+public struct Close: Hashable {
     public let account: Account
 }
 
-public struct Commodity: Equatable {
+public struct Commodity: Hashable {
     public let currency: Currency
 }
 
-public struct Pad: Equatable {
+public struct Pad: Hashable {
     public let account: Account
     public let sourceAccount: Account
 }
 
-public struct Balance: Equatable {
+public struct Balance: Hashable {
     public let account: Account
     public let amount: Amount
     public let tolerance: Decimal?
@@ -59,7 +59,7 @@ public struct Balance: Equatable {
 }
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#transactions
-public struct Transaction<T: PostingCost>: Equatable {
+public struct Transaction<T: PostingCost>: Hashable {
     public let flag: Character?
     public let payee: String?
     public let narration: String?
@@ -78,34 +78,34 @@ extension Character {
     static let mergingFlag: Character = "M"
 }
 
-public struct Note: Equatable {
+public struct Note: Hashable {
     public let account: Account
     public let note: String
 }
 
-public struct Event: Equatable {
+public struct Event: Hashable {
     public let type: String
     public let description: String
 }
 
-public struct Query: Equatable {
+public struct Query: Hashable {
     public let name: String
     public let queryString: String
 }
 
-public struct Price: Equatable {
+public struct Price: Hashable {
     public let currency: Currency
     public let amount: Amount
 }
 
-public struct Document: Equatable {
+public struct Document: Hashable {
     public let account: Account
     public let filename: String
     public let tags: Set<Tag>?
     public let links: Set<String>?
 }
 
-public struct Custom: Equatable {
+public struct Custom: Hashable {
     public let type: String
     public let values: [MetaDataValue]
 }

@@ -39,14 +39,6 @@ extension Decimal: ExpressibleByStringLiteral {
     }
 }
 
-extension Date: ExpressibleByStringLiteral {
-    public init(stringLiteral value: StringLiteralType) {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        self = formatter.date(from: value)!
-    }
-}
-
 extension CurrencyPair: ExpressibleByStringLiteral {
     public init(stringLiteral value: StringLiteralType) {
         let comps = value.split(separator: "/")
