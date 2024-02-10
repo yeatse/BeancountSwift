@@ -12,58 +12,58 @@ import XCTest
 final class BookingTests: XCTestCase {
     let booking = Booking()
     
-    func testZeroAmount() async throws {
+    func testZeroAmount() throws {
         let p: ContentProvider =
             """
               2013-05-18 * ""
                 Assets:Investments:MSFT      0 MSFT
                 Assets:Investments:Cash      0 USD
             """
-        let ledger = try await p.parseLedger()
+        let ledger = try p.parseLedger()
         let bookedLedger = booking.book(ledger: ledger)
         XCTAssertEqual(bookedLedger.errors.count, 0)
     }
 
-    func testZeroAmountWithCost() async throws {
+    func testZeroAmountWithCost() throws {
         let p: ContentProvider =
             """
               2013-05-18 * ""
                 Assets:Investments:MSFT      0 MSFT {200.00 USD}
                 Assets:Investments:Cash    1 USD
             """
-        let ledger = try await p.parseLedger()
+        let ledger = try p.parseLedger()
         let bookedLedger = booking.book(ledger: ledger)
         XCTAssertEqual(bookedLedger.errors.count, 1)
         XCTAssert(bookedLedger.errors[0] is InterpolationError)
     }
 
-    func testCostZero() async throws {
+    func testCostZero() throws {
         let p: ContentProvider =
             """
               2013-05-18 * ""
                 Assets:Investments:MSFT      -10 MSFT {0.00 USD}
                 Assets:Investments:Cash  2000.00 USD
             """
-        let ledger = try await p.parseLedger()
+        let ledger = try p.parseLedger()
         let bookedLedger = booking.book(ledger: ledger)
         XCTAssertEqual(bookedLedger.errors.count, 0)
     }
 
-    func testCostNegative() async throws {
+    func testCostNegative() throws {
         let p: ContentProvider =
             """
               2013-05-18 * ""
                 Assets:Investments:MSFT      -10 MSFT {-200.00 USD}
                 Assets:Investments:Cash  2000.00 USD
             """
-        let ledger = try await p.parseLedger()
+        let ledger = try p.parseLedger()
         let bookedLedger = booking.book(ledger: ledger)
         XCTAssertEqual(bookedLedger.directives.count, 1)
         XCTAssertEqual(bookedLedger.errors.count, 1)
         XCTAssert(bookedLedger.errors[0] is InterpolationError)
     }
     
-    func testAllCurrencyInterpolations() async throws {
+    func testAllCurrencyInterpolations() throws {
         let p: ContentProvider =
 """
 2015-10-02 *
@@ -78,7 +78,7 @@ final class BookingTests: XCTestCase {
     Assets:Account  10 HOOL {{100.00 USD}} @ 120.00 USD
     Assets:Other
 """
-        let ledger = try await p.loadLedger()
+        let ledger = try p.loadLedger()
         XCTAssert(ledger.errors.isEmpty)
     }
     
@@ -92,7 +92,7 @@ final class BookingTests: XCTestCase {
         return result
     }
     
-    func testCategorizeUnitsUnambiguous() async throws {
+    func testCategorizeUnitsUnambiguous() throws {
         let p: ContentProvider =
         """
             2015-10-02 *
@@ -103,11 +103,11 @@ final class BookingTests: XCTestCase {
               Assets:Account         USD
               Assets:Other   -100.00 USD
         """
-        let _ = try await p.parseLedger()
+        let _ = try p.parseLedger()
         // TOOD: not supported yet
     }
     
-    func testCategorizeUnitsAmbiguous() async throws {
+    func testCategorizeUnitsAmbiguous() throws {
         let p: ContentProvider =
         """
         ;; Uses the other legs to disambiguate.
@@ -120,7 +120,7 @@ final class BookingTests: XCTestCase {
           Assets:Account  100.00
           Assets:Other
         """
-        let ledger = try await p.parseLedger()
+        let ledger = try p.parseLedger()
         var (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[0].transaction,
                                                             balances: [:])
         XCTAssert(errors.isEmpty)
@@ -142,7 +142,7 @@ final class BookingTests: XCTestCase {
         XCTAssertEqual(indexes(of: groups), [:])
     }
     
-    func testCategorizeUnitsPriceUnambiguous() async throws {
+    func testCategorizeUnitsPriceUnambiguous() throws {
         let p: ContentProvider =
         """
         2015-10-02 *
@@ -153,7 +153,7 @@ final class BookingTests: XCTestCase {
           Assets:Account  100.00     @ 1.20 CAD
           Assets:Other   -120.00 CAD
         """
-        let ledger = try await p.parseLedger()
+        let ledger = try p.parseLedger()
         var (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[0].transaction,
                                                             balances: [:])
         XCTAssert(errors.isEmpty)

@@ -9,7 +9,7 @@ import XCTest
 @testable import BeancountSwift
 
 final class PricesTests: XCTestCase {
-    func testGetLastPriceEntries() async throws {
+    func testGetLastPriceEntries() throws {
         let p: ContentProvider =
                 """
                 2013-01-01 price  USD  1.01 CAD
@@ -20,25 +20,25 @@ final class PricesTests: XCTestCase {
                 2013-06-01 price  USD  1.06 CAD
                 2013-07-01 price  USD  1.07 CAD
                 """
-        let ledger = try await p.loadLedger()
-        var equal = await equalEntries(ledger.directives.lastPriceEntries(until: "2013-05-01"),
+        let ledger = try p.loadLedger()
+        var equal = equalEntries(ledger.directives.lastPriceEntries(until: "2013-05-01"),
                                        "2013-04-01 price  USD  1.04 CAD")
         XCTAssert(equal)
         
-        equal = await equalEntries(ledger.directives.lastPriceEntries(until: "2013-05-02"),
+        equal = equalEntries(ledger.directives.lastPriceEntries(until: "2013-05-02"),
                                    "2013-05-01 price  USD  1.05 CAD")
         XCTAssert(equal)
         
-        equal = await equalEntries(ledger.directives.lastPriceEntries(until: "2014-01-01"),
+        equal = equalEntries(ledger.directives.lastPriceEntries(until: "2014-01-01"),
                                    "2013-07-01 price  USD  1.07 CAD")
         XCTAssert(equal)
         
-        equal = await equalEntries(ledger.directives.lastPriceEntries(until: "2012-01-01"),
+        equal = equalEntries(ledger.directives.lastPriceEntries(until: "2012-01-01"),
                                    "")
         XCTAssert(equal)
     }
     
-    func testBuildPriceMap() async throws {
+    func testBuildPriceMap() throws {
         let p: ContentProvider =
         """
         2013-06-01 price  USD  1.10 CAD
@@ -55,7 +55,7 @@ final class PricesTests: XCTestCase {
         2013-06-05 price  CAD  0.86956 USD
         2013-06-06 price  CAD  0.86207 USD
         """
-        let ledger = try await p.loadLedger()
+        let ledger = try p.loadLedger()
         let priceMap = PriceMap.build(from: ledger.directives)
         XCTAssertEqual(priceMap.prices.count, 2)
         XCTAssertEqual(Set(priceMap.prices.keys), ["USD/CAD", "CAD/USD"])
@@ -75,7 +75,7 @@ final class PricesTests: XCTestCase {
         XCTAssertEqual(priceMap.prices["CAD/USD"]?.count, 5)
     }
     
-    func testBuildPriceMapZeroPrices() async throws {
+    func testBuildPriceMapZeroPrices() throws {
         let p: ContentProvider =
         """
         1999-12-27 commodity EFA
@@ -83,23 +83,23 @@ final class PricesTests: XCTestCase {
         2010-11-01 price EFA                                     0 EFA
         2011-03-01 price EFA                                 60.69 EFA
         """
-        let ledger = try await p.loadLedger()
+        let ledger = try p.loadLedger()
         let priceMap = PriceMap.build(from: ledger.directives)
         XCTAssertFalse(priceMap.prices.isEmpty)
     }
     
-    func testLookupPriceAndInverse() async throws {
+    func testLookupPriceAndInverse() throws {
         let p: ContentProvider =
         """
         2013-06-01 price  USD  1.01 CAD
         """
-        let ledger = try await p.loadLedger()
+        let ledger = try p.loadLedger()
         let priceMap = PriceMap.build(from: ledger.directives)
         
         XCTAssertTrue(priceMap.lookupPriceAndInverse("EUR/USD").isEmpty)
     }
     
-    func testGetAllPrices() async throws {
+    func testGetAllPrices() throws {
         let p: ContentProvider =
         """
         2013-06-01 price  USD  1.01 CAD
@@ -109,7 +109,7 @@ final class PricesTests: XCTestCase {
         2013-06-09 price  USD  1.09 CAD
         2013-06-11 price  USD  1.11 CAD
         """
-        let ledger = try await p.loadLedger()
+        let ledger = try p.loadLedger()
         let priceMap = PriceMap.build(from: ledger.directives)
         let priceList = priceMap.allPrices(for: "USD/CAD")
         let expected: [DailyPrice] = [
@@ -128,14 +128,14 @@ final class PricesTests: XCTestCase {
         XCTAssertEqual(priceMap.allPrices(for: "EWJ/JPY"), [])
     }
     
-    func testGetLatestPrice() async throws {
+    func testGetLatestPrice() throws {
         let p: ContentProvider =
         """
         2013-06-01 price  USD  1.01 CAD
         2013-06-09 price  USD  1.09 CAD
         2013-06-11 price  USD  1.11 CAD
         """
-        let ledger = try await p.loadLedger()
+        let ledger = try p.loadLedger()
         let priceMap = PriceMap.build(from: ledger.directives)
         let priceList = priceMap.latestPrice(for: "USD/CAD")
         let expected = DailyPrice(date: "2013-06-11", rate: "1.11")
@@ -144,14 +144,14 @@ final class PricesTests: XCTestCase {
         XCTAssertNil(priceMap.latestPrice(for: "EWJ/JPY"))
     }
     
-    func testGetPrice() async throws {
+    func testGetPrice() throws {
         let p: ContentProvider =
         """
         2013-06-01 price  USD  1.00 CAD
         2013-06-10 price  USD  1.50 CAD
         2013-07-01 price  USD  2.00 CAD
         """
-        let ledger = try await p.loadLedger()
+        let ledger = try p.loadLedger()
         let priceMap = PriceMap.build(from: ledger.directives)
         
         var dailyPrice = priceMap.price(for: "USD/CAD", date: "2013-05-15")
@@ -189,7 +189,7 @@ final class PricesTests: XCTestCase {
         XCTAssertNil(dailyPrice)
     }
     
-    func testOrderingSameDate() async throws {
+    func testOrderingSameDate() throws {
         let p: ContentProvider =
         """
         ;; The last one to appear in the file should be selected.
@@ -197,7 +197,7 @@ final class PricesTests: XCTestCase {
         2013-06-02 price  USD  1.12 CAD
         2013-06-02 price  USD  1.11 CAD
         """
-        let ledger = try await p.loadLedger()
+        let ledger = try p.loadLedger()
         let priceMap = PriceMap.build(from: ledger.directives)
         
         XCTAssertEqual(priceMap.prices.count, 2)
@@ -212,7 +212,7 @@ final class PricesTests: XCTestCase {
         XCTAssertEqual(priceMap.prices["CAD/USD"]?.count, 1)
     }
     
-    func testProject() async throws {
+    func testProject() throws {
         let p: ContentProvider =
         """
         2013-06-01 price  USD      1.12 CAD
@@ -222,7 +222,7 @@ final class PricesTests: XCTestCase {
         2013-07-01 price  USD      1.13 CAD
         2013-07-15 price  HOOL  1010.00 USD
         """
-        let ledger = try await p.loadLedger()
+        let ledger = try p.loadLedger()
         let priceMap = PriceMap.build(from: ledger.directives)
         
         let noopPriceMap = priceMap.projected(from: "USD", to: "USD")
@@ -250,14 +250,14 @@ final class PricesTests: XCTestCase {
         }
     }
     
-    func testProjectMissing() async throws {
+    func testProjectMissing() throws {
         let p: ContentProvider =
         """
         2013-06-15 price  HOOL  1000.00 USD
         2013-07-01 price  USD      1.12 CAD
         2013-07-15 price  HOOL  1100.00 USD
         """
-        let ledger = try await p.loadLedger()
+        let ledger = try p.loadLedger()
         let priceMap = PriceMap.build(from: ledger.directives)
         let newPriceMap = priceMap.projected(from: "USD", to: "CAD")
         
@@ -266,14 +266,14 @@ final class PricesTests: XCTestCase {
         ])
     }
     
-    func testProjectCollisions() async throws {
+    func testProjectCollisions() throws {
         let p: ContentProvider =
         """
         2013-06-01 price  USD      1.12 CAD
         2013-06-15 price  HOOL  1000.00 USD
         2013-06-15 price  HOOL  1125.00 CAD
         """
-        let ledger = try await p.loadLedger()
+        let ledger = try p.loadLedger()
         let priceMap = PriceMap.build(from: ledger.directives)
         let newPriceMap = priceMap.projected(from: "USD", to: "CAD")
         

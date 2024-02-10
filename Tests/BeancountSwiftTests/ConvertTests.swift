@@ -129,14 +129,14 @@ final class ConvertTests: XCTestCase {
         XCTAssertEqual(amt.converted(to: "USD", priceMap: hitPriceMap), amt)
     }
     
-    func testConvertAmountWithDate() async throws {
+    func testConvertAmountWithDate() throws {
         let p: ContentProvider =
         """
         2013-01-01 price  USD  1.20 CAD
         2014-01-01 price  USD  1.25 CAD
         2015-01-01 price  USD  1.30 CAD
         """
-        let ledger = try await p.loadLedger()
+        let ledger = try p.loadLedger()
         let priceMap = PriceMap.build(from: ledger.directives)
         
         let cases: [(Date?, Amount)] = [

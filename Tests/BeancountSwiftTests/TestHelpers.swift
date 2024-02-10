@@ -11,19 +11,19 @@ import Foundation
 
 struct ContentProvider: ContentProviding {
     let source: String
+    let parser = Parser()
+    let loader = Loader()
 
-    func provideContent(for name: String) async throws -> String {
+    func provideContent(for name: String) throws -> String {
         return source
     }
     
-    func parseLedger() async throws -> ParsedLedger<CostSpec> {
-        let parser = Parser()
-        return try await parser.parse(file: "test.bean", contentProvider: self)
+    func parseLedger() throws -> ParsedLedger<CostSpec> {
+        return try parser.parse(file: "test.bean", contentProvider: self)
     }
     
-    func loadLedger() async throws -> ParsedLedger<Cost> {
-        let loader = Loader()
-        return try await loader.load(file: "test.bean", contentProvider: self)
+    func loadLedger() throws -> ParsedLedger<Cost> {
+        return try loader.load(file: "test.bean", contentProvider: self)
     }
 }
 
@@ -104,8 +104,8 @@ func equalEntries<T>(_ lhs: [Directive<T>], _ rhs: [Directive<T>]) -> Bool {
     return lhs.map({ $0.removingMeta() }) == rhs.map({ $0.removingMeta() })
 }
 
-func equalEntries(_ lhs: [Directive<Cost>], _ rhs: String) async -> Bool {
-    let r = try! await ContentProvider(source: rhs).loadLedger()
+func equalEntries(_ lhs: [Directive<Cost>], _ rhs: String) -> Bool {
+    let r = try! ContentProvider(source: rhs).loadLedger()
     return equalEntries(lhs, r.directives)
 }
 

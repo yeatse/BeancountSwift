@@ -7,7 +7,7 @@
 import Foundation
 
 public protocol ContentProviding {
-    func provideContent(for file: String) async throws -> String
+    func provideContent(for file: String) throws -> String
 }
 
 public struct ParsedLedger<T: PostingCost> {
@@ -43,9 +43,9 @@ public struct Loader {
         return ledger
     }
 
-    public func load(file: String, contentProvider: ContentProviding) async throws -> ParsedLedger<Cost> {
+    public func load(file: String, contentProvider: ContentProviding) throws -> ParsedLedger<Cost> {
         // parsing
-        let parsedResult = try await parser.parse(file: file, contentProvider: contentProvider)
+        let parsedResult = try parser.parse(file: file, contentProvider: contentProvider)
 
         // booking
         let bookedLedger = booking.book(ledger: parsedResult)

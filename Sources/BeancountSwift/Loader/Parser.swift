@@ -88,17 +88,17 @@ struct Parser {
         return parser
     }()
     
-    func parse(file: String, contentProvider: ContentProviding) async throws -> ParsedLedger<
+    func parse(file: String, contentProvider: ContentProviding) throws -> ParsedLedger<
         CostSpec
     > {
-        let content = try await contentProvider.provideContent(for: file)
+        let content = try contentProvider.provideContent(for: file)
         var (ledger, includes) = try parse(content: content, in: file)
         
         var seenIncludes: Set<String> = [file]
         while !includes.isEmpty {
             let childFile = includes.popLast()!
             do {
-                let childContent = try await contentProvider.provideContent(for: childFile)
+                let childContent = try contentProvider.provideContent(for: childFile)
                 let (childLedger, childIncludes) = try parse(content: childContent, in: file)
                 ledger.directives += childLedger.directives
                 ledger.errors += childLedger.errors

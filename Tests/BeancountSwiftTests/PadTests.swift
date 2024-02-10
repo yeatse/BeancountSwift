@@ -9,7 +9,7 @@ import XCTest
 
 final class PadTests: XCTestCase {
     
-    func testPadSimple() async throws {
+    func testPadSimple() throws {
         let p: ContentProvider =
         """
         2013-05-01 open Assets:Checking
@@ -20,10 +20,10 @@ final class PadTests: XCTestCase {
         
         2013-05-03 balance Assets:Checking                                 172.45 USD
         """
-        let ledger = try await p.loadLedger()
+        let ledger = try p.loadLedger()
         XCTAssertTrue(ledger.errors.isEmpty)
         
-        let equal = await equalEntries(ledger.directives,
+        let equal = equalEntries(ledger.directives,
           """
           2013-05-01 open Assets:Checking
           2013-05-01 open Equity:Opening-Balances
@@ -40,7 +40,7 @@ final class PadTests: XCTestCase {
         XCTAssertTrue(equal)
     }
     
-    func testPadToZero() async throws {
+    func testPadToZero() throws {
         let p: ContentProvider =
         """
         ;; Test the case that this directive generates a padding entry, padding to zero.
@@ -55,10 +55,10 @@ final class PadTests: XCTestCase {
 
         2013-05-03 balance Assets:Checking                                 0.00 USD
         """
-        let ledger = try await p.loadLedger()
+        let ledger = try p.loadLedger()
         XCTAssertTrue(ledger.errors.isEmpty)
         
-        let equal = await equalEntries(ledger.directives,
+        let equal = equalEntries(ledger.directives,
           """
           2013-01-01 open Assets:Checking
           2013-01-01 open Equity:Opening-Balances
