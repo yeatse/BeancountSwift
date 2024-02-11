@@ -5,6 +5,7 @@
 //  Created by Yeatse on 2023/12/21.
 //
 import Foundation
+import SwiftTreeSitter
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#commodity
 public struct Currency: Identifiable, Hashable {
@@ -109,19 +110,24 @@ public enum MetaDataValue: Hashable {
     case number(Decimal)
     case bool(Bool)
     case amount(Amount)
+    case range(TSRange)
 }
 
 extension Dictionary where Key == String, Value == MetaDataValue {
     public var lineno: UInt32? {
-        if case .number(let val) = self["lineno"] {
-            return .init(exactly: NSDecimalNumber(decimal: val))
-        } else {
-            return nil
-        }
+        return range?.points.lowerBound.row
     }
 
     public var filename: String? {
         if case .string(let val) = self["filename"] {
+            return val
+        } else {
+            return nil
+        }
+    }
+    
+    public var range: TSRange? {
+        if case .range(let val) = self["range"] {
             return val
         } else {
             return nil

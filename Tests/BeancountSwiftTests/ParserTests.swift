@@ -83,7 +83,7 @@ final class ParserTests: XCTestCase {
     func testLineno() throws {
         let p: ContentProvider = "2020-07-30 open Assets:Test"
         let ledger = try p.parseLedger()
-        XCTAssertEqual(ledger.directives[0].meta["lineno"], .number(0))
+        XCTAssertEqual(ledger.directives[0].meta.lineno, 0)
     }
 
     func testMultiLineno() throws {

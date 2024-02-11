@@ -259,7 +259,7 @@ extension Directive<CostSpec>: Parsable {
             try String(from: $0, content: content)
         }
         var meta: [String: MetaDataValue] = [
-            "lineno": .number(Decimal(node.pointRange.lowerBound.row))
+            "range": .range(node.tsRange)
         ]
         var started = false
         for i in 0..<node.namedChildCount {
@@ -567,7 +567,7 @@ extension Posting<CostSpec>: Parsable {
 
         guard let account else { throw SyntaxError.badNode(node) }
         let meta: [String: MetaDataValue] = [
-            "lineno": .number(Decimal(node.pointRange.lowerBound.row))
+            "range": .range(node.tsRange)
         ]
         self.init(
             account: account,
