@@ -90,16 +90,6 @@ extension Position {
     }
 }
 
-extension Position: CustomStringConvertible {
-    public var description: String {
-        var posStr = units.description
-        if let cost {
-            posStr += " " + cost.description
-        }
-        return posStr
-    }
-}
-
 #if DEBUG
 extension Position: ExpressibleByStringLiteral {
     public init(stringLiteral value: StringLiteralType) {

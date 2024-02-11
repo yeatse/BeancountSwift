@@ -54,12 +54,6 @@ extension Amount: Comparable {
     }
 }
 
-extension Amount: CustomStringConvertible {
-    public var description: String {
-        "\(number.formatted(.number.precision(.fractionLength(2)))) \(currency.id)"
-    }
-}
-
 #if DEBUG
 extension Amount: ExpressibleByStringLiteral {
     public init(stringLiteral value: StringLiteralType) {

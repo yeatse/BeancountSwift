@@ -32,7 +32,7 @@ extension Currency {
     static let missing = Currency(id: "")
 }
 
-public protocol PostingCost: Hashable {}
+public protocol PostingCost: Hashable, CustomStringConvertible {}
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#cost
 public struct Cost: PostingCost {
@@ -57,22 +57,6 @@ extension Cost: Comparable {
         } else {
             return false
         }
-    }
-}
-
-extension Cost: CustomStringConvertible {
-    public var description: String {
-        var strlist: [String] = []
-        if number != .nan {
-            strlist.append(Amount(number: number, currency: currency).description)
-        }
-        if date != .distantPast {
-            strlist.append(date.isoDescription)
-        }
-        if let label {
-            strlist.append("\"\(label)\"")
-        }
-        return strlist.joined(separator: ", ")
     }
 }
 

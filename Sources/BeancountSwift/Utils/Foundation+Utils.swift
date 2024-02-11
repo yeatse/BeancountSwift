@@ -64,6 +64,7 @@ extension Date {
     
     static var isoDateFormatter: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
+        formatter.timeZone = .autoupdatingCurrent
         formatter.formatOptions = [.withFullDate]
         return formatter
     }()
@@ -72,6 +73,20 @@ extension Date {
         return Self.isoDateFormatter.string(from: self)
     }
 }
+
+extension String {
+    var escaped: String {
+        return replacingOccurrences(of: "\\", with: #"\\"#)
+            .replacingOccurrences(of: "\"", with: #"\""#)
+    }
+    
+    func lineAligned(by prefix: String = "    ") -> String {
+        return split(separator: "\n")
+            .map { "\(prefix)\($0)" }
+            .joined(separator: "\n")
+    }
+}
+
 
 #if DEBUG
 extension Date: ExpressibleByStringLiteral {
