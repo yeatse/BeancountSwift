@@ -21,7 +21,7 @@ public struct Account: Identifiable, Equatable, Hashable {
 extension Account {
     static let regex = #/(?:[\p{Lu}][\p{L}\p{Nd}-]*)(?::[\p{Lu}\p{Nd}][\p{L}\p{Nd}-]*)+/#
     
-    var isValid: Bool {
+    public var isValid: Bool {
         try! Account.regex.wholeMatch(in: id) != nil
     }
     
@@ -29,11 +29,11 @@ extension Account {
         .init(id: components.joined(separator: ":"))
     }
     
-    func split() -> [String] {
+    public func split() -> [String] {
         id.split(separator: #/:/#).map { String($0) }
     }
     
-    var parent: Account? {
+    public var parent: Account? {
         let components = id.split(separator: #/:/#)
         if components.count <= 1 {
             return nil
@@ -42,7 +42,7 @@ extension Account {
         }
     }
     
-    func isChild(of account: Account) -> Bool {
+    public func isChild(of account: Account) -> Bool {
         let regex = Regex {
             account.id
             ChoiceOf { Anchor.endOfLine; ":" }
@@ -50,7 +50,7 @@ extension Account {
         return id.contains(regex)
     }
     
-    var leaf: String {
+    public var leaf: String {
         guard let lastSep = id.lastIndex(of: ":") else { return id }
         return String(id[id.index(after: lastSep)...])
     }
