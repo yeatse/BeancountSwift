@@ -22,10 +22,10 @@ extension Balance {
     }
 }
 
-struct BlanceCheckPlugin: BeancountPlugin {
+struct BalanceCheckPlugin: BeancountPlugin {
     static let name = "check"
     
     func process(entries: [Directive<Cost>], options: Options, config: String?) throws -> (entries: [Directive<Cost>], errors: [Error]) {
-        fatalError()
+        return (entries, [])
     }
 }
