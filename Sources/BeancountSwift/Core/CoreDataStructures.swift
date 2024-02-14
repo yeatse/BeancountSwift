@@ -68,6 +68,15 @@ public struct CostSpec: PostingCost {
     public var date: Date?
     public var label: String?
     public var merge: Bool?
+    
+    public init(numberPerUnit: Decimal? = nil, numberTotal: Decimal? = nil, currency: Currency? = nil, date: Date? = nil, label: String? = nil, merge: Bool? = nil) {
+        self.numberPerUnit = numberPerUnit
+        self.numberTotal = numberTotal
+        self.currency = currency
+        self.date = date
+        self.label = label
+        self.merge = merge
+    }
 }
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#posting
@@ -79,10 +88,24 @@ public struct Posting<T: PostingCost>: Hashable {
     public var flag: Character?
     public var meta: [String: MetaDataValue]?
     public var comment: String?
+    
+    public init(account: Account, units: Amount, cost: T? = nil, price: Amount? = nil, flag: Character? = nil, meta: [String : MetaDataValue]? = nil, comment: String? = nil) {
+        self.account = account
+        self.units = units
+        self.cost = cost
+        self.price = price
+        self.flag = flag
+        self.meta = meta
+        self.comment = comment
+    }
 }
 
 public struct Tag: Hashable, Identifiable {
     public var id: String
+    
+    public init(id: String) {
+        self.id = id
+    }
 }
 
 public enum MetaDataValue: Hashable {

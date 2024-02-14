@@ -11,6 +11,10 @@ import RegexBuilder
 /// https://beancount.github.io/docs/beancount_design_doc.html#account
 public struct Account: Identifiable, Equatable, Hashable {
     public var id: String
+    
+    public init(id: String) {
+        self.id = id
+    }
 }
 
 // MARK: relationships

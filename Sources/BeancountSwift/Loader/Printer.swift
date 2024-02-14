@@ -23,7 +23,9 @@ private extension Decimal {
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency
         formatter.currencyCode = currency.id
-        return formatted(.number.precision(.fractionLength(formatter.maximumFractionDigits)))
+        return formatted(.number
+            .precision(.fractionLength(formatter.maximumFractionDigits))
+            .grouping(.never))
     }
 }
 
@@ -125,7 +127,7 @@ extension Posting: CustomStringConvertible {
             }
         }
         if let price {
-            positionStr += " @ \(price.number.formatted(.number)) \(price.currency.description)"
+            positionStr += " @ \(price.number.formatted(.number.grouping(.never))) \(price.currency.description)"
         }
         
         var result = "\(flagStr)\(account.description) \(positionStr) ; \(weightStr)"
@@ -144,7 +146,7 @@ extension MetaDataValue: CustomStringConvertible {
         case .currency(let currency): currency.description
         case .date(let date): date.isoDescription
         case .tag(let tag): tag.id
-        case .number(let decimal): decimal.formatted(.number)
+        case .number(let decimal): decimal.formatted(.number.grouping(.never))
         case .bool(let bool): bool ? "TRUE" : "FALSE"
         case .amount(let amount): amount.description
         case .range: ""
@@ -187,7 +189,7 @@ extension Transaction: DirectivePrintable {
         var lines: [String] = []
         var strings: [String] = [
             date.isoDescription,
-            flag.map(String.init) ?? "",
+            flag.map(String.init) ?? "*",
         ]
         if let payee {
             strings.append("\"\(payee.escaped)\"")
