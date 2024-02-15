@@ -23,7 +23,7 @@ final class PadTests: XCTestCase {
         let ledger = try p.loadLedger()
         XCTAssertTrue(ledger.errors.isEmpty)
         
-        let equal = equalEntries(ledger.directives,
+        assertEqualEntries(ledger.directives,
           """
           2013-05-01 open Assets:Checking
           2013-05-01 open Equity:Opening-Balances
@@ -37,7 +37,6 @@ final class PadTests: XCTestCase {
 
           2013-05-03 balance Assets:Checking                                172.45 USD
           """)
-        XCTAssertTrue(equal)
     }
     
     func testPadToZero() throws {
@@ -58,7 +57,7 @@ final class PadTests: XCTestCase {
         let ledger = try p.loadLedger()
         XCTAssertTrue(ledger.errors.isEmpty)
         
-        let equal = equalEntries(ledger.directives,
+        assertEqualEntries(ledger.directives,
           """
           2013-01-01 open Assets:Checking
           2013-01-01 open Equity:Opening-Balances
@@ -76,7 +75,6 @@ final class PadTests: XCTestCase {
 
           2013-05-03 balance Assets:Checking                                 0.00 USD
           """)
-        XCTAssertTrue(equal)
     }
     
     // TODO: add more tests

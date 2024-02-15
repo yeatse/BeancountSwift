@@ -21,21 +21,17 @@ final class PricesTests: XCTestCase {
                 2013-07-01 price  USD  1.07 CAD
                 """
         let ledger = try p.loadLedger()
-        var equal = equalEntries(ledger.directives.lastPriceEntries(until: "2013-05-01"),
-                                       "2013-04-01 price  USD  1.04 CAD")
-        XCTAssert(equal)
+        assertEqualEntries(ledger.directives.lastPriceEntries(until: "2013-05-01"),
+                           "2013-04-01 price  USD  1.04 CAD")
         
-        equal = equalEntries(ledger.directives.lastPriceEntries(until: "2013-05-02"),
-                                   "2013-05-01 price  USD  1.05 CAD")
-        XCTAssert(equal)
+        assertEqualEntries(ledger.directives.lastPriceEntries(until: "2013-05-02"),
+                           "2013-05-01 price  USD  1.05 CAD")
         
-        equal = equalEntries(ledger.directives.lastPriceEntries(until: "2014-01-01"),
-                                   "2013-07-01 price  USD  1.07 CAD")
-        XCTAssert(equal)
+        assertEqualEntries(ledger.directives.lastPriceEntries(until: "2014-01-01"),
+                           "2013-07-01 price  USD  1.07 CAD")
         
-        equal = equalEntries(ledger.directives.lastPriceEntries(until: "2012-01-01"),
-                                   "")
-        XCTAssert(equal)
+        assertEqualEntries(ledger.directives.lastPriceEntries(until: "2012-01-01"),
+                           "")
     }
     
     func testBuildPriceMap() throws {

@@ -39,6 +39,7 @@ protocol BeancountPlugin {
 
 let allPlugins: [String: BeancountPlugin] = [
     AutoInsertOpenPlugin.name: AutoInsertOpenPlugin(),
+    BalanceCheckPlugin.name: BalanceCheckPlugin(),
     ForecastPlugin.name: ForecastPlugin(),
     PadPlugin.name: PadPlugin()
 ]

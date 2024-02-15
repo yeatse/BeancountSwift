@@ -21,8 +21,8 @@ public struct Loader {
     let booking = Booking()
     let parser = Parser()
     
-    let prologue: [Plugin] = []
-    let epilogue: [Plugin] = [
+    private let prologue: [Plugin] = []
+    private let epilogue: [Plugin] = [
         .init(name: PadPlugin.name, config: nil),
         .init(name: BalanceCheckPlugin.name, config: nil)
     ]

@@ -100,12 +100,12 @@ extension Directive {
     }
 }
 
-func equalEntries<T>(_ lhs: [Directive<T>], _ rhs: [Directive<T>]) -> Bool {
-    return lhs.map({ $0.removingMeta() }) == rhs.map({ $0.removingMeta() })
+func assertEqualEntries<T>(_ lhs: [Directive<T>], _ rhs: [Directive<T>]) {
+    XCTAssertEqual(lhs.map({ $0.removingMeta() }), rhs.map({ $0.removingMeta() }))
 }
 
-func equalEntries(_ lhs: [Directive<Cost>], _ rhs: String) -> Bool {
+func assertEqualEntries(_ lhs: [Directive<Cost>], _ rhs: String) {
     let r = try! ContentProvider(source: rhs).loadLedger()
-    return equalEntries(lhs, r.directives)
+    assertEqualEntries(lhs, r.directives)
 }
 

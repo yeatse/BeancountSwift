@@ -13,52 +13,27 @@ struct AutoInsertOpenPlugin: BeancountPlugin {
     func process(entries: [Directive<Cost>], options: Options, config: String?) throws -> (
         entries: [Directive<Cost>], errors: [Error]
     ) {
-        var newEntries = entries
         let openedAccounts = Set(
             entries.compactMap { entry in
-                if case let .open(open) = entry.content {
-                    open.account
-                } else {
-                    nil
-                }
+                if case .open(let x) = entry.content { x.account } else { nil }
             }
         )
-        var usedAccounts = [Account: Date]()
-        for entry in entries {
-            let accounts: [Account] =
-                switch entry.content {
-                case .open(let x): [x.account]
-                case .close(let x): [x.account]
-                case .commodity(_): []
-                case .pad(let x): [x.account, x.sourceAccount]
-                case .balance(let x): [x.account]
-                case .transaction(let x): x.postings.map(\.account)
-                case .note(let x): [x.account]
-                case .event: []
-                case .query: []
-                case .price: []
-                case .document: []
-                case .custom: []
-                }
-            for account in accounts {
-                if let date = usedAccounts[account], entry.date >= date {
-                    continue
-                }
-                usedAccounts[account] = entry.date
+        var newEntries: [Directive<Cost>] = []
+        let usedAccounts = entries.gatherAccountUsage().sorted { $0.key.id < $1.key.id }
+        for (index, (account, range)) in usedAccounts.enumerated() {
+            if openedAccounts.contains(account) {
+                continue
             }
+            newEntries.append(.init(
+                meta: ["<auto_accounts>": .number(.init(index))],
+                date: range.lowerBound,
+                content: .open(.init(account: account, currencies: [], booking: nil))
+            ))
         }
-        for (account, date) in usedAccounts {
-            if !openedAccounts.contains(account) {
-                newEntries.insert(
-                    .init(
-                        meta: ["<auto_accounts>": .bool(true)],
-                        date: date,
-                        content: .open(.init(account: account, currencies: [], booking: nil))
-                    ),
-                    at: 0
-                )
-            }
+        if newEntries.isEmpty {
+            return (entries, [])
+        } else {
+            return ((newEntries + entries).sorted(), [])
         }
-        return (newEntries.sorted(), [])
     }
 }
