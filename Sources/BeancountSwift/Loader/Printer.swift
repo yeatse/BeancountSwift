@@ -23,9 +23,17 @@ private extension Decimal {
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency
         formatter.currencyCode = currency.id
-        return formatted(.number
-            .precision(.fractionLength(formatter.maximumFractionDigits))
+        let fractionLength = formatter.minimumFractionDigits
+        
+        let result1 = formatted(.number.grouping(.never))
+        let result2 = formatted(.number
+            .precision(.fractionLength(fractionLength))
             .grouping(.never))
+        if result1.count < result2.count {
+            return result2
+        } else {
+            return result1
+        }
     }
 }
 

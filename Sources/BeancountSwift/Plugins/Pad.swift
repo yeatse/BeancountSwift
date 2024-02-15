@@ -21,25 +21,20 @@ struct PadPlugin: BeancountPlugin {
     func process(entries: [Directive<Cost>], options: Options, config: String?) throws -> (entries: [Directive<Cost>], errors: [Error]) {
         var padErrors: [Error] = []
         
-        struct EntryPad {
-            let entry: Directive<Cost>
-            let pad: Pad
-        }
-        
         let pads = entries.compactMap { entry in
             if case .pad(let pad) = entry.content {
-                return EntryPad(entry: entry, pad: pad)
+                return DirectiveValue(entry, pad)
             } else {
                 return nil
             }
         }
-        let padDict = pads.grouped(by: \.pad.account)
+        let padDict = pads.grouped(by: \.content.account)
         let byAccount = realization.groupPostingsByAccount(entries)
         var newEntries: [UInt32: [Directive<Cost>]] = [:]
         
         // FIXME: padDict should be sorted by account
         for (account, _) in padDict {
-            var activePad: EntryPad? = nil
+            var activePad: DirectiveValue<Cost, Pad>? = nil
             var postings: [TxnPostingsType] = []
             for (itemAccount, itemPostings) in byAccount {
                 if itemAccount.isChild(of: account) {
@@ -59,7 +54,7 @@ struct PadPlugin: BeancountPlugin {
                         switch directive.content {
                             case .pad(let pad):
                                 if pad.account == account {
-                                    activePad = EntryPad(entry: directive, pad: pad)
+                                    activePad = DirectiveValue(directive, pad)
                                     paddedLots = []
                                 }
                             case .balance(let balance):
@@ -72,7 +67,7 @@ struct PadPlugin: BeancountPlugin {
                                         let positions = padBalance.positions.filter { $0.units.currency == checkAmount.currency }
                                         for position in positions {
                                             if position.cost != nil {
-                                                padErrors.append(PadError.padWithCost(pad: activePad.entry))
+                                                padErrors.append(PadError.padWithCost(pad: activePad.directive))
                                             }
                                         }
                                         let diffPosition = Position(units: Amount(number: checkAmount.number - balanceAmount.number, currency: checkAmount.currency))
@@ -85,17 +80,17 @@ struct PadPlugin: BeancountPlugin {
                                                                       tags: [],
                                                                       links: [],
                                                                       postings: [
-                                                                        Posting(account: activePad.pad.account,
+                                                                        Posting(account: activePad.content.account,
                                                                                 units: diffPosition.units,
                                                                                 cost: diffPosition.cost),
-                                                                        Posting(account: activePad.pad.sourceAccount,
+                                                                        Posting(account: activePad.content.sourceAccount,
                                                                                 units: negDiffPosition.units,
                                                                                 cost: negDiffPosition.cost)
                                                                       ])
-                                        let newEntry = Directive(meta: activePad.entry.meta,
-                                                                 date: activePad.entry.date,
+                                        let newEntry = Directive(meta: activePad.directive.meta,
+                                                                 date: activePad.directive.date,
                                                                  content: .transaction(transaction))
-                                        if let lineno = activePad.entry.meta.lineno {
+                                        if let lineno = activePad.directive.meta.lineno {
                                             newEntries[lineno, default: []].append(newEntry)
                                         }
                                         let (pos, _) = padBalance.addPosition(diffPosition)

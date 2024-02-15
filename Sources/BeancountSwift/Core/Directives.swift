@@ -37,6 +37,16 @@ public enum DirectiveContent<T: PostingCost>: Hashable {
     case custom(Custom)
 }
 
+public struct DirectiveValue<T: PostingCost, Content> {
+    public let directive: Directive<T>
+    public let content: Content
+    
+    public init(_ directive: Directive<T>, _ content: Content) {
+        self.directive = directive
+        self.content = content
+    }
+}
+
 /// https://beancount.github.io/docs/beancount_language_syntax.html#open
 public struct Open: Hashable {
     public let account: Account

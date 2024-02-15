@@ -123,7 +123,7 @@ struct BalanceIterator: IteratorProtocol {
 public class RealAccount {
     fileprivate(set) public var account: Account
     fileprivate(set) public var txnPostings: [TxnPostingsType]
-    fileprivate(set) public var balance: Inventory
+    public var balance: Inventory
 
     private var children = [String: RealAccount]()
 

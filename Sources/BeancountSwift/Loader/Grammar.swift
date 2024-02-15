@@ -135,9 +135,9 @@ extension Amount: Parsable {
 }
 
 struct AmountTolerance {
-    public let base: Decimal
-    public let tolerance: Decimal
-    public let currency: Currency
+    let base: Decimal
+    let tolerance: Decimal?
+    let currency: Currency
 }
 
 extension AmountTolerance: Parsable {
@@ -153,7 +153,7 @@ extension AmountTolerance: Parsable {
             let number = try Decimal(from: numberNode, content: content)
             self.init(
                 base: number,
-                tolerance: number.leastSignificantDigit,
+                tolerance: nil,
                 currency: try Currency(from: currency, content: content)
             )
         case 4:

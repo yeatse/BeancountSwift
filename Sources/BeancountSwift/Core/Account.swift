@@ -191,53 +191,6 @@ public struct AccountTypeConfiguration {
     )
 }
 
-extension Array {
-    func gatherAccountUsage<T>() -> [Account: ClosedRange<Date>] where Element == Directive<T> {
-        var result: [Account: ClosedRange<Date>] = [:]
-        func book(account: Account, date: Date) {
-            if let range = result[account] {
-                let lower = date < range.lowerBound ? date : range.lowerBound
-                let upper = date > range.upperBound ? date : range.upperBound
-                result[account] = lower...upper
-            } else {
-                result[account] = date...date
-            }
-        }
-        for directive in self {
-            switch directive.content {
-            case .open(let x):
-                book(account: x.account, date: directive.date)
-            case .close(let x):
-                book(account: x.account, date: directive.date)
-            case .commodity(_):
-                break
-            case .pad(let x):
-                book(account: x.account, date: directive.date)
-                book(account: x.sourceAccount, date: directive.date)
-            case .balance(let x):
-                book(account: x.account, date: directive.date)
-            case .transaction(let x):
-                x.postings.forEach { posting in
-                    book(account: posting.account, date: directive.date)
-                }
-            case .note(let x):
-                book(account: x.account, date: directive.date)
-            case .event(_):
-                break
-            case .query(_):
-                break
-            case .price(_):
-                break
-            case .document(let x):
-                book(account: x.account, date: directive.date)
-            case .custom(_):
-                break
-            }
-        }
-        return result
-    }
-}
-
 #if DEBUG
 extension Account: ExpressibleByStringLiteral {
     public init(stringLiteral value: StringLiteralType) {
