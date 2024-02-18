@@ -7,7 +7,7 @@
 
 import Foundation
 
-extension Array {
+extension RandomAccessCollection {
     func gatherAccountUsage<T>() -> [Account: ClosedRange<Date>] where Element == Directive<T> {
         var result: [Account: ClosedRange<Date>] = [:]
         func book(account: Account, date: Date) {

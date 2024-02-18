@@ -37,7 +37,7 @@ public enum DirectiveContent<T: PostingCost>: Hashable {
     case custom(Custom)
 }
 
-public struct DirectiveValue<T: PostingCost, Content> {
+public struct DirectiveValue<T: PostingCost, Content>: Hashable where Content: Hashable {
     public let directive: Directive<T>
     public let content: Content
     

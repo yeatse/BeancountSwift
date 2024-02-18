@@ -199,8 +199,8 @@ extension PriceMap {
     }
 }
 
-extension Array<Directive<Cost>> {
-    public func lastPriceEntries(until date: Date? = nil) -> [Directive<Cost>] {
+extension RandomAccessCollection<Directive<Cost>> {
+    public func lastPriceEntries(until date: Date? = nil) -> some RandomAccessCollection<Directive<Cost>> {
         var priceEntryMap: [CurrencyPair: Directive<Cost>] = [:]
         for entry in self {
             if let date, entry.date >= date {
