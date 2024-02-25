@@ -83,22 +83,22 @@ extension Account {
             guard let firstArray = arrays.first, !firstArray.isEmpty else {
                 return []
             }
-
+            
             var prefix: [T] = []
-
+            
             for i in 0..<firstArray.count {
                 let element = firstArray[i]
-
+                
                 // Check if all arrays contain this element at the current index
                 for array in arrays {
                     if i >= array.count || array[i] != element {
                         return prefix
                     }
                 }
-
+                
                 prefix.append(element)
             }
-
+            
             return prefix
         }
         

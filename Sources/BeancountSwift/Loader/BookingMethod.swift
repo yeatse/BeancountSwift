@@ -12,24 +12,24 @@ import Foundation
 public enum BookingMethod: String {
     /// Reject ambiguous matches with an error.
     case STRICT
-
+    
     /// Strict booking method, but disambiguate further with sizes. Reject
     /// ambiguous matches with an error but if a lot matches the size exactly,
     /// accept it the oldest.
     case STRICT_WITH_SIZE
-
+    
     /// Disable matching and accept the creation of mixed inventories.
     case NONE
-
+    
     /// Average cost booking: merge all matching lots before and after.
     case AVERAGE
-
+    
     /// First-in first-out in the case of ambiguity.
     case FIFO
-
+    
     /// Last-in first-out in the case of ambiguity.
     case LIFO
-
+    
     /// Highest-in first-out in the case of ambiguity.
     case HIFO
 }
@@ -37,13 +37,13 @@ public enum BookingMethod: String {
 extension BookingMethod {
     var impl: BookingMethodImpl {
         switch self {
-        case .STRICT: strictBooking
-        case .STRICT_WITH_SIZE: fatalError()
-        case .NONE: fatalError()
-        case .AVERAGE: fatalError()
-        case .FIFO: fatalError()
-        case .LIFO: fatalError()
-        case .HIFO: fatalError()
+            case .STRICT: strictBooking
+            case .STRICT_WITH_SIZE: fatalError()
+            case .NONE: fatalError()
+            case .AVERAGE: fatalError()
+            case .FIFO: fatalError()
+            case .LIFO: fatalError()
+            case .HIFO: fatalError()
         }
     }
 }
@@ -67,7 +67,7 @@ extension Booking {
 struct BookingMethodStore {
     var mappings: [Account: BookingMethod]
     var defaultMethod: BookingMethod
-
+    
     subscript(account: Account) -> BookingMethod {
         mappings[account, default: defaultMethod]
     }
@@ -88,7 +88,7 @@ let strictBooking: BookingMethodImpl = { entry, posting, matches in
     var bookedMatches = [Position]()
     var errors = [Error]()
     var insufficient = false
-
+    
     if matches.count > 1 {
         let sumMatches = matches.reduce(Decimal(0)) { val, pos in
             val + pos.units.number
@@ -113,7 +113,7 @@ let strictBooking: BookingMethodImpl = { entry, posting, matches in
         let sign: Decimal = posting.units.number < 0 ? -1 : 1
         let number = min(abs(match.units.number), abs(posting.units.number))
         let matchUnits = Amount(number: number * sign, currency: match.units.currency)
-
+        
         var posting = Posting(
             account: posting.account,
             units: matchUnits,
@@ -127,6 +127,6 @@ let strictBooking: BookingMethodImpl = { entry, posting, matches in
         bookedMatches.append(match)
         insufficient = matchUnits.number != posting.units.number
     }
-
+    
     return (bookedReductions, bookedMatches, errors, insufficient)
 }

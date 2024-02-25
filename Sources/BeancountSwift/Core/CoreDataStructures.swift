@@ -124,7 +124,7 @@ extension Dictionary where Key == String, Value == MetaDataValue {
     public var lineno: UInt32? {
         return range?.points.lowerBound.row
     }
-
+    
     public var filename: String? {
         if case .string(let val) = self["filename"] {
             return val

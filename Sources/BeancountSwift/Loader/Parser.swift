@@ -20,11 +20,11 @@ enum ParserError: Error {
 extension DirectiveContent {
     var sortOrder: Int {
         switch self {
-        case .open(_): -2
-        case .balance(_): -1
-        case .document(_): 1
-        case .close(_): 2
-        default: 0
+            case .open(_): -2
+            case .balance(_): -1
+            case .document(_): 1
+            case .close(_): 2
+            default: 0
         }
     }
 }
@@ -56,7 +56,7 @@ extension Posting<CostSpec> {
             return true
         }
         if let cost,
-            cost.numberPerUnit == .nan || cost.numberTotal == .nan || cost.currency == .missing
+           cost.numberPerUnit == .nan || cost.numberTotal == .nan || cost.currency == .missing
         {
             return true
         }

@@ -10,15 +10,15 @@ import Foundation
 /// https://beancount.github.io/docs/beancount_design_doc.html#inventory
 public struct Inventory {
     fileprivate var cache: [PositionKey: Position] = [:]
-
+    
     init(positions: [Position] = []) {
         positions.forEach { addPosition($0) }
     }
-
+    
     struct PositionKey: Equatable, Hashable, Comparable {
         let currency: Currency
         let cost: Cost?
-
+        
         static func < (lhs: Inventory.PositionKey, rhs: Inventory.PositionKey) -> Bool {
             if lhs.currency != rhs.currency {
                 return lhs.currency < rhs.currency
@@ -31,7 +31,7 @@ public struct Inventory {
             }
         }
     }
-
+    
     enum MatchResult {
         case created
         case reduced
@@ -44,34 +44,34 @@ extension Inventory {
     var isEmpty: Bool {
         positions.isEmpty
     }
-
-    var positions: any Collection<Position> {
+    
+    var positions: some RandomAccessCollection<Position> {
         cache.sorted { $0.key < $1.key }.map(\.value)
     }
-
+    
     var currencies: Set<Currency> {
         Set(cache.keys.map(\.currency))
     }
-
+    
     var costCurrencies: Set<Currency> {
         Set(cache.keys.compactMap(\.cost?.currency))
     }
-
+    
     var currencyPairs: Set<Position.CurrencyPair> {
         Set(cache.values.map(\.currencyPair))
     }
-
+    
     var onlyPosition: Position? {
         return positions.first
     }
-
+    
     public func getCurrencyUnits(in currency: Currency) -> Amount {
         let totalUnits = positions
             .filter { $0.units.currency == currency }
             .reduce(0) { $0 + $1.units.number }
         return Amount(number: totalUnits, currency: currency)
     }
-
+    
     func segregateUnits(by currencies: [Currency]) -> [Currency?: Inventory] {
         var perCurrencyDict = [Currency?: Inventory]()
         for currency in currencies {
@@ -85,7 +85,7 @@ extension Inventory {
         }
         return perCurrencyDict
     }
-
+    
     func split() -> [Currency: Inventory] {
         var perCurrencyDict = [Currency: Inventory]()
         for position in positions {
@@ -94,7 +94,7 @@ extension Inventory {
         }
         return perCurrencyDict
     }
-
+    
     func isSmall(tolerances: [Currency: Decimal]) -> Bool {
         for position in positions {
             let tolerance = tolerances[position.units.currency, default: .zero]
@@ -104,7 +104,7 @@ extension Inventory {
         }
         return true
     }
-
+    
     func isSmall(tolerance: Decimal) -> Bool {
         for position in positions {
             if abs(position.units.number) > tolerance {
@@ -113,14 +113,14 @@ extension Inventory {
         }
         return true
     }
-
+    
     func isMixed() -> Bool {
         var currencySigns: [Currency: Bool] = [:]
-
+        
         for position in positions {
             let currency = position.units.currency
             let sign = position.units.number >= 0
-
+            
             if let prevSign = currencySigns[currency] {
                 if sign != prevSign {
                     return true
@@ -129,10 +129,10 @@ extension Inventory {
                 currencySigns[currency] = sign
             }
         }
-
+        
         return false
     }
-
+    
     public func reduce(by reducer: (Position) -> Amount) -> Inventory {
         var inventory = Inventory()
         for position in positions {
@@ -140,22 +140,22 @@ extension Inventory {
         }
         return inventory
     }
-
+    
     func isReducedBy(_ ramount: Amount) -> Bool {
         if ramount.number == .zero {
             return false
         }
-
+        
         for position in positions {
             let units = position.units
             if ramount.currency == units.currency && ramount.number.sign != units.number.sign {
                 return true
             }
         }
-
+        
         return false
     }
-
+    
     @discardableResult
     mutating func addAmount(_ units: Amount, cost: Cost? = nil) -> (Position?, MatchResult) {
         let key = PositionKey(currency: units.currency, cost: cost)
@@ -166,7 +166,7 @@ extension Inventory {
             } else {
                 booking = .augmented
             }
-
+            
             let number = pos.units.number + units.number
             if number == .zero {
                 cache.removeValue(forKey: key)
@@ -187,18 +187,18 @@ extension Inventory {
             return (nil, booking)
         }
     }
-
+    
     // Add a position to the inventory
     @discardableResult
     mutating func addPosition(_ position: Position) -> (Position?, MatchResult) {
         return addAmount(position.units, cost: position.cost)
     }
-
+    
     @discardableResult
     mutating func addPosition(_ position: Posting<Cost>) -> (Position?, MatchResult) {
         return addAmount(position.units, cost: position.cost)
     }
-
+    
     mutating func addInventory(_ inventory: Inventory) {
         if isEmpty {
             cache = inventory.cache
@@ -220,17 +220,17 @@ extension Inventory: Equatable, Comparable {
             i += 1
         }
     }
-
+    
     public static func == (lhs: Inventory, rhs: Inventory) -> Bool {
         return lhs.cache == rhs.cache
     }
-
+    
     static func + (lhs: Inventory, rhs: Inventory) -> Inventory {
         var ret = lhs
         ret.addInventory(rhs)
         return ret
     }
-
+    
     prefix static func - (inventory: Inventory) -> Inventory {
         var negatedInventory = Inventory()
         for position in inventory.positions {
@@ -240,7 +240,7 @@ extension Inventory: Equatable, Comparable {
         }
         return negatedInventory
     }
-
+    
     static func * (lhs: Inventory, rhs: Decimal) -> Inventory {
         var multipliedInventory = Inventory()
         for position in lhs.positions {
@@ -253,7 +253,7 @@ extension Inventory: Equatable, Comparable {
         }
         return multipliedInventory
     }
-
+    
     // Absolute value
     var absolute: Inventory {
         var absInventory = Inventory()
@@ -267,13 +267,13 @@ extension Inventory: Equatable, Comparable {
         }
         return absInventory
     }
-
+    
     var average: Inventory {
         struct GroupKey: Hashable {
             let currency: Currency
             let costCurrency: Currency?
         }
-
+        
         var groups = [GroupKey: [Position]]()
         for position in positions {
             let key = GroupKey(
@@ -291,13 +291,13 @@ extension Inventory: Equatable, Comparable {
             if let costCurrency = key.costCurrency {
                 let totalCost: Decimal = positions.reduce(0) { $0 + $1.totalCost.number }
                 let costNumber: Decimal =
-                    totalUnits == .zero ? .greatestFiniteMagnitude : totalCost / totalUnits
+                totalUnits == .zero ? .greatestFiniteMagnitude : totalCost / totalUnits
                 let minDate: Date =
-                    positions.reduce(nil) { result, pos in
-                        guard let posDate = pos.cost?.date else { return result }
-                        guard let result else { return posDate }
-                        return min(result, posDate)
-                    } ?? .distantPast
+                positions.reduce(nil) { result, pos in
+                    guard let posDate = pos.cost?.date else { return result }
+                    guard let result else { return posDate }
+                    return min(result, posDate)
+                } ?? .distantPast
                 cost = Cost(number: costNumber, currency: costCurrency, date: minDate)
             } else {
                 cost = nil

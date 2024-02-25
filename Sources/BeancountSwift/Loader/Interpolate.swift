@@ -24,16 +24,16 @@ struct Interpolate {
         let mapping: [Currency: Decimal]
         let `default`: Decimal
     }
-
+    
     static let automaticResidual = "__residual__"
     static let automaticMeta = "__automatic__"
-
+    
     func inferTolerances<T: PostingCost>(postings: [Posting<T>], options: [String: Option])
-        -> ToleranceMapping
+    -> ToleranceMapping
     {
         return .init(mapping: [:], default: .zero)
     }
-
+    
     func computeResidual(postings: [Booking.BookedPosting]) -> Inventory {
         var inventory = Inventory()
         for posting in postings {

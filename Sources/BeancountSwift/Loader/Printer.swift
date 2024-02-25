@@ -149,15 +149,15 @@ extension Posting: CustomStringConvertible {
 extension MetaDataValue: CustomStringConvertible {
     public var description: String {
         switch self {
-        case .string(let string): "\"\(string.escaped)\""
-        case .account(let account): account.description
-        case .currency(let currency): currency.description
-        case .date(let date): date.isoDescription
-        case .tag(let tag): tag.id
-        case .number(let decimal): decimal.formatted(.number.grouping(.never))
-        case .bool(let bool): bool ? "TRUE" : "FALSE"
-        case .amount(let amount): amount.description
-        case .range: ""
+            case .string(let string): "\"\(string.escaped)\""
+            case .account(let account): account.description
+            case .currency(let currency): currency.description
+            case .date(let date): date.isoDescription
+            case .tag(let tag): tag.id
+            case .number(let decimal): decimal.formatted(.number.grouping(.never))
+            case .bool(let bool): bool ? "TRUE" : "FALSE"
+            case .amount(let amount): amount.description
+            case .range: ""
         }
     }
 }
@@ -182,8 +182,8 @@ private extension Dictionary where Key == String, Value == MetaDataValue {
 extension Directive: CustomStringConvertible {
     public var description: String {
         switch content {
-        case .transaction(let txn): txn.print(date: date, meta: meta)
-        default: ""
+            case .transaction(let txn): txn.print(date: date, meta: meta)
+            default: ""
         }
     }
 }

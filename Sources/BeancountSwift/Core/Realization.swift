@@ -25,7 +25,7 @@ extension [TxnPostingsType] {
     fileprivate mutating func append(_ directive: Directive<Cost>) {
         append(.directive(directive))
     }
-
+    
     fileprivate mutating func append(_ txnPosting: TxnPosting) {
         append(.txnPosting(txnPosting))
     }
@@ -34,15 +34,15 @@ extension [TxnPostingsType] {
 extension TxnPostingsType: Comparable {
     public static func < (lhs: TxnPostingsType, rhs: TxnPostingsType) -> Bool {
         let dl =
-            switch lhs {
+        switch lhs {
             case .directive(let directive): directive
             case .txnPosting(let txnPosting): txnPosting.entry
-            }
+        }
         let dr =
-            switch rhs {
+        switch rhs {
             case .directive(let directive): directive
             case .txnPosting(let txnPosting): txnPosting.entry
-            }
+        }
         return dl < dr
     }
 }
@@ -56,20 +56,20 @@ struct BalanceIterationResult {
 
 struct BalanceIterator: IteratorProtocol {
     var txnPostings: [TxnPostingsType]
-
+    
     var index = 0
     var runningBalance = Inventory()
-
+    
     struct DateEntryItem {
         var entry: Directive<Cost>
         var postings: [Posting<Cost>]
     }
-
+    
     var prevDate: Date?
     var prevDateItems = [DateEntryItem]()
     var prevDateChange = Inventory()
     var dateChanged = false
-
+    
     mutating func next() -> BalanceIterationResult? {
         if dateChanged && !prevDateItems.isEmpty {
             let item = prevDateItems.removeFirst()
@@ -84,23 +84,23 @@ struct BalanceIterator: IteratorProtocol {
                 balance: runningBalance)
         }
         dateChanged = false
-
+        
         guard index < txnPostings.count else {
             return nil
         }
-
+        
         let txnPosting = txnPostings[index]
         index += 1
-
+        
         let posting: Posting<Cost>?
         let entry: Directive<Cost>
         switch txnPosting {
-        case .directive(let directive):
-            posting = nil
-            entry = directive
-        case .txnPosting(let txnPosting):
-            posting = txnPosting.posting
-            entry = txnPosting.entry
+            case .directive(let directive):
+                posting = nil
+                entry = directive
+            case .txnPosting(let txnPosting):
+                posting = txnPosting.posting
+                entry = txnPosting.entry
         }
         if let posting {
             if let index = prevDateItems.firstIndex(where: { $0.entry == entry }) {
@@ -124,15 +124,15 @@ public class RealAccount {
     fileprivate(set) public var account: Account
     fileprivate(set) public var txnPostings: [TxnPostingsType]
     public var balance: Inventory
-
+    
     private var children = [String: RealAccount]()
-
+    
     init(account: Account) {
         self.account = account
         self.txnPostings = []
         self.balance = Inventory()
     }
-
+    
     public private(set) subscript(key: String) -> RealAccount? {
         get {
             children[key]
@@ -155,7 +155,7 @@ extension RealAccount {
         }
         return current
     }
-
+    
     func ensureSubaccount(with name: String) -> RealAccount {
         var path = [String]()
         var current = self
@@ -171,29 +171,29 @@ extension RealAccount {
         }
         return current
     }
-
+    
     func contains(_ name: String) -> Bool {
         children.keys.contains(name)
     }
-
+    
     func filtered(with predicate: (RealAccount) -> Bool) -> RealAccount? {
         let realCopy = RealAccount(account: account)
         realCopy.balance = balance
         realCopy.txnPostings = txnPostings
-
+        
         for (name, child) in children {
             if let childCopy = child.filtered(with: predicate) {
                 realCopy[name] = childCopy
             }
         }
-
+        
         if !realCopy.children.isEmpty || predicate(self) {
             return realCopy
         } else {
             return nil
         }
     }
-
+    
     func childAccounts(leafOnly: Bool = false) -> any Sequence<RealAccount> {
         AnySequence {
             var stack: [RealAccount] = [self]
@@ -210,11 +210,11 @@ extension RealAccount {
             }
         }.lazy
     }
-
+    
     public var postings: [TxnPostingsType] {
         childAccounts().flatMap(\.txnPostings).sorted()
     }
-
+    
     public func computeBalance(leafOnly: Bool = false) -> Inventory {
         childAccounts(leafOnly: leafOnly).map(\.balance).reduce(Inventory(), +)
     }
@@ -233,42 +233,42 @@ public struct Realization {
         }
         return realRoot
     }
-
+    
     func groupPostingsByAccount(_ entries: [Directive<Cost>]) -> [Account: [TxnPostingsType]] {
         var txnPostingsMap = [Account: [TxnPostingsType]]()
         for entry in entries {
             switch entry.content {
-            case .transaction(let transaction):
-                for posting in transaction.postings {
-                    let item = TxnPosting(entry: entry, txn: transaction, posting: posting)
-                    txnPostingsMap[posting.account, default: []].append(item)
-                }
-            case .open(let open):
-                txnPostingsMap[open.account, default: []].append(entry)
-            case .close(let close):
-                txnPostingsMap[close.account, default: []].append(entry)
-            case .pad(let pad):
-                txnPostingsMap[pad.account, default: []].append(entry)
-                txnPostingsMap[pad.sourceAccount, default: []].append(entry)
-            case .balance(let balance):
-                txnPostingsMap[balance.account, default: []].append(entry)
-            case .note(let note):
-                txnPostingsMap[note.account, default: []].append(entry)
-            case .document(let document):
-                txnPostingsMap[document.account, default: []].append(entry)
-            case .custom(let custom):
-                for customValue in custom.values {
-                    if case .account(let account) = customValue {
-                        txnPostingsMap[account, default: []].append(entry)
+                case .transaction(let transaction):
+                    for posting in transaction.postings {
+                        let item = TxnPosting(entry: entry, txn: transaction, posting: posting)
+                        txnPostingsMap[posting.account, default: []].append(item)
                     }
-                }
-            case .commodity(_), .event(_), .query(_), .price(_):
-                break
+                case .open(let open):
+                    txnPostingsMap[open.account, default: []].append(entry)
+                case .close(let close):
+                    txnPostingsMap[close.account, default: []].append(entry)
+                case .pad(let pad):
+                    txnPostingsMap[pad.account, default: []].append(entry)
+                    txnPostingsMap[pad.sourceAccount, default: []].append(entry)
+                case .balance(let balance):
+                    txnPostingsMap[balance.account, default: []].append(entry)
+                case .note(let note):
+                    txnPostingsMap[note.account, default: []].append(entry)
+                case .document(let document):
+                    txnPostingsMap[document.account, default: []].append(entry)
+                case .custom(let custom):
+                    for customValue in custom.values {
+                        if case .account(let account) = customValue {
+                            txnPostingsMap[account, default: []].append(entry)
+                        }
+                    }
+                case .commodity(_), .event(_), .query(_), .price(_):
+                    break
             }
         }
         return txnPostingsMap
     }
-
+    
     func computeBalance(in postings: [TxnPostingsType]) -> Inventory {
         var balance = Inventory()
         for posting in postings {
@@ -278,7 +278,7 @@ public struct Realization {
         }
         return balance
     }
-
+    
     func balanceChanges(in postings: [TxnPostingsType]) -> any Sequence<BalanceIterationResult> {
         AnySequence {
             BalanceIterator(txnPostings: postings)

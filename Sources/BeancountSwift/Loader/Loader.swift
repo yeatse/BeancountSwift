@@ -40,22 +40,22 @@ public struct Loader {
         result.directives.sort()
         return result
     }
-
+    
     func validate(ledger: ParsedLedger<Cost>) -> ParsedLedger<Cost> {
         // TODO: validate
         return ledger
     }
-
+    
     public func load(file: String, contentProvider: ContentProviding) throws -> ParsedLedger<Cost> {
         // parsing
         let parsedResult = try parser.parse(file: file, contentProvider: contentProvider)
-
+        
         // booking
         let bookedLedger = booking.book(ledger: parsedResult)
-
+        
         // transforming
         let transformedLedger = transform(ledger: bookedLedger)
-
+        
         // validation
         return validate(ledger: transformedLedger)
     }

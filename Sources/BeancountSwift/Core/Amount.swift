@@ -1,6 +1,6 @@
 //
 //  Amount.swift
-//  
+//
 //
 //  Created by Yeatse on 2024/1/28.
 //
@@ -11,7 +11,7 @@ import Foundation
 public struct Amount: Equatable, Hashable {
     public var number: Decimal
     public var currency: Currency
-
+    
     static let missing = Amount(number: .nan, currency: .missing)
     
     public init(number: Decimal, currency: Currency) {
@@ -28,11 +28,11 @@ extension Amount: Comparable {
             return lhs.number < rhs.number
         }
     }
-
+    
     public static prefix func - (amount: Amount) -> Amount {
         Amount(number: -amount.number, currency: amount.currency)
     }
-
+    
     var absolute: Amount {
         if number >= .zero {
             self
@@ -40,7 +40,7 @@ extension Amount: Comparable {
             Amount(number: -number, currency: currency)
         }
     }
-
+    
     public static func * (lhs: Amount, rhs: Decimal) -> Amount {
         Amount(number: lhs.number * rhs, currency: lhs.currency)
     }

@@ -41,7 +41,7 @@ extension Position {
         let unit: Currency
         let cost: Currency?
     }
-
+    
     var currencyPair: CurrencyPair {
         return CurrencyPair(unit: units.currency, cost: cost?.currency)
     }
@@ -51,7 +51,7 @@ extension Position: Comparable {
     private var orderUnits: Int {
         currencyOrder[units.currency, default: currencyOrder.count + units.currency.id.count]
     }
-
+    
     public static func < (lhs: Position, rhs: Position) -> Bool {
         let lou = lhs.orderUnits
         let rou = rhs.orderUnits
@@ -76,15 +76,15 @@ extension Position {
     static prefix func - (position: Position) -> Position {
         Position(units: -position.units, cost: position.cost)
     }
-
+    
     var absolute: Position {
         Position(units: units.absolute, cost: cost)
     }
-
+    
     static func * (lhs: Position, rhs: Decimal) -> Position {
         Position(units: lhs.units * rhs, cost: lhs.cost)
     }
-
+    
     var isNegativeAtCost: Bool {
         units.number < .zero && cost != nil
     }
