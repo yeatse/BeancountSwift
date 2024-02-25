@@ -100,11 +100,11 @@ extension Directive {
     }
 }
 
-func assertEqualEntries<T>(_ lhs: [Directive<T>], _ rhs: [Directive<T>]) {
+func assertEqualEntries<T>(_ lhs: some RandomAccessCollection<Directive<T>>, _ rhs: [Directive<T>]) {
     XCTAssertEqual(lhs.map({ $0.removingMeta() }), rhs.map({ $0.removingMeta() }))
 }
 
-func assertEqualEntries(_ lhs: [Directive<Cost>], _ rhs: String) {
+func assertEqualEntries(_ lhs: some RandomAccessCollection<Directive<Cost>>, _ rhs: String) {
     let r = try! ContentProvider(source: rhs).loadLedger()
     assertEqualEntries(lhs, r.directives)
 }

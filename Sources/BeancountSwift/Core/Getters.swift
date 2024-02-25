@@ -88,3 +88,29 @@ extension RandomAccessCollection {
         return openClose
     }
 }
+
+extension Directive {
+    func usedAccounts() -> Set<Account> {
+        var result = Set<Account>()
+        switch content {
+            case .transaction(let txn):
+                txn.postings.map(\.account).forEach { result.insert($0) }
+            case .pad(let pad):
+                result.insert(pad.account)
+                result.insert(pad.sourceAccount)
+            case .open(let open):
+                result.insert(open.account)
+            case .close(let close):
+                result.insert(close.account)
+            case .balance(let balance):
+                result.insert(balance.account)
+            case .note(let note):
+                result.insert(note.account)
+            case .document(let document):
+                result.insert(document.account)
+            default:
+                break
+        }
+        return result
+    }
+}
