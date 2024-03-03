@@ -55,21 +55,21 @@ extension Account {
         return String(id[id.index(after: lastSep)...])
     }
     
-    var sansRoot: String {
+    public var sansRoot: String {
         guard let firstSep = id.firstIndex(of: ":") else { return "" }
         return String(id[id.index(after: firstSep)...])
     }
     
-    func root(_ components: Int) -> String {
+    public func root(_ components: Int) -> String {
         return id.split(separator: #/:/#).prefix(components).joined(separator: ":")
     }
     
-    var root: String {
+    public var root: String {
         guard let sepIndex = id.firstIndex(of: ":") else { return id }
         return String(id[..<sepIndex])
     }
     
-    func hasComponent(_ component: String) -> Bool {
+    public func hasComponent(_ component: String) -> Bool {
         let regex = Regex {
             ChoiceOf { Anchor.startOfLine; ":" }
             component
@@ -78,7 +78,7 @@ extension Account {
         return id.contains(regex)
     }
     
-    static func commonPrefix(in accounts: [Account]) -> String {
+    public static func commonPrefix(in accounts: [Account]) -> String {
         func commonPrefix<T: Equatable>(of arrays: [[T]]) -> [T] {
             guard let firstArray = arrays.first, !firstArray.isEmpty else {
                 return []
@@ -121,11 +121,11 @@ extension Account {
         }
     }
     
-    var isRoot: Bool {
+    public var isRoot: Bool {
         return try! #/[A-Z][A-Za-z0-9\\-]+/#.wholeMatch(in: id) != nil
     }
     
-    func isBalanceSheet(config: AccountTypeConfiguration) -> Bool {
+    public func isBalanceSheet(config: AccountTypeConfiguration) -> Bool {
         return switch root {
             case config.assets: true
             case config.liabilities: true
@@ -134,7 +134,7 @@ extension Account {
         }
     }
     
-    func isIncomeStatement(config: AccountTypeConfiguration) -> Bool {
+    public func isIncomeStatement(config: AccountTypeConfiguration) -> Bool {
         return switch root {
             case config.income: true
             case config.expenses: true
@@ -142,14 +142,14 @@ extension Account {
         }
     }
     
-    func isEquity(config: AccountTypeConfiguration) -> Bool {
+    public func isEquity(config: AccountTypeConfiguration) -> Bool {
         return switch root {
             case config.equity: true
             default: false
         }
     }
     
-    func isInverted(config: AccountTypeConfiguration) -> Bool {
+    public func isInverted(config: AccountTypeConfiguration) -> Bool {
         return switch root {
             case config.income: true
             case config.liabilities: true
@@ -158,7 +158,7 @@ extension Account {
         }
     }
     
-    func sign(config: AccountTypeConfiguration) -> FloatingPointSign {
+    public func sign(config: AccountTypeConfiguration) -> FloatingPointSign {
         return switch root {
             case config.assets: .plus
             case config.expenses: .plus

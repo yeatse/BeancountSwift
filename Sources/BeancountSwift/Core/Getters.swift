@@ -8,7 +8,7 @@
 import Foundation
 
 extension RandomAccessCollection {
-    func gatherAccountUsage<T>() -> [Account: ClosedRange<Date>] where Element == Directive<T> {
+    public func gatherAccountUsage<T>() -> [Account: ClosedRange<Date>] where Element == Directive<T> {
         var result: [Account: ClosedRange<Date>] = [:]
         func book(account: Account, date: Date) {
             if let range = result[account] {
@@ -45,11 +45,11 @@ extension RandomAccessCollection {
         return result
     }
     
-    func gatherAccounts<T>() -> Set<Account> where Element == Directive<T> {
+    public func gatherAccounts<T>() -> Set<Account> where Element == Directive<T> {
         return Set(gatherAccountUsage().keys)
     }
     
-    func gatherOpenCloses<T>() -> [Account: (DirectiveValue<T, Open>?, DirectiveValue<T, Close>?)] where Element == Directive<T> {
+    public func gatherOpenCloses<T>() -> [Account: (DirectiveValue<T, Open>?, DirectiveValue<T, Close>?)] where Element == Directive<T> {
         var openClose = [Account: (DirectiveValue<T, Open>?, DirectiveValue<T, Close>?)]()
         for entry in self {
             switch entry.content {
@@ -82,7 +82,7 @@ extension RandomAccessCollection {
 }
 
 extension Directive {
-    func usedAccounts() -> Set<Account> {
+    public func usedAccounts() -> Set<Account> {
         var result = Set<Account>()
         switch content {
             case .transaction(let txn):
