@@ -182,18 +182,19 @@ private extension Dictionary where Key == String, Value == MetaDataValue {
 extension Directive: CustomStringConvertible {
     public var description: String {
         switch content {
-            case .transaction(let txn): txn.print(date: date, meta: meta)
+            case .transaction(let txn): txn.print(date: date, meta: meta, comment: comment)
+            case .open(let open): open.print(date: date, meta: meta, comment: comment)
             default: ""
         }
     }
 }
 
 private protocol DirectivePrintable {
-    func print(date: Date, meta: Dictionary<String, MetaDataValue>) -> String
+    func print(date: Date, meta: Dictionary<String, MetaDataValue>, comment: String?) -> String
 }
 
 extension Transaction: DirectivePrintable {
-    func print(date: Date, meta: Dictionary<String, MetaDataValue>) -> String {
+    func print(date: Date, meta: Dictionary<String, MetaDataValue>, comment: String?) -> String {
         var lines: [String] = []
         var strings: [String] = [
             date.isoDescription,
@@ -223,5 +224,21 @@ extension Transaction: DirectivePrintable {
             lines.append(posting.description.lineAligned())
         }
         return lines.joined(separator: "\n")
+    }
+}
+
+extension Open: DirectivePrintable {
+    func print(date: Date, meta: Dictionary<String, MetaDataValue>, comment: String?) -> String {
+        let currencies = self.currencies.map(\.description).joined(separator: ",")
+        let booking = self.booking.map { "\"\($0.rawValue)\"" } ?? ""
+        var result = "\(date.isoDescription) open \(account.description) \(currencies) \(booking)"
+        if let comment, !comment.isEmpty {
+            result += "    ;\(comment)"
+        }
+        let metaline = meta.toString.lineAligned()
+        if !metaline.isEmpty {
+            result += "\n" + metaline
+        }
+        return result
     }
 }
