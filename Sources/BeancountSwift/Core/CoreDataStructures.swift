@@ -108,6 +108,20 @@ public struct Tag: Hashable, Identifiable {
     }
 }
 
+extension Tag: Comparable {
+    public static func < (lhs: Tag, rhs: Tag) -> Bool {
+        lhs.id < rhs.id
+    }
+}
+
+#if DEBUG
+extension Tag: ExpressibleByStringLiteral {
+    public init(stringLiteral value: StringLiteralType) {
+        self.id = value
+    }
+}
+#endif
+
 public enum MetaDataValue: Hashable {
     case string(String)
     case account(Account)

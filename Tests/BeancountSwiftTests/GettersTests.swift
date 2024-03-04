@@ -50,7 +50,7 @@ final class GettersTests: XCTestCase {
     
     func testGetAccountsUseMap() throws {
         let entries = try loadEntries()
-        let accounts = entries.gatherAccountUsage()
+        let accounts = entries.accountsUsage()
         XCTAssertEqual(accounts, [
             "Expenses:Coffee": "2012-02-01"..."2013-06-22",
             "Expenses:Restaurant": "2012-02-01"..."2013-06-20",
@@ -62,7 +62,7 @@ final class GettersTests: XCTestCase {
     
     func testGetAccounts() throws {
         let entries = try loadEntries()
-        let accounts = entries.gatherAccounts()
+        let accounts = entries.allAccounts()
         XCTAssertEqual(accounts, [
             "Assets:US:Cash",
             "Assets:US:Credit-Card",
@@ -82,5 +82,23 @@ final class GettersTests: XCTestCase {
             "Expenses:Grocery",
             "Expenses:Restaurant"
         ])
+    }
+    
+    func testGetAllTags() throws {
+        let entries = try loadEntries()
+        let tags = entries.allTags()
+        XCTAssertEqual(tags, ["books", "dinner"])
+    }
+    
+    func testGetAllPayees() throws {
+        let entries = try loadEntries()
+        let payees = entries.allPayees()
+        XCTAssertEqual(payees, ["La Colombe", "Whole Foods Market"])
+    }
+    
+    func testGetAllLinks() throws {
+        let entries = try loadEntries()
+        let links = entries.allLinks()
+        XCTAssertEqual(links, ["ee89ada94a39"])
     }
 }

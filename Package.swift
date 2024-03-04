@@ -15,6 +15,7 @@ let package = Package(
         .package(url: "https://github.com/ChimeHQ/SwiftTreeSitter.git", from: "0.8.0"),
         .package(url: "https://github.com/polarmutex/tree-sitter-beancount.git", branch: "master"),
         .package(url: "https://github.com/apple/swift-algorithms", from: "1.2.0"),
+        .package(url: "https://github.com/apple/swift-collections", from: "1.1.0"),
     ],
     targets: [
         .target(
@@ -23,6 +24,7 @@ let package = Package(
                 .product(name: "SwiftTreeSitter", package: "SwiftTreeSitter"),
                 .product(name: "TreeSitterBeancount", package: "tree-sitter-beancount"),
                 .product(name: "Algorithms", package: "swift-algorithms"),
+                .product(name: "OrderedCollections", package: "swift-collections"),
             ]
         ),
         .testTarget(

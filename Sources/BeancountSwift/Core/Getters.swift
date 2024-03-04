@@ -6,9 +6,10 @@
 //
 
 import Foundation
+import OrderedCollections
 
 extension RandomAccessCollection {
-    public func gatherAccountUsage<T>() -> [Account: ClosedRange<Date>] where Element == Directive<T> {
+    public func accountsUsage<T>() -> [Account: ClosedRange<Date>] where Element == Directive<T> {
         var result: [Account: ClosedRange<Date>] = [:]
         func book(account: Account, date: Date) {
             if let range = result[account] {
@@ -45,11 +46,11 @@ extension RandomAccessCollection {
         return result
     }
     
-    public func gatherAccounts<T>() -> Set<Account> where Element == Directive<T> {
-        return Set(gatherAccountUsage().keys)
+    public func allAccounts<T>() -> Set<Account> where Element == Directive<T> {
+        return Set(accountsUsage().keys)
     }
     
-    public func gatherOpenCloses<T>() -> [Account: (DirectiveValue<T, Open>?, DirectiveValue<T, Close>?)] where Element == Directive<T> {
+    public func accountOpenClose<T>() -> [Account: (DirectiveValue<T, Open>?, DirectiveValue<T, Close>?)] where Element == Directive<T> {
         var openClose = [Account: (DirectiveValue<T, Open>?, DirectiveValue<T, Close>?)]()
         for entry in self {
             switch entry.content {
@@ -78,6 +79,36 @@ extension RandomAccessCollection {
             }
         }
         return openClose
+    }
+    
+    public func allTags<T>() -> OrderedSet<Tag> where Element == Directive<T> {
+        var tags: Set<Tag> = []
+        for entry in self {
+            if case .transaction(let txn) = entry.content {
+                tags.formUnion(txn.tags)
+            }
+        }
+        return OrderedSet(tags.sorted())
+    }
+    
+    public func allPayees<T>() -> OrderedSet<String> where Element == Directive<T> {
+        var payees: Set<String> = []
+        for entry in self {
+            if case .transaction(let txn) = entry.content, let payee = txn.payee {
+                payees.insert(payee)
+            }
+        }
+        return OrderedSet(payees.sorted())
+    }
+    
+    public func allLinks<T>() -> OrderedSet<String> where Element == Directive<T> {
+        var links: Set<String> = []
+        for entry in self {
+            if case .transaction(let txn) = entry.content {
+                links.formUnion(txn.links)
+            }
+        }
+        return OrderedSet(links.sorted())
     }
 }
 

@@ -19,7 +19,7 @@ struct AutoInsertOpenPlugin: BeancountPlugin {
             }
         )
         var newEntries: [Directive<Cost>] = []
-        let usedAccounts = entries.gatherAccountUsage().sorted { $0.key.id < $1.key.id }
+        let usedAccounts = entries.accountsUsage().sorted { $0.key.id < $1.key.id }
         for (index, (account, range)) in usedAccounts.enumerated() {
             if openedAccounts.contains(account) {
                 continue

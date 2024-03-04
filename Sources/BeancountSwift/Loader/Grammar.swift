@@ -215,10 +215,9 @@ extension Node {
         var links: Set<String> = []
         enumerateChildren { child in
             if child.isNamed {
-                if child.nodeType == "link", let link = try? String(from: child, content: content) {
-                    links.insert(link)
-                } else if child.nodeType == "tag", let tag = try? Tag(from: child, content: content)
-                {
+                if child.nodeType == "link", let link = try? String(from: child, content: content), link.hasPrefix("^") {
+                    links.insert(String(link.dropFirst()))
+                } else if child.nodeType == "tag", let tag = try? Tag(from: child, content: content) {
                     tags.insert(tag)
                 }
             }
@@ -229,7 +228,9 @@ extension Node {
 
 extension Tag: Parsable {
     init(from node: Node, content: String) throws {
-        self.init(id: try String(from: node, content: content))
+        let tag = try String(from: node, content: content)
+        guard tag.hasPrefix("#") else { throw SyntaxError.badNode(node) }
+        self.init(id: String(tag.dropFirst()))
     }
 }
 

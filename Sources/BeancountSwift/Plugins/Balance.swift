@@ -39,14 +39,14 @@ struct BalanceCheckPlugin: BeancountPlugin {
         let assertedAccounts = entries.compactMap { entry in
             if case .balance(let x) = entry.content { x.account } else { nil }
         }
-        for account in entries.gatherAccounts() {
+        for account in entries.allAccounts() {
             if assertedAccounts.contains(account) || assertedAccounts.contains(where: { asserted in
                 account.isChild(of: asserted)
             }) {
                 let _ = realRoot.ensureSubaccount(with: account.id)
             }
         }
-        let openCloseMap = entries.gatherOpenCloses()
+        let openCloseMap = entries.accountOpenClose()
         for entry in entries {
             var newEntry = entry
             switch entry.content {
