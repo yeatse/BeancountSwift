@@ -110,6 +110,16 @@ extension RandomAccessCollection {
         }
         return OrderedSet(links.sorted())
     }
+    
+    public func allCommodityDirectives<T>() -> OrderedDictionary<Currency, DirectiveValue<T, Commodity>> where Element == Directive<T> {
+        var result = OrderedDictionary<Currency, DirectiveValue<T, Commodity>>()
+        for entry in self {
+            if case .commodity(let commodity) = entry.content {
+                result[commodity.currency] = .init(entry, commodity)
+            }
+        }
+        return result
+    }
 }
 
 extension Directive {

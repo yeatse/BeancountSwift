@@ -101,4 +101,10 @@ final class GettersTests: XCTestCase {
         let links = entries.allLinks()
         XCTAssertEqual(links, ["ee89ada94a39"])
     }
+    
+    func testGetCommodityDirectives() throws {
+        let entries = try loadEntries()
+        let commodities = entries.allCommodityDirectives()
+        XCTAssertEqual(Set(commodities.keys), ["HOOL", "PIPA"])
+    }
 }
