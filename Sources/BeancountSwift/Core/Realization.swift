@@ -223,7 +223,7 @@ extension RealAccount {
 public struct Realization {
     public func realize(entries: [Directive<Cost>], computeBalance: Bool = true) -> RealAccount {
         let txnPostingsMap = groupPostingsByAccount(entries)
-        let realRoot = RealAccount(account: "")
+        let realRoot = RealAccount(account: .empty)
         for (accountName, txnPostings) in txnPostingsMap {
             let realAccount = realRoot.ensureSubaccount(with: accountName.id)
             realAccount.txnPostings = txnPostings

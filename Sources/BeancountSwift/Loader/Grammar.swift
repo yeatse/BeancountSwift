@@ -257,7 +257,7 @@ extension Directive<CostSpec>: Parsable {
         let date = try node.child(byFieldName: "date").map { try Date(from: $0, content: content) }
         guard let date else { throw SyntaxError.badNode(node) }
         let comment = try node.child(byFieldName: "comment").map {
-            try String(from: $0, content: content)
+            try String(from: $0, content: content).dropFirst().trimmingCharacters(in: .whitespacesAndNewlines)
         }
         var meta: [String: MetaDataValue] = [
             "range": .range(node.tsRange)
@@ -554,7 +554,7 @@ extension Posting<CostSpec>: Parsable {
             try Amount(from: $0, content: content)
         }
         let comment = try node.child(byFieldName: "comment").map {
-            try String(from: $0, content: content)
+            try String(from: $0, content: content).dropFirst().trimmingCharacters(in: .whitespacesAndNewlines)
         }
         let flag = try node.child(byFieldName: "optflag")?.namedChild(at: 0).map {
             try Character(from: $0, content: content)

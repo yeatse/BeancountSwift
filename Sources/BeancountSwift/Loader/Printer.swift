@@ -7,6 +7,12 @@
 
 import Foundation
 
+extension Option: CustomStringConvertible {
+    public var description: String {
+        "option \"\(key)\" \"\(value)\""
+    }
+}
+
 extension Account: CustomStringConvertible {
     public var description: String { id }
 }

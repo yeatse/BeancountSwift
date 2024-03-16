@@ -15,6 +15,8 @@ public struct Account: Identifiable, Equatable, Hashable {
     public init(id: String) {
         self.id = id
     }
+    
+    public static let empty = Account(id: "")
 }
 
 // MARK: relationships
@@ -25,7 +27,7 @@ extension Account {
         try! Account.regex.wholeMatch(in: id) != nil
     }
     
-    static func joined(from components: [String]) -> Account {
+    public static func joined(from components: [String]) -> Account {
         .init(id: components.joined(separator: ":"))
     }
     
