@@ -29,7 +29,7 @@ extension Currency: Comparable {
 }
 
 extension Currency {
-    static let missing = Currency(id: "")
+    public static let missing = Currency(id: "")
 }
 
 public protocol PostingCost: Hashable, CustomStringConvertible {}
@@ -136,6 +136,9 @@ public enum MetaDataValue: Hashable {
 
 extension Dictionary where Key == String, Value == MetaDataValue {
     public var lineno: UInt32? {
+        if case .number(let val) = self["lineno"] {
+            return NSDecimalNumber(decimal: val).uint32Value
+        }
         return range?.points.lowerBound.row
     }
     

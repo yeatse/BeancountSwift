@@ -34,7 +34,7 @@ final class BookingTests: XCTestCase {
         let ledger = try p.parseLedger()
         let bookedLedger = booking.book(ledger: ledger)
         XCTAssertEqual(bookedLedger.errors.count, 1)
-        XCTAssert(bookedLedger.errors[0] is InterpolationError)
+        XCTAssert(bookedLedger.errors.first is InterpolationError)
     }
 
     func testCostZero() throws {
@@ -60,7 +60,7 @@ final class BookingTests: XCTestCase {
         let bookedLedger = booking.book(ledger: ledger)
         XCTAssertEqual(bookedLedger.directives.count, 1)
         XCTAssertEqual(bookedLedger.errors.count, 1)
-        XCTAssert(bookedLedger.errors[0] is InterpolationError)
+        XCTAssert(bookedLedger.errors.first is InterpolationError)
     }
     
     func testAllCurrencyInterpolations() throws {
@@ -138,7 +138,7 @@ final class BookingTests: XCTestCase {
         (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[1].transaction,
                                                         balances: [:])
         XCTAssert(!errors.isEmpty)
-        XCTAssert(String(describing: errors[0]).contains("failedToCategorize"))
+        XCTAssert(String(describing: errors.first).contains("failedToCategorize"))
         XCTAssertEqual(indexes(of: groups), [:])
     }
     
@@ -171,7 +171,7 @@ final class BookingTests: XCTestCase {
         (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[1].transaction,
                                                         balances: [:])
         XCTAssert(!errors.isEmpty)
-        XCTAssert(String(describing: errors[0]).contains("cannotResolve"))
+        XCTAssert(String(describing: errors.first).contains("cannotResolve"))
         XCTAssertEqual(indexes(of: groups), [
             "CAD": [0, 1]
         ])

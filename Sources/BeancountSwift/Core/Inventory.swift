@@ -11,7 +11,7 @@ import Foundation
 public struct Inventory {
     fileprivate var cache: [PositionKey: Position] = [:]
     
-    init(positions: [Position] = []) {
+    public init(positions: [Position] = []) {
         positions.forEach { addPosition($0) }
     }
     
@@ -225,13 +225,13 @@ extension Inventory: Equatable, Comparable {
         return lhs.cache == rhs.cache
     }
     
-    static func + (lhs: Inventory, rhs: Inventory) -> Inventory {
+    public static func + (lhs: Inventory, rhs: Inventory) -> Inventory {
         var ret = lhs
         ret.addInventory(rhs)
         return ret
     }
     
-    prefix static func - (inventory: Inventory) -> Inventory {
+    public prefix static func - (inventory: Inventory) -> Inventory {
         var negatedInventory = Inventory()
         for position in inventory.positions {
             var negatedPosition = position
@@ -241,7 +241,11 @@ extension Inventory: Equatable, Comparable {
         return negatedInventory
     }
     
-    static func * (lhs: Inventory, rhs: Decimal) -> Inventory {
+    public static func - (lhs: Inventory, rhs: Inventory) -> Inventory {
+        return lhs + (-rhs)
+    }
+    
+    public static func * (lhs: Inventory, rhs: Decimal) -> Inventory {
         var multipliedInventory = Inventory()
         for position in lhs.positions {
             var multipliedPosition = position
@@ -255,7 +259,7 @@ extension Inventory: Equatable, Comparable {
     }
     
     // Absolute value
-    var absolute: Inventory {
+    public var absolute: Inventory {
         var absInventory = Inventory()
         for position in positions {
             var absPosition = position
@@ -268,7 +272,7 @@ extension Inventory: Equatable, Comparable {
         return absInventory
     }
     
-    var average: Inventory {
+    public var average: Inventory {
         struct GroupKey: Hashable {
             let currency: Currency
             let costCurrency: Currency?

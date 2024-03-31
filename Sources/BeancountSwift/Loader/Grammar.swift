@@ -74,35 +74,35 @@ extension Decimal: Parsable {
                     throw SyntaxError.badNode(node)
                 }
                 self = decimal
-            case "unary_number_expr":
-                guard let sign = node.namedChild(at: 0),
-                      let val = node.namedChild(at: 1)
-                else {
+            case "paren_num_expr":
+                guard let val = node.namedChild(at: 1) else {
+                    throw SyntaxError.badNode(node)
+                }
+                self = try Decimal(from: val, content: content)
+            case "unary_num_expr":
+                guard let sign = node.child(at: 0), let val = node.child(at: 1) else {
                     throw SyntaxError.badNode(node)
                 }
                 let decimal = try Decimal(from: val, content: content)
-                if sign.nodeType == "plus" {
+                if sign.nodeType == "+" {
                     self = decimal
                 } else {
                     self = -decimal
                 }
-            case "binary_number_expr":
-                guard let left = node.namedChild(at: 0),
-                      let oper = node.namedChild(at: 1),
-                      let right = node.namedChild(at: 2)
-                else {
+            case "binary_num_expr":
+                guard let left = node.child(at: 0), let oper = node.child(at: 1), let right = node.child(at: 2) else {
                     throw SyntaxError.badNode(node)
                 }
                 let leftVal = try Decimal(from: left, content: content)
                 let rightVal = try Decimal(from: right, content: content)
                 switch oper.nodeType {
-                    case "plus":
+                    case "+":
                         self = leftVal + rightVal
-                    case "minus":
+                    case "-":
                         self = leftVal - rightVal
-                    case "asterisk":
+                    case "*":
                         self = leftVal * rightVal
-                    case "slash":
+                    case "/":
                         self = leftVal / rightVal
                     default:
                         throw SyntaxError.badNode(node)
@@ -127,51 +127,31 @@ extension Account: Parsable {
 
 extension Amount: Parsable {
     init(from node: Node, content: String) throws {
-        let number = try node.namedChild(at: 0).map { try Decimal(from: $0, content: content) }
-        let currency = try node.namedChild(at: 1).map { try Currency(from: $0, content: content) }
-        guard let number, let currency else { throw SyntaxError.badNode(node) }
-        self.init(number: number, currency: currency)
+        let number = try node.child(byFieldName: "number").map {
+            try Decimal(from: $0, content: content)
+        }
+        let currency = try node.child(byFieldName: "currency").map {
+            try Currency(from: $0, content: content)
+        }
+        self.init(number: number ?? .nan, currency: currency ?? .missing)
     }
 }
 
 struct AmountTolerance {
     let base: Decimal
-    let tolerance: Decimal?
+    let tolerance: Decimal
     let currency: Currency
 }
 
 extension AmountTolerance: Parsable {
     init(from node: Node, content: String) throws {
-        switch node.childCount {
-            case 2:
-                guard
-                    let numberNode = node.child(at: 0),
-                    let currency = node.child(at: 1)
-                else {
-                    throw SyntaxError.badNode(node)
-                }
-                let number = try Decimal(from: numberNode, content: content)
-                self.init(
-                    base: number,
-                    tolerance: nil,
-                    currency: try Currency(from: currency, content: content)
-                )
-            case 4:
-                guard
-                    let num = node.child(at: 0),
-                    let tol = node.child(at: 2),
-                    let currency = node.child(at: 3)
-                else {
-                    throw SyntaxError.badNode(node)
-                }
-                self.init(
-                    base: try Decimal(from: num, content: content),
-                    tolerance: try Decimal(from: tol, content: content),
-                    currency: try Currency(from: currency, content: content)
-                )
-            default:
-                throw SyntaxError.badNode(node)
+        let number = try node.child(byFieldName: "number").map { try Decimal(from: $0, content: content) }
+        let tolerance = try node.child(byFieldName: "tolerance").map { try Decimal(from: $0, content: content) }
+        let currency = try node.child(byFieldName: "currency").map { try Currency(from: $0, content: content) }
+        guard let number, let tolerance, let currency else {
+            throw SyntaxError.badNode(node)
         }
+        self.init(base: number, tolerance: tolerance, currency: currency)
     }
 }
 
@@ -186,10 +166,10 @@ extension CompoundAmount: Parsable {
         let currency = try node.child(byFieldName: "currency").map {
             try Currency(from: $0, content: content)
         }
-        let per = try node.child(byFieldName: "per").map {
+        let per = try node.child(byFieldName: "number_per").map {
             try Decimal(from: $0, content: content)
         }
-        let total = try node.child(byFieldName: "total").map {
+        let total = try node.child(byFieldName: "number_total").map {
             try Decimal(from: $0, content: content)
         }
         self.init(currency: currency, per: per, total: total)
@@ -245,10 +225,27 @@ extension MetaDataValue: Parsable {
             case "tag": .tag(try Tag(from: node, content: content))
             case "bool": .bool(try Bool(from: node, content: content))
             case "amount": .amount(try Amount(from: node, content: content))
-            case "number", "unary_number_expr", "binary_number_expr":
+            case "number", "paren_num_expr", "unary_num_expr", "binary_num_expr":
                     .number(try Decimal(from: node, content: content))
             default: throw SyntaxError.badNode(node)
         }
+    }
+}
+
+extension Dictionary {
+    init(from node: Node, content: String) throws where Key == String, Value == MetaDataValue {
+        var result: Self = [:]
+        var child = node.namedChild(at: 0)
+        while let keyValue = child {
+            let key = try keyValue.child(byFieldName: "key").map { try String(from: $0, content: content).dropLast() }
+            let value = try keyValue.child(byFieldName: "value").map { try MetaDataValue(from: $0, content: content) }
+            guard let key else { throw SyntaxError.badNode(keyValue) }
+            if let value {
+                result[String(key)] = value
+            }
+            child = keyValue.nextNamedSibling
+        }
+        self = result
     }
 }
 
@@ -256,26 +253,13 @@ extension Directive<CostSpec>: Parsable {
     init(from node: Node, content: String) throws {
         let date = try node.child(byFieldName: "date").map { try Date(from: $0, content: content) }
         guard let date else { throw SyntaxError.badNode(node) }
-        let comment = try node.child(byFieldName: "comment").map {
-            try String(from: $0, content: content).dropFirst().trimmingCharacters(in: .whitespacesAndNewlines)
-        }
         var meta: [String: MetaDataValue] = [
             "range": .range(node.tsRange)
         ]
-        var started = false
-        for i in 0..<node.namedChildCount {
-            if let child = node.namedChild(at: i), child.nodeType == "key_value" {
-                started = true
-                let key = child.namedChild(at: 0).flatMap {
-                    try? String(from: $0, content: content)
-                }
-                let value = child.namedChild(at: 1)?.firstChild.flatMap {
-                    try? MetaDataValue(from: $0, content: content)
-                }
-                if let key, let value { meta[key] = value }
-            } else if started {
-                break
-            }
+        if let metadata = try node.child(byFieldName: "metadata").map({
+            try Dictionary(from: $0, content: content)
+        }) {
+            meta.merge(metadata) { $1 }
         }
         let content: DirectiveContent<CostSpec> =
         switch node.nodeType {
@@ -293,7 +277,7 @@ extension Directive<CostSpec>: Parsable {
             case "transaction": .transaction(try Transaction(from: node, content: content))
             default: throw SyntaxError.badNode(node)
         }
-        self.init(meta: meta, date: date, comment: comment, content: content)
+        self.init(meta: meta, date: date, content: content)
     }
 }
 
@@ -329,16 +313,19 @@ extension Balance: Parsable {
         let account = try node.child(byFieldName: "account").map {
             try Account(from: $0, content: content)
         }
-        let amount = try node.child(byFieldName: "amount").map {
-            try AmountTolerance(from: $0, content: content)
+        let amountNode = node.child(byFieldName: "amount")
+        guard let account, let amountNode else { throw SyntaxError.badNode(node) }
+        
+        if amountNode.nodeType == "amount" {
+            let amount = try Amount(from: amountNode, content: content)
+            self.init(account: account, amount: amount, tolerance: nil, diffAmount: nil)
+        } else {
+            let amount = try AmountTolerance(from: amountNode, content: content)
+            self.init(account: account,
+                      amount: Amount(number: amount.base, currency: amount.currency),
+                      tolerance: amount.tolerance,
+                      diffAmount: nil)
         }
-        guard let account, let amount else { throw SyntaxError.badNode(node) }
-        self.init(
-            account: account,
-            amount: Amount(number: amount.base, currency: amount.currency),
-            tolerance: amount.tolerance,
-            diffAmount: nil
-        )
     }
 }
 
@@ -347,12 +334,11 @@ extension Open: Parsable {
         let account = try node.child(byFieldName: "account").map {
             try Account(from: $0, content: content)
         }
-        let currencies = try node.repeatedChildren(byFieldName: "currencies", type: "currency").map
-        {
+        let currencies = try node.repeatedChildren(byFieldName: "currencies", type: "currency").map {
             try Currency(from: $0, content: content)
         }
-        let booking = try node.child(byFieldName: "opt_booking")
-            .flatMap { try String(from: $0, content: content) }
+        let booking = try node.child(byFieldName: "booking")
+            .flatMap { try String(from: $0, content: content).trimmingQuotes() }
             .flatMap { BookingMethod(rawValue: $0) }
         guard let account else { throw SyntaxError.badNode(node) }
         self.init(account: account, currencies: currencies, booking: booking)
@@ -381,16 +367,16 @@ extension Commodity: Parsable {
 
 extension Custom: Parsable {
     init(from node: Node, content: String) throws {
-        let name = try node.child(byFieldName: "name").map {
-            try String(from: $0, content: content).trimmingQuotes()
+        guard let nameNode = node.child(byFieldName: "name") else {
+            throw SyntaxError.badNode(node)
         }
-        let values = try node.repeatedChildren(
-            byFieldName: "custom_value_list",
-            type: "custom_value"
-        )
-            .compactMap { $0.firstChild }
-            .map { try MetaDataValue(from: $0, content: content) }
-        guard let name else { throw SyntaxError.badNode(node) }
+        let name = try String(from: nameNode, content: content).trimmingQuotes()
+        var values: [MetaDataValue] = []
+        var valueNode = nameNode.nextNamedSibling
+        while let vn = valueNode, let value = try? MetaDataValue(from: vn, content: content) {
+            values.append(value)
+            valueNode = vn.nextNamedSibling
+        }
         self.init(type: name, values: values)
     }
 }
@@ -401,7 +387,7 @@ extension Document: Parsable {
             try Account(from: $0, content: content)
         }
         let filename = try node.child(byFieldName: "filename")?.firstChild.map {
-            try String(from: $0, content: content)
+            try String(from: $0, content: content).trimmingQuotes()
         }
         guard let account, let filename else { throw SyntaxError.badNode(node) }
         if let tagsLinks = node.child(byFieldName: "tags_links") {
@@ -426,7 +412,7 @@ extension Document: AcceptingTagStack {
 
 extension Event: Parsable {
     init(from node: Node, content: String) throws {
-        let desc = try node.child(byFieldName: "desc").map {
+        let desc = try node.child(byFieldName: "description").map {
             try String(from: $0, content: content).trimmingQuotes()
         }
         let type = try node.child(byFieldName: "type").map {
@@ -439,45 +425,28 @@ extension Event: Parsable {
 
 extension Transaction<CostSpec>: Parsable {
     init(from node: Node, content: String) throws {
-        guard let txn = node.child(byFieldName: "txn") else { throw SyntaxError.badNode(node) }
-        var postingStart = txn
-        
-        let narration = try node.child(byFieldName: "narration").map {
-            try String(from: $0, content: content).trimmingQuotes()
+        let flag = try node.child(byFieldName: "flag").map {
+            try Character(from: $0, content: content)
         }
         let payee = try node.child(byFieldName: "payee").map {
             try String(from: $0, content: content).trimmingQuotes()
         }
+        let narration = try node.child(byFieldName: "narration").map {
+            try String(from: $0, content: content).trimmingQuotes()
+        }
         var tags: Set<Tag> = []
         var links: Set<String> = []
-        if let tagsLinks = node.child(byFieldName: "tags_links") {
+        if let tagsLinks = node.child(byFieldName: "tags_and_links") {
             (tags, links) = try tagsLinks.parseTagsAndLinks(in: content)
-            postingStart = tagsLinks
         }
-        let flag = try? txn.firstChild.flatMap { try Character(from: $0, content: content) }
         
         var postings: [Posting<CostSpec>] = []
-        
-        var curr = postingStart
-        while let next = curr.nextNamedSibling {
-            curr = next
-            switch curr.nodeType {
-                case "posting":
-                    postings.append(try Posting(from: curr, content: content))
-                case "tags_links":
-                    let (t, l) = try curr.parseTagsAndLinks(in: content)
-                    tags.formUnion(t)
-                    links.formUnion(l)
-                case "key_value":
-                    let key = next.namedChild(at: 0).flatMap { try? String(from: $0, content: content) }
-                    let value = next.namedChild(at: 1)?.firstChild.flatMap {
-                        try? MetaDataValue(from: $0, content: content)
-                    }
-                    if let key, let value, let last = postings.last {
-                        postings[postings.endIndex - 1] = last.mergingMetaData([key: value])
-                    }
-                default:
-                    break
+        if let postingNodes = node.child(byFieldName: "postings") {
+            for i in 0..<postingNodes.namedChildCount {
+                guard let posting = postingNodes.namedChild(at: i), posting.nodeType == "posting" else {
+                    continue
+                }
+                postings.append(try Posting(from: posting, content: content))
             }
         }
         self.init(
@@ -517,22 +486,25 @@ extension Transaction: AcceptingTagStack, AcceptingMetaStack {
 
 extension CostSpec: Parsable {
     init(from node: Node, content: String) throws {
-        let costComp = node.repeatedChildren(byFieldName: "cost_comp_list", type: "cost_comp")
-            .compactMap { $0.firstChild }
-        var amount: CompoundAmount?
+        var merge: Bool?
         var date: Date?
         var label: String?
-        for comp in costComp {
-            switch comp.nodeType {
-                case "compound_amount":
-                    amount = try CompoundAmount(from: comp, content: content)
+        var amount: CompoundAmount?
+        var costComp = node.child(byFieldName: "cost_comp_list")
+        while let costCompNode = costComp {
+            switch costCompNode.nodeType {
+                case "merge":
+                    merge = try String(from: costCompNode, content: content) == "*"
                 case "date":
-                    date = try Date(from: comp, content: content)
+                    date = try Date(from: costCompNode, content: content)
                 case "string":
-                    label = try String(from: comp, content: content).trimmingQuotes()
+                    label = try String(from: costCompNode, content: content).trimmingQuotes()
+                case "compound_amount":
+                    amount = try CompoundAmount(from: costCompNode, content: content)
                 default:
-                    break
+                    throw SyntaxError.badNode(costCompNode)
             }
+            costComp = costCompNode.nextNamedSibling
         }
         self.init(
             numberPerUnit: amount?.per,
@@ -540,36 +512,37 @@ extension CostSpec: Parsable {
             currency: amount?.currency,
             date: date,
             label: label,
-            merge: nil
+            merge: merge
         )
     }
 }
 
 extension Posting<CostSpec>: Parsable {
     init(from node: Node, content: String) throws {
-        let account = try node.child(byFieldName: "account").map {
-            try Account(from: $0, content: content)
+        let flag = try node.child(byFieldName: "flag").map {
+            try Character(from: $0, content: content)
         }
+        guard let accountNode = node.child(byFieldName: "account") else {
+            throw SyntaxError.badNode(node)
+        }
+        let account = try Account(from: accountNode, content: content)
         let amount = try node.child(byFieldName: "amount").map {
             try Amount(from: $0, content: content)
         }
-        let comment = try node.child(byFieldName: "comment").map {
-            try String(from: $0, content: content).dropFirst().trimmingCharacters(in: .whitespacesAndNewlines)
+        let costSpec = try node.child(byFieldName: "cost_spec").map {
+            try CostSpec(from: $0, content: content)
         }
-        let flag = try node.child(byFieldName: "optflag")?.namedChild(at: 0).map {
-            try Character(from: $0, content: content)
-        }
-        let costSpec = try node.child(byFieldName: "cost_spec")
-            .map { try CostSpec(from: $0, content: content) }
-        let priceAnnotation = try node.child(byFieldName: "price_annotation")?.namedChild(at: 0).map
-        {
+        let priceAnnotation = try node.child(byFieldName: "price_annotation")?.namedChild(at: 0).map {
             try Amount(from: $0, content: content)
         }
-        
-        guard let account else { throw SyntaxError.badNode(node) }
-        let meta: [String: MetaDataValue] = [
-            "range": .range(node.tsRange)
+        var meta: [String: MetaDataValue] = [
+            "lineno": .number(Decimal(accountNode.pointRange.lowerBound.row))
         ]
+        if let metadata = try node.child(byFieldName: "metadata").map({
+            try Dictionary(from: $0, content: content)
+        }) {
+            meta.merge(metadata) { $1 }
+        }
         self.init(
             account: account,
             units: amount ?? .missing,
@@ -577,7 +550,7 @@ extension Posting<CostSpec>: Parsable {
             price: priceAnnotation,
             flag: flag,
             meta: meta,
-            comment: comment
+            comment: nil
         )
     }
 }

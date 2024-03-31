@@ -12,7 +12,7 @@ public struct Amount: Equatable, Hashable {
     public var number: Decimal
     public var currency: Currency
     
-    static let missing = Amount(number: .nan, currency: .missing)
+    public static let missing = Amount(number: .nan, currency: .missing)
     
     public init(number: Decimal, currency: Currency) {
         self.number = number

@@ -56,6 +56,7 @@ extension Posting<CostSpec> {
             return true
         }
         if let cost,
+           (cost.numberTotal == nil && cost.numberPerUnit == nil) ||
            cost.numberPerUnit == .nan || cost.numberTotal == .nan || cost.currency == .missing
         {
             return true

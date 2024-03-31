@@ -170,7 +170,7 @@ extension MetaDataValue: CustomStringConvertible {
 
 private extension Dictionary where Key == String, Value == MetaDataValue {
     static let keysToIgnore: Set<String> = [
-        "filename", "range"
+        "filename", "range", "lineno"
     ]
     
     var toString: String {
