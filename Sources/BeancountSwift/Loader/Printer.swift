@@ -144,9 +144,12 @@ extension Posting: CustomStringConvertible {
             positionStr += " @ \(price.number.formatted(.number.grouping(.never))) \(price.currency.description)"
         }
         
-        var result = "\(flagStr)\(account.description) \(positionStr) ; \(weightStr)"
+        var result = "\(flagStr)\(account.description) \(positionStr)"
+        if cost != nil || price != nil {
+            result += " ; \(weightStr)"
+        }
         if let meta {
-            result.append("\n\(meta.toString.lineAligned())")
+            result += "\n\(meta.toString.lineAligned())"
         }
         return result
     }
