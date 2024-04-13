@@ -12,7 +12,7 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(url: "https://github.com/ChimeHQ/SwiftTreeSitter.git", from: "0.8.0"),
+        .package(url: "https://github.com/ChimeHQ/SwiftTreeSitter.git", branch: "main"),
         .package(url: "https://github.com/yeatse/tree-sitter-beancount.git", branch: "main"),
         .package(url: "https://github.com/apple/swift-algorithms", from: "1.2.0"),
         .package(url: "https://github.com/apple/swift-collections", from: "1.1.0"),
