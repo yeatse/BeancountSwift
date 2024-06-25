@@ -26,7 +26,7 @@ let currencyOrder: [Currency: Int] = [
 ]
 
 extension Position {
-    init(posting: Posting<Cost>) {
+    public init(posting: Posting<Cost>) {
         self.init(units: posting.units, cost: posting.cost)
     }
     

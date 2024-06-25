@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Algorithms
 
 enum CategorizationError: Error {
     case failedToCategorize(txn: Transaction<CostSpec>, index: Int)
@@ -173,7 +174,7 @@ struct Booking {
         var autoPostings = [Refer]()
         var unknown = [Refer]()
         
-        for (index, posting) in transaction.postings.enumerated() {
+        for (index, posting) in transaction.postings.indexed() {
             let units = posting.units
             let cost = posting.cost
             let price = posting.price
@@ -267,7 +268,7 @@ struct Booking {
         // if we used the cost or price to bucket the currency but the units currency
         // was missing.
         for (currency, refers) in groups {
-            for (rindex, refer) in refers.enumerated() {
+            for (rindex, refer) in refers.indexed() {
                 if refer.unitsCurrency == .missing {
                     let posting = transaction.postings[refer.index]
                     guard let balance = balances[posting.account] else {
@@ -495,7 +496,7 @@ struct Booking {
         var errors = [Error]()
         var incomplete = [(MissingType, Int)]()
         
-        for (index, posting) in postings.enumerated() {
+        for (index, posting) in postings.indexed() {
             if case .incomplete(let posting) = posting {
                 if posting.units.number == .nan {
                     incomplete.append((.units, index))
@@ -533,7 +534,7 @@ struct Booking {
                 case .incomplete(let posting): posting
                 case .complete(_): fatalError()
             }
-            var newPostings = postings.enumerated().map { idx, posting in
+            var newPostings = postings.indexed().map { idx, posting in
                 if index == idx {
                     return posting
                 } else if case .incomplete(let posting) = posting {
@@ -542,7 +543,7 @@ struct Booking {
                     return posting
                 }
             }
-            let postingsToCompute = newPostings.enumerated().filter { idx, _ in idx != index }.map {
+            let postingsToCompute = newPostings.indexed().filter { idx, _ in idx != index }.map {
                 $1
             }
             let residual = interpolate.computeResidual(postings: postingsToCompute)

@@ -194,7 +194,7 @@ extension RealAccount {
         }
     }
     
-    func childAccounts(leafOnly: Bool = false) -> any Sequence<RealAccount> {
+    public func childAccounts(leafOnly: Bool = false) -> some Sequence<RealAccount> {
         AnySequence {
             var stack: [RealAccount] = [self]
             return AnyIterator {
