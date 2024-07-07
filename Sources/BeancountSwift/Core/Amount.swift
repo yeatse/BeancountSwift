@@ -33,7 +33,7 @@ extension Amount: Comparable {
         Amount(number: -amount.number, currency: amount.currency)
     }
     
-    var absolute: Amount {
+    public var absolute: Amount {
         if number >= .zero {
             self
         } else {

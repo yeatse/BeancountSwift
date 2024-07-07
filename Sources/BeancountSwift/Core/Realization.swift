@@ -125,7 +125,7 @@ public class RealAccount {
     fileprivate(set) public var txnPostings: [TxnPostingsType]
     public var balance: Inventory
     
-    private var children = [String: RealAccount]()
+    fileprivate(set) public var children = [String: RealAccount]()
     
     init(account: Account) {
         self.account = account
