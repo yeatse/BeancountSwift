@@ -385,7 +385,7 @@ struct Booking {
             }
         }
         
-        var meta: [String: MetaDataValue]? {
+        var meta: MetaData? {
             switch self {
                 case .incomplete(let posting): posting.meta
                 case .complete(let posting): posting.meta

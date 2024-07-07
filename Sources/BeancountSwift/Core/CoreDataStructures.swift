@@ -6,6 +6,7 @@
 //
 import Foundation
 import SwiftTreeSitter
+import OrderedCollections
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#commodity
 public struct Currency: Identifiable, Hashable {
@@ -79,17 +80,20 @@ public struct CostSpec: PostingCost {
     }
 }
 
+public typealias MetaData = OrderedDictionary<String, MetaDataValue>
+
 /// https://beancount.github.io/docs/beancount_design_doc.html#posting
 public struct Posting<T: PostingCost>: Hashable {
     public var account: Account
+    ///  the units of the position, or nil if it is to be inferred from the other postings in the transaction.
     public var units: Amount
     public var cost: T?
     public var price: Amount?
     public var flag: Character?
-    public var meta: [String: MetaDataValue]?
+    public var meta: MetaData?
     public var comment: String?
     
-    public init(account: Account, units: Amount, cost: T? = nil, price: Amount? = nil, flag: Character? = nil, meta: [String : MetaDataValue]? = nil, comment: String? = nil) {
+    public init(account: Account, units: Amount, cost: T? = nil, price: Amount? = nil, flag: Character? = nil, meta: MetaData? = nil, comment: String? = nil) {
         self.account = account
         self.units = units
         self.cost = cost
@@ -134,7 +138,7 @@ public enum MetaDataValue: Hashable {
     case range(TSRange)
 }
 
-extension Dictionary where Key == String, Value == MetaDataValue {
+extension OrderedDictionary where Key == String, Value == MetaDataValue {
     public var lineno: UInt32? {
         if case .number(let val) = self["lineno"] {
             return NSDecimalNumber(decimal: val).uint32Value

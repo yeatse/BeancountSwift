@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import OrderedCollections
 
 extension Option: CustomStringConvertible {
     public var description: String {
@@ -171,7 +172,7 @@ extension MetaDataValue: CustomStringConvertible {
     }
 }
 
-private extension Dictionary where Key == String, Value == MetaDataValue {
+private extension OrderedDictionary where Key == String, Value == MetaDataValue {
     static let keysToIgnore: Set<String> = [
         "filename", "range", "lineno"
     ]
@@ -199,11 +200,11 @@ extension Directive: CustomStringConvertible {
 }
 
 private protocol DirectivePrintable {
-    func print(date: Date, meta: Dictionary<String, MetaDataValue>, comment: String?) -> String
+    func print(date: Date, meta: MetaData, comment: String?) -> String
 }
 
 extension Transaction: DirectivePrintable {
-    func print(date: Date, meta: Dictionary<String, MetaDataValue>, comment: String?) -> String {
+    func print(date: Date, meta: MetaData, comment: String?) -> String {
         var lines: [String] = []
         var strings: [String] = [
             date.isoDescription,
@@ -237,7 +238,7 @@ extension Transaction: DirectivePrintable {
 }
 
 extension Open: DirectivePrintable {
-    func print(date: Date, meta: Dictionary<String, MetaDataValue>, comment: String?) -> String {
+    func print(date: Date, meta: MetaData, comment: String?) -> String {
         let currencies = self.currencies.map(\.description).joined(separator: ",")
         let booking = self.booking.map { "\"\($0.rawValue)\"" } ?? ""
         var result = "\(date.isoDescription) open \(account.description) \(currencies) \(booking)"

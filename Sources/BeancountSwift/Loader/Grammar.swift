@@ -253,7 +253,7 @@ extension Directive<CostSpec>: Parsable {
     init(from node: Node, content: String) throws {
         let date = try node.child(byFieldName: "date").map { try Date(from: $0, content: content) }
         guard let date else { throw SyntaxError.badNode(node) }
-        var meta: [String: MetaDataValue] = [
+        var meta: MetaData = [
             "range": .range(node.tsRange)
         ]
         if let metadata = try node.child(byFieldName: "metadata").map({
@@ -535,7 +535,7 @@ extension Posting<CostSpec>: Parsable {
         let priceAnnotation = try node.child(byFieldName: "price_annotation")?.namedChild(at: 0).map {
             try Amount(from: $0, content: content)
         }
-        var meta: [String: MetaDataValue] = [
+        var meta: MetaData = [
             "lineno": .number(Decimal(accountNode.pointRange.lowerBound.row))
         ]
         if let metadata = try node.child(byFieldName: "metadata").map({

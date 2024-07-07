@@ -6,15 +6,16 @@
 //
 
 import Foundation
+import OrderedCollections
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#common-properties
 public struct Directive<T: PostingCost>: Hashable {
-    public var meta: [String: MetaDataValue]
+    public var meta: MetaData
     public var date: Date
     public var comment: String?
     public var content: DirectiveContent<T>
     
-    public init(meta: [String : MetaDataValue], date: Date, comment: String? = nil, content: DirectiveContent<T>) {
+    public init(meta: MetaData, date: Date, comment: String? = nil, content: DirectiveContent<T>) {
         self.meta = meta
         self.date = date
         self.comment = comment
