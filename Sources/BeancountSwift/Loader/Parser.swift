@@ -81,7 +81,7 @@ extension Directive<CostSpec> {
     }
 }
 
-struct Parser {
+public struct Parser {
     let treeSitter: SwiftTreeSitter.Parser = {
         let parser = SwiftTreeSitter.Parser()
         let language = Language(language: tree_sitter_beancount())
@@ -117,6 +117,15 @@ struct Parser {
         }
         ledger.directives.sort()
         return ledger
+    }
+    
+    public func parseSnippet(from content: String) -> Directive<CostSpec>? {
+        guard let tree = treeSitter.parse(content) else { return nil }
+        let directives: Set<String> = ["transaction", "balance", "open", "close", "pad", "document", "note", "event", "price", "commodity", "query", "custom"]
+        if let node = tree.rootNode?.namedChild(at: 0), let nodeType = node.nodeType, directives.contains(nodeType) {
+            return try? Directive(from: node, content: content)
+        }
+        return nil
     }
     
     private func parse(content: String, in file: String) throws -> (

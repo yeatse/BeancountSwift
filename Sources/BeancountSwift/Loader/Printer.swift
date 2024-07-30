@@ -191,11 +191,12 @@ private extension OrderedDictionary where Key == String, Value == MetaDataValue 
 
 extension Directive: CustomStringConvertible {
     public var description: String {
-        switch content {
+        let text = switch content {
             case .transaction(let txn): txn.print(date: date, meta: meta, comment: comment)
             case .open(let open): open.print(date: date, meta: meta, comment: comment)
             default: ""
         }
+        return text.appending("\n")
     }
 }
 
