@@ -109,3 +109,6 @@ func assertEqualEntries(_ lhs: some RandomAccessCollection<Directive<Cost>>, _ r
     assertEqualEntries(lhs, r.directives)
 }
 
+func almostEqual(_ lhs: Decimal, _ rhs: Decimal) -> Bool {
+    return abs(lhs - rhs) < Decimal(Double.ulpOfOne)
+}
