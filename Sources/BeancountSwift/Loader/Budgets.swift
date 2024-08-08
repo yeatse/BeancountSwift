@@ -10,25 +10,30 @@ import OrderedCollections
 
 /// A budget entry.
 public struct Budget {
-    let account: Account
-    let startDate: Date
-    let period: Calendar.Component
-    let number: Decimal
-    let currency: Currency
+    public let account: Account
+    public let startDate: Date
+    public let period: Calendar.Component
+    public let number: Decimal
+    public let currency: Currency
 }
 
-public typealias BudgetDictionary = OrderedDictionary<Account, [Budget]>
+public struct BudgetDirective<T> where T: PostingCost {
+    public let budget: Budget
+    public let directive: DirectiveValue<T, Custom>
+}
+
+public typealias BudgetDictionary<T> = OrderedDictionary<Account, [BudgetDirective<T>]> where T: PostingCost
 
 enum BudgetError: Error {
     case invalidInterval
     case parsingFailed
 }
 
-public struct BudgetParser {
-    public let budgets: BudgetDictionary
+public struct BudgetParser<T> where T: PostingCost {
+    public let budgets: BudgetDictionary<T>
     public let errors: [Error]
     
-    public init<T>(from entries: [Directive<T>]) {
+    public init(from entries: [Directive<T>]) {
         (budgets, errors) = Self.parseBudgets(from: entries)
     }
     
@@ -60,7 +65,7 @@ extension BudgetParser {
     /// ]
     /// let (budgets, errors) = parseBudgets(from: customEntries)
     /// ```
-    static func parseBudgets<T>(from entries: [Directive<T>]) -> (BudgetDictionary, [Error]) {
+    static func parseBudgets(from entries: [Directive<T>]) -> (BudgetDictionary<T>, [Error]) {
         let intervalMap: [String: Calendar.Component] = [
             "daily": .day,
             "weekly": .weekOfYear,
@@ -69,7 +74,7 @@ extension BudgetParser {
             "yearly": .year
         ]
         var errors: [Error] = []
-        var budgets: BudgetDictionary = [:]
+        var budgets: BudgetDictionary<T> = [:]
         for entry in entries {
             guard case .custom(let custom) = entry.content, custom.type == "budget" else {
                 continue
@@ -91,7 +96,8 @@ extension BudgetParser {
                                 period: interval,
                                 number: amount.number,
                                 currency: amount.currency)
-            budgets[budget.account, default: []].append(budget)
+            let directive = BudgetDirective(budget: budget, directive: DirectiveValue(entry, custom))
+            budgets[budget.account, default: []].append(directive)
         }
         return (budgets, errors)
     }
@@ -129,7 +135,7 @@ extension BudgetParser {
     /// let dateTo = Date() // End date (exclusive)
     /// let budget = calculateBudget(budgets: budgets, account: account, from: dateFrom, to: dateTo)
     /// ```
-    static func calculateBudget(from budgets: BudgetDictionary, account: Account, from: Date, to: Date) -> [Currency: Decimal] {
+    static func calculateBudget(from budgets: BudgetDictionary<T>, account: Account, from: Date, to: Date) -> [Currency: Decimal] {
         guard let budgetList = budgets[account] else {
             return [:]
         }
@@ -141,7 +147,7 @@ extension BudgetParser {
             day = calendar.date(byAdding: .day, value: 1, to: day)!
         }
         while day < to {
-            let matches = matchingBudgets(budgetList, activeDate: day)
+            let matches = matchingBudgets(budgetList.map(\.budget), activeDate: day)
             for budget in matches.values {
                 guard let interval = calendar.dateInterval(of: budget.period, for: day),
                       let daysInPeriod = calendar.dateComponents([.day], from: interval.start, to: interval.end).day
@@ -178,7 +184,7 @@ extension BudgetParser {
     /// let dateTo = Date() // End date (exclusive)
     /// let totalBudget = calculateBudgetChildren(budgets: budgets, account: account, dateFrom: dateFrom, dateTo: dateTo)
     /// ```
-    static func calculateBudgetChildren(for budgets: BudgetDictionary, account: Account, from: Date, to: Date) -> [Currency: Decimal] {
+    static func calculateBudgetChildren(for budgets: BudgetDictionary<T>, account: Account, from: Date, to: Date) -> [Currency: Decimal] {
         var currencyDict: [Currency: Decimal] = [:]
         for child in budgets.keys.filter({ $0.isChild(of: account) }) {
             let budget = calculateBudget(from: budgets, account: child, from: from, to: to)
