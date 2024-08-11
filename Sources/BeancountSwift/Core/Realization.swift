@@ -144,7 +144,7 @@ public class RealAccount {
 }
 
 extension RealAccount {
-    func subaccount(with name: String, default: RealAccount? = nil) -> RealAccount? {
+    public func subaccount(with name: String, default: RealAccount? = nil) -> RealAccount? {
         var current = self
         for component in name.components(separatedBy: ":") {
             if let next = current[component] {
@@ -156,7 +156,7 @@ extension RealAccount {
         return current
     }
     
-    func ensureSubaccount(with name: String) -> RealAccount {
+    public func ensureSubaccount(with name: String) -> RealAccount {
         var path = [String]()
         var current = self
         for component in name.components(separatedBy: ":") {
