@@ -194,6 +194,7 @@ extension Directive: CustomStringConvertible {
         let text = switch content {
             case .transaction(let txn): txn.print(date: date, meta: meta, comment: comment)
             case .open(let open): open.print(date: date, meta: meta, comment: comment)
+            case .custom(let custom): custom.print(date: date, meta: meta, comment: comment)
             default: ""
         }
         return text.appending("\n")
@@ -243,6 +244,21 @@ extension Open: DirectivePrintable {
         let currencies = self.currencies.map(\.description).joined(separator: ",")
         let booking = self.booking.map { "\"\($0.rawValue)\"" } ?? ""
         var result = "\(date.isoDescription) open \(account.description) \(currencies) \(booking)"
+        if let comment, !comment.isEmpty {
+            result += "    ;\(comment)"
+        }
+        let metaline = meta.toString.lineAligned()
+        if !metaline.isEmpty {
+            result += "\n" + metaline
+        }
+        return result
+    }
+}
+
+extension Custom: DirectivePrintable {
+    func print(date: Date, meta: MetaData, comment: String?) -> String {
+        let customValues = values.map(\.description).joined(separator: " ")
+        var result = "\(date.isoDescription) custom \"\(type)\" \(customValues)"
         if let comment, !comment.isEmpty {
             result += "    ;\(comment)"
         }

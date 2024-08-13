@@ -145,4 +145,16 @@ final class BudgetsTests: XCTestCase {
         budget = BudgetParser.calculateBudgetChildren(for: budgets.budgets, account: "Expenses:Books:Notebooks", from: "2017-01-01", to: "2017-01-02")
         XCTAssertEqual(budget["USD"], "2")
     }
+    
+    func testBudgetsSerializing() throws {
+        let budget = Budget(account: "Expenses:Books", startDate: "2017-01-01", period: .day, number: 10, currency: "USD")
+        let directive = Directive<CostSpec>(from: budget)!
+        XCTAssertEqual(directive.date, "2017-01-01")
+        XCTAssertEqual(directive.content, .custom(Custom(type: "budget", values: [
+            .account("Expenses:Books"),
+            .string("daily"),
+            .amount("10 USD")
+        ])))
+        XCTAssertEqual(directive.description, "2017-01-01 custom \"budget\" Expenses:Books \"daily\" 10.00 USD\n")
+    }
 }

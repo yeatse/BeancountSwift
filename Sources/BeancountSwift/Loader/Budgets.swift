@@ -15,6 +15,35 @@ public struct Budget {
     public let period: Calendar.Component
     public let number: Decimal
     public let currency: Currency
+    
+    public init(account: Account, startDate: Date, period: Calendar.Component, number: Decimal, currency: Currency) {
+        self.account = account
+        self.startDate = startDate
+        self.period = period
+        self.number = number
+        self.currency = currency
+    }
+}
+
+public extension Directive {
+    init?(from budget: Budget) {
+        let intervalMap: [Calendar.Component: String] = [
+            .day: "daily",
+            .weekOfYear: "weekly",
+            .month: "monthly",
+            .quarter: "quarterly",
+            .year: "yearly"
+        ]
+        guard let interval = intervalMap[budget.period] else {
+            return nil
+        }
+        let custom = Custom(type: "budget", values: [
+            .account(budget.account),
+            .string(interval),
+            .amount(Amount(number: budget.number, currency: budget.currency))
+        ])
+        self.init(meta: [:], date: budget.startDate, content: .custom(custom))
+    }
 }
 
 public struct BudgetDirective<T> where T: PostingCost {
