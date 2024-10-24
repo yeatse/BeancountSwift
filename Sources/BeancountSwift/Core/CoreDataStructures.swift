@@ -161,4 +161,13 @@ extension OrderedDictionary where Key == String, Value == MetaDataValue {
             return nil
         }
     }
+    
+    public var removingSystemKeys: MetaData {
+        return self.filter { key, value in
+            if key == "lineno", case .number = value { return false }
+            if key == "filename", case .string = value { return false }
+            if key == "range", case .range = value { return false }
+            return true
+        }
+    }
 }

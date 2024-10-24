@@ -107,11 +107,11 @@ public struct Transaction<T: PostingCost>: Hashable {
     public let flag: Character?
     public let payee: String?
     public let narration: String?
-    public let tags: Set<Tag>
-    public let links: Set<String>
+    public let tags: OrderedSet<Tag>
+    public let links: OrderedSet<String>
     public let postings: [Posting<T>]
     
-    public init(flag: Character?, payee: String?, narration: String?, tags: Set<Tag>, links: Set<String>, postings: [Posting<T>]) {
+    public init(flag: Character?, payee: String?, narration: String?, tags: OrderedSet<Tag>, links: OrderedSet<String>, postings: [Posting<T>]) {
         self.flag = flag
         self.payee = payee
         self.narration = narration
@@ -174,10 +174,10 @@ public struct Price: Hashable {
 public struct Document: Hashable {
     public let account: Account
     public let filename: String
-    public let tags: Set<Tag>?
-    public let links: Set<String>?
+    public let tags: OrderedSet<Tag>?
+    public let links: OrderedSet<String>?
     
-    public init(account: Account, filename: String, tags: Set<Tag>?, links: Set<String>?) {
+    public init(account: Account, filename: String, tags: OrderedSet<Tag>?, links: OrderedSet<String>?) {
         self.account = account
         self.filename = filename
         self.tags = tags

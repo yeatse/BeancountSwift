@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftTreeSitter
+import OrderedCollections
 
 protocol Parsable {
     init(from node: SwiftTreeSitter.Node, content: String) throws
@@ -190,15 +191,15 @@ extension Node {
         return result
     }
     
-    func parseTagsAndLinks(in content: String) throws -> (tags: Set<Tag>, links: Set<String>) {
-        var tags: Set<Tag> = []
-        var links: Set<String> = []
+    func parseTagsAndLinks(in content: String) throws -> (tags: OrderedSet<Tag>, links: OrderedSet<String>) {
+        var tags: OrderedSet<Tag> = []
+        var links: OrderedSet<String> = []
         enumerateChildren { child in
             if child.isNamed {
                 if child.nodeType == "link", let link = try? String(from: child, content: content), link.hasPrefix("^") {
-                    links.insert(String(link.dropFirst()))
+                    links.append(String(link.dropFirst()))
                 } else if child.nodeType == "tag", let tag = try? Tag(from: child, content: content) {
-                    tags.insert(tag)
+                    tags.append(tag)
                 }
             }
         }
@@ -434,8 +435,8 @@ extension Transaction<CostSpec>: Parsable {
         let narration = try node.child(byFieldName: "narration").map {
             try String(from: $0, content: content).trimmingQuotes()
         }
-        var tags: Set<Tag> = []
-        var links: Set<String> = []
+        var tags: OrderedSet<Tag> = []
+        var links: OrderedSet<String> = []
         if let tagsLinks = node.child(byFieldName: "tags_and_links") {
             (tags, links) = try tagsLinks.parseTagsAndLinks(in: content)
         }
