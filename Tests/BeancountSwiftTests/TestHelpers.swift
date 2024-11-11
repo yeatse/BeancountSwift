@@ -33,7 +33,7 @@ extension ContentProvider: ExpressibleByStringLiteral {
     }
 }
 
-extension Decimal: ExpressibleByStringLiteral {
+extension Decimal: @retroactive ExpressibleByStringLiteral {
     public init(stringLiteral value: StringLiteralType) {
         self.init(string: value)!
     }

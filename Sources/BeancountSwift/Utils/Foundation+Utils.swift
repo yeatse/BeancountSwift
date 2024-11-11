@@ -89,7 +89,7 @@ extension String {
 
 
 #if DEBUG
-extension Date: ExpressibleByStringLiteral {
+extension Date: @retroactive ExpressibleByStringLiteral {
     public init(stringLiteral value: StringLiteralType) {
         self = .fromDateString(value)!
     }

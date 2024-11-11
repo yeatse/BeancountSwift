@@ -101,8 +101,8 @@ extension RandomAccessCollection {
         return OrderedSet(payees.sorted())
     }
     
-    public func allLinks<T>() -> OrderedSet<String> where Element == Directive<T> {
-        var links: Set<String> = []
+    public func allLinks<T>() -> OrderedSet<Link> where Element == Directive<T> {
+        var links: Set<Link> = []
         for entry in self {
             if case .transaction(let txn) = entry.content {
                 links.formUnion(txn.links)

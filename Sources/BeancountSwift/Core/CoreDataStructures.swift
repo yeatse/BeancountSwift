@@ -118,8 +118,44 @@ extension Tag: Comparable {
     }
 }
 
+extension Tag {
+    public var isValid: Bool {
+        let match = #"^[A-Za-z0-9\-_/.]+$"#
+        return id.range(of: match, options: .regularExpression) != nil
+    }
+}
+
 #if DEBUG
 extension Tag: ExpressibleByStringLiteral {
+    public init(stringLiteral value: StringLiteralType) {
+        self.id = value
+    }
+}
+#endif
+
+public struct Link: Hashable, Identifiable {
+    public var id: String
+    
+    public init(id: String) {
+        self.id = id
+    }
+}
+
+extension Link: Comparable {
+    public static func < (lhs: Link, rhs: Link) -> Bool {
+        lhs.id < rhs.id
+    }
+}
+
+extension Link {
+    public var isValid: Bool {
+        let match = #"^[A-Za-z0-9\-_/.]+$"#
+        return id.range(of: match, options: .regularExpression) != nil
+    }
+}
+
+#if DEBUG
+extension Link: ExpressibleByStringLiteral {
     public init(stringLiteral value: StringLiteralType) {
         self.id = value
     }

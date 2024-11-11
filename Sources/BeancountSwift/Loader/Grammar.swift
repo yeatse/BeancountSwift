@@ -191,13 +191,13 @@ extension Node {
         return result
     }
     
-    func parseTagsAndLinks(in content: String) throws -> (tags: OrderedSet<Tag>, links: OrderedSet<String>) {
+    func parseTagsAndLinks(in content: String) throws -> (tags: OrderedSet<Tag>, links: OrderedSet<Link>) {
         var tags: OrderedSet<Tag> = []
-        var links: OrderedSet<String> = []
+        var links: OrderedSet<Link> = []
         enumerateChildren { child in
             if child.isNamed {
                 if child.nodeType == "link", let link = try? String(from: child, content: content), link.hasPrefix("^") {
-                    links.append(String(link.dropFirst()))
+                    links.append(Link(id: String(link.dropFirst())))
                 } else if child.nodeType == "tag", let tag = try? Tag(from: child, content: content) {
                     tags.append(tag)
                 }
@@ -436,7 +436,7 @@ extension Transaction<CostSpec>: Parsable {
             try String(from: $0, content: content).trimmingQuotes()
         }
         var tags: OrderedSet<Tag> = []
-        var links: OrderedSet<String> = []
+        var links: OrderedSet<Link> = []
         if let tagsLinks = node.child(byFieldName: "tags_and_links") {
             (tags, links) = try tagsLinks.parseTagsAndLinks(in: content)
         }
