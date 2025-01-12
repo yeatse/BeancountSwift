@@ -49,7 +49,7 @@ extension Inventory {
         cache.sorted { $0.key < $1.key }.map(\.value)
     }
     
-    var currencies: Set<Currency> {
+    public var currencies: Set<Currency> {
         Set(cache.keys.map(\.currency))
     }
     
