@@ -225,7 +225,7 @@ extension Transaction: DirectivePrintable {
             strings.append("#\(tag.id)")
         }
         for link in self.links {
-            strings.append("^\(link)")
+            strings.append("^\(link.id)")
         }
         lines.append(strings.joined(separator: " "))
         let metaline = meta.toString.lineAligned()
