@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct Plugin {
+public struct Plugin: Sendable {
     public let name: String
     public let config: String?
 }
@@ -37,9 +37,11 @@ protocol BeancountPlugin {
     )
 }
 
-let allPlugins: [String: BeancountPlugin] = [
-    AutoInsertOpenPlugin.name: AutoInsertOpenPlugin(),
-    BalanceCheckPlugin.name: BalanceCheckPlugin(),
-    ForecastPlugin.name: ForecastPlugin(),
-    PadPlugin.name: PadPlugin()
-]
+var allPlugins: [String: BeancountPlugin] {
+    [
+        AutoInsertOpenPlugin.name: AutoInsertOpenPlugin(),
+        BalanceCheckPlugin.name: BalanceCheckPlugin(),
+        ForecastPlugin.name: ForecastPlugin(),
+        PadPlugin.name: PadPlugin()
+    ]
+}

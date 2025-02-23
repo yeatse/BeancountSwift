@@ -149,13 +149,13 @@ public struct Parser {
                         let tag = try child.namedChild(at: 0).map {
                             try Tag(from: $0, content: content)
                         }
-                        guard let tag else { throw SyntaxError.badNode(child) }
+                        guard let tag else { throw SyntaxError.badNode(child, content: content) }
                         tags.append(tag)
                     case "poptag":
                         let tag = try child.namedChild(at: 0).map {
                             try Tag(from: $0, content: content)
                         }
-                        guard let tag else { throw SyntaxError.badNode(child) }
+                        guard let tag else { throw SyntaxError.badNode(child, content: content) }
                         if let idx = tags.firstIndex(of: tag) {
                             tags.remove(at: idx)
                         } else {
@@ -176,7 +176,7 @@ public struct Parser {
                         let include = try child.namedChild(at: 0).map {
                             try String(from: $0, content: content)
                         }
-                        guard let include else { throw SyntaxError.badNode(child) }
+                        guard let include else { throw SyntaxError.badNode(child, content: content) }
                         includes.append(include)
                     case "plugin":
                         let plugin = try Plugin(from: child, content: content)
@@ -188,18 +188,14 @@ public struct Parser {
                         }
                         directives.append(directive.mergingMetaData(["filename": .string(file)]))
                     case "ERROR":
-                        throw SyntaxError.badNode(child)
+                        throw SyntaxError.badNode(child, content: content)
                     case "section":
                         processChildren(of: child)
                     default:
                         break
                 }
-            } catch SyntaxError.badNode(let node) {
-                let err = ParserError.invalidSyntax(
-                    file: file,
-                    lineno: node.pointRange.lowerBound.row,
-                    content: try? String(from: node, content: content)
-                )
+            } catch SyntaxError.badNode(let lineno, let source) {
+                let err = ParserError.invalidSyntax(file: file, lineno: lineno, content: source)
                 errors.append(err)
             } catch {
                 errors.append(error)

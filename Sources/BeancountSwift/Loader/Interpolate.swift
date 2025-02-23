@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct ToleranceConfiguration {
+public struct ToleranceConfiguration: Sendable {
     public var interFromCost: Bool
     public var multiplier: Decimal
     public var defaultTolerances: [Currency: Decimal]

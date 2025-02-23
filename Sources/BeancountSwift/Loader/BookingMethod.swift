@@ -9,7 +9,7 @@ import Foundation
 
 /// A set of valid booking method names for positions on accounts.
 /// See http://furius.ca/beancount/doc/inventories for a full explanation.
-public enum BookingMethod: String {
+public enum BookingMethod: String, Sendable {
     /// Reject ambiguous matches with an error.
     case STRICT
     
@@ -83,50 +83,51 @@ typealias BookingMethodImpl = (Directive<CostSpec>, Posting<CostSpec>, [Position
     insufficient: Bool
 )
 
-let strictBooking: BookingMethodImpl = { entry, posting, matches in
-    var bookedReductions = [Posting<Cost>]()
-    var bookedMatches = [Position]()
-    var errors = [Error]()
-    var insufficient = false
-    
-    if matches.count > 1 {
-        let sumMatches = matches.reduce(Decimal(0)) { val, pos in
-            val + pos.units.number
-        }
-        if sumMatches == -posting.units.number {
-            bookedReductions += matches.map { match in
-                return .init(
-                    account: posting.account,
-                    units: -match.units,
-                    cost: match.cost,
-                    price: posting.price,
-                    flag: posting.flag,
-                    meta: posting.meta,
-                    comment: posting.comment
-                )
-            }
-        } else {
-            errors.append(BookingError.ambiguousMatch(entry))
-        }
-    } else {
-        let match = matches[0]
-        let sign: Decimal = posting.units.number < 0 ? -1 : 1
-        let number = min(abs(match.units.number), abs(posting.units.number))
-        let matchUnits = Amount(number: number * sign, currency: match.units.currency)
+var strictBooking: BookingMethodImpl {
+    { entry, posting, matches in
+        var bookedReductions = [Posting<Cost>]()
+        var bookedMatches = [Position]()
+        var errors = [Error]()
+        var insufficient = false
         
-        var posting = Posting(
-            account: posting.account,
-            units: matchUnits,
-            cost: match.cost,
-            price: posting.price,
-            flag: posting.flag,
-            meta: posting.meta,
-            comment: posting.comment
-        )
-        bookedReductions.append(posting)
-        bookedMatches.append(match)
-        insufficient = matchUnits.number != posting.units.number
+        if matches.count > 1 {
+            let sumMatches = matches.reduce(Decimal(0)) { val, pos in
+                val + pos.units.number
+            }
+            if sumMatches == -posting.units.number {
+                bookedReductions += matches.map { match in
+                    return .init(
+                        account: posting.account,
+                        units: -match.units,
+                        cost: match.cost,
+                        price: posting.price,
+                        flag: posting.flag,
+                        meta: posting.meta,
+                        comment: posting.comment
+                    )
+                }
+            } else {
+                errors.append(BookingError.ambiguousMatch(entry))
+            }
+        } else if let match = matches.first {
+            let sign: Decimal = posting.units.number < 0 ? -1 : 1
+            let number = min(abs(match.units.number), abs(posting.units.number))
+            let matchUnits = Amount(number: number * sign, currency: match.units.currency)
+            
+            var updatedPosting = Posting(
+                account: posting.account,
+                units: matchUnits,
+                cost: match.cost,
+                price: posting.price,
+                flag: posting.flag,
+                meta: posting.meta,
+                comment: posting.comment
+            )
+            bookedReductions.append(updatedPosting)
+            bookedMatches.append(match)
+            insufficient = matchUnits.number != posting.units.number
+        }
+        
+        return (bookedReductions, bookedMatches, errors, insufficient)
     }
-    
-    return (bookedReductions, bookedMatches, errors, insufficient)
 }

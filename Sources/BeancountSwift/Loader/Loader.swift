@@ -10,7 +10,7 @@ public protocol ContentProviding {
     func provideContent(for file: String) throws -> String
 }
 
-public struct ParsedLedger<T: PostingCost> {
+public struct ParsedLedger<T: PostingCost>: Sendable {
     public var options: Options
     public var plugins: [Plugin]
     public var directives: [Directive<T>]

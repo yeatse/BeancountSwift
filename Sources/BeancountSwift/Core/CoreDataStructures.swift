@@ -9,7 +9,7 @@ import SwiftTreeSitter
 import OrderedCollections
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#commodity
-public struct Currency: Identifiable, Hashable {
+public struct Currency: Identifiable, Hashable, Sendable {
     public var id: String
     
     public init(id: String) {
@@ -33,7 +33,7 @@ extension Currency {
     public static let missing = Currency(id: "")
 }
 
-public protocol PostingCost: Hashable, CustomStringConvertible {}
+public protocol PostingCost: Hashable, CustomStringConvertible, Sendable {}
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#cost
 public struct Cost: PostingCost {
@@ -83,7 +83,7 @@ public struct CostSpec: PostingCost {
 public typealias MetaData = OrderedDictionary<String, MetaDataValue>
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#posting
-public struct Posting<T: PostingCost>: Hashable {
+public struct Posting<T: PostingCost>: Hashable, Sendable {
     public var account: Account
     ///  the units of the position, or nil if it is to be inferred from the other postings in the transaction.
     public var units: Amount
@@ -104,7 +104,7 @@ public struct Posting<T: PostingCost>: Hashable {
     }
 }
 
-public struct Tag: Hashable, Identifiable {
+public struct Tag: Hashable, Identifiable, Sendable {
     public var id: String
     
     public init(id: String) {
@@ -133,7 +133,7 @@ extension Tag: ExpressibleByStringLiteral {
 }
 #endif
 
-public struct Link: Hashable, Identifiable {
+public struct Link: Hashable, Identifiable, Sendable {
     public var id: String
     
     public init(id: String) {
@@ -162,7 +162,7 @@ extension Link: ExpressibleByStringLiteral {
 }
 #endif
 
-public enum MetaDataValue: Hashable {
+public enum MetaDataValue: Hashable, Sendable {
     case string(String)
     case account(Account)
     case currency(Currency)

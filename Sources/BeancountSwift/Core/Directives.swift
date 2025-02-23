@@ -9,7 +9,7 @@ import Foundation
 import OrderedCollections
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#common-properties
-public struct Directive<T: PostingCost>: Hashable {
+public struct Directive<T: PostingCost>: Hashable, Sendable {
     public var meta: MetaData
     public var date: Date
     public var comment: String?
@@ -23,7 +23,7 @@ public struct Directive<T: PostingCost>: Hashable {
     }
 }
 
-public enum DirectiveContent<T: PostingCost>: Hashable {
+public enum DirectiveContent<T: PostingCost>: Hashable, Sendable {
     case open(Open)
     case close(Close)
     case commodity(Commodity)
@@ -38,7 +38,7 @@ public enum DirectiveContent<T: PostingCost>: Hashable {
     case custom(Custom)
 }
 
-public struct DirectiveValue<T: PostingCost, Content>: Hashable where Content: Hashable {
+public struct DirectiveValue<T: PostingCost, Content>: Hashable, Sendable where Content: Hashable & Sendable {
     public let directive: Directive<T>
     public let content: Content
     
@@ -49,7 +49,7 @@ public struct DirectiveValue<T: PostingCost, Content>: Hashable where Content: H
 }
 
 /// https://beancount.github.io/docs/beancount_language_syntax.html#open
-public struct Open: Hashable {
+public struct Open: Hashable, Sendable {
     public let account: Account
     public let currencies: [Currency]
     public let booking: BookingMethod?
@@ -62,7 +62,7 @@ public struct Open: Hashable {
 }
 
 /// https://beancount.github.io/docs/beancount_language_syntax.html#open
-public struct Close: Hashable {
+public struct Close: Hashable, Sendable {
     public let account: Account
     
     public init(account: Account) {
@@ -70,7 +70,7 @@ public struct Close: Hashable {
     }
 }
 
-public struct Commodity: Hashable {
+public struct Commodity: Hashable, Sendable {
     public let currency: Currency
     
     public init(currency: Currency) {
@@ -78,7 +78,7 @@ public struct Commodity: Hashable {
     }
 }
 
-public struct Pad: Hashable {
+public struct Pad: Hashable, Sendable {
     public let account: Account
     public let sourceAccount: Account
     
@@ -88,7 +88,7 @@ public struct Pad: Hashable {
     }
 }
 
-public struct Balance: Hashable {
+public struct Balance: Hashable, Sendable {
     public let account: Account
     public let amount: Amount
     public let tolerance: Decimal?
@@ -103,7 +103,7 @@ public struct Balance: Hashable {
 }
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#transactions
-public struct Transaction<T: PostingCost>: Hashable {
+public struct Transaction<T: PostingCost>: Hashable, Sendable {
     public let flag: Character?
     public let payee: String?
     public let narration: String?
@@ -131,7 +131,7 @@ extension Character {
     public static let mergingFlag: Character = "M"
 }
 
-public struct Note: Hashable {
+public struct Note: Hashable, Sendable {
     public let account: Account
     public let note: String
     
@@ -141,7 +141,7 @@ public struct Note: Hashable {
     }
 }
 
-public struct Event: Hashable {
+public struct Event: Hashable, Sendable {
     public let type: String
     public let description: String
     
@@ -151,7 +151,7 @@ public struct Event: Hashable {
     }
 }
 
-public struct Query: Hashable {
+public struct Query: Hashable, Sendable {
     public let name: String
     public let queryString: String
     
@@ -161,7 +161,7 @@ public struct Query: Hashable {
     }
 }
 
-public struct Price: Hashable {
+public struct Price: Hashable, Sendable {
     public let currency: Currency
     public let amount: Amount
     
@@ -171,7 +171,7 @@ public struct Price: Hashable {
     }
 }
 
-public struct Document: Hashable {
+public struct Document: Hashable, Sendable {
     public let account: Account
     public let filename: String
     public let tags: OrderedSet<Tag>?
@@ -185,7 +185,7 @@ public struct Document: Hashable {
     }
 }
 
-public struct Custom: Hashable {
+public struct Custom: Hashable, Sendable {
     public let type: String
     public let values: [MetaDataValue]
     

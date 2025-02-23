@@ -62,15 +62,11 @@ extension Date {
         }
     }
     
-    static var isoDateFormatter: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.timeZone = .autoupdatingCurrent
-        formatter.formatOptions = [.withFullDate]
-        return formatter
-    }()
-    
     var isoDescription: String {
-        return Self.isoDateFormatter.string(from: self)
+        self.formatted(
+            ISO8601FormatStyle(dateSeparator: .dash, timeZone: .autoupdatingCurrent)
+                .year().month().day()
+        )
     }
 }
 

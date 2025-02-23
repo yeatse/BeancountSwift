@@ -9,7 +9,7 @@ import Foundation
 import RegexBuilder
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#account
-public struct Account: Identifiable, Equatable, Hashable {
+public struct Account: Identifiable, Equatable, Hashable, Sendable {
     public var id: String
     
     public init(id: String) {
@@ -21,7 +21,9 @@ public struct Account: Identifiable, Equatable, Hashable {
 
 // MARK: relationships
 extension Account {
-    static let regex = #/(?:[\p{Lu}][\p{L}\p{Nd}-]*)(?::[\p{Lu}\p{Nd}][\p{L}\p{Nd}-]*)+/#
+    static var regex: Regex<Substring> {
+        #/(?:[\p{Lu}][\p{L}\p{Nd}-]*)(?::[\p{Lu}\p{Nd}][\p{L}\p{Nd}-]*)+/#
+    }
     
     public var isValid: Bool {
         try! Account.regex.wholeMatch(in: id) != nil
@@ -177,7 +179,7 @@ public enum AccountType: Comparable {
     case expenses
 }
 
-public struct AccountTypeConfiguration {
+public struct AccountTypeConfiguration : Sendable {
     public var assets: String
     public var liabilities: String
     public var equity: String

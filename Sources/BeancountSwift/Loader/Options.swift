@@ -17,7 +17,7 @@ public struct Option {
     }
 }
 
-public struct Options {
+public struct Options: Sendable {
     public private(set) var title: String = ""
     public private(set) var operatingCurrencies: [Currency] = [
         Currency(id: "USD")

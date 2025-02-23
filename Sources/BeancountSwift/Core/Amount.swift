@@ -8,7 +8,7 @@
 import Foundation
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#amount
-public struct Amount: Equatable, Hashable {
+public struct Amount: Equatable, Hashable, Sendable {
     public var number: Decimal
     public var currency: Currency
     

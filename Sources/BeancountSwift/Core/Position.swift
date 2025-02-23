@@ -8,7 +8,7 @@
 import Foundation
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#position
-public struct Position: Equatable, Hashable {
+public struct Position: Equatable, Hashable, Sendable {
     public var units: Amount
     public var cost: Cost?
 }
