@@ -2,7 +2,7 @@ import Foundation
 import SwiftTreeSitter
 import TreeSitterBeancount
 
-public struct Beancount {
+public struct Beancount: Sendable {
     public let loader = Loader()
     public let parser = Parser()
     public let realization = Realization()

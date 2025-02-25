@@ -17,7 +17,7 @@ public struct ParsedLedger<T: PostingCost>: Sendable {
     public var errors: [Error]
 }
 
-public struct Loader {
+public struct Loader: Sendable {
     let booking = Booking()
     let parser = Parser()
     

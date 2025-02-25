@@ -81,13 +81,13 @@ extension Directive<CostSpec> {
     }
 }
 
-public struct Parser {
-    let treeSitter: SwiftTreeSitter.Parser = {
+public struct Parser: Sendable {
+    private var treeSitter: SwiftTreeSitter.Parser {
         let parser = SwiftTreeSitter.Parser()
         let language = Language(language: tree_sitter_beancount())
         try! parser.setLanguage(language)
         return parser
-    }()
+    }
     
     func parse(file: String, contentProvider: ContentProviding) throws -> ParsedLedger<
         CostSpec

@@ -220,7 +220,7 @@ extension RealAccount {
     }
 }
 
-public struct Realization {
+public struct Realization: Sendable {
     public func realize(entries: [Directive<Cost>], computeBalance: Bool = true) -> RealAccount {
         let txnPostingsMap = groupPostingsByAccount(entries)
         let realRoot = RealAccount(account: .empty)
