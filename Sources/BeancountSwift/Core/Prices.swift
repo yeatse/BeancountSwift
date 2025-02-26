@@ -8,7 +8,7 @@
 import Foundation
 import Algorithms
 
-public struct CurrencyPair: Hashable {
+public struct CurrencyPair: Hashable, Sendable {
     public let base: Currency
     public let quote: Currency
     
@@ -22,7 +22,7 @@ public struct CurrencyPair: Hashable {
     }
 }
 
-public struct DailyPrice: Hashable, Comparable {
+public struct DailyPrice: Hashable, Comparable, Sendable {
     public let date: Date
     public let rate: Decimal
     
@@ -44,7 +44,7 @@ public struct DailyPrice: Hashable, Comparable {
     }
 }
 
-public struct PriceMap: Equatable {
+public struct PriceMap: Equatable, Sendable {
     var prices: [CurrencyPair: [DailyPrice]] = [:]
     var forwardPairs: Set<CurrencyPair> = []
 }
