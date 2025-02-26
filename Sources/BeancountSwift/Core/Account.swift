@@ -171,7 +171,7 @@ extension Account {
     }
 }
 
-public enum AccountType: Comparable {
+public enum AccountType: Comparable, Sendable {
     case assets
     case liabilities
     case equity
