@@ -8,7 +8,7 @@
 import Foundation
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#inventory
-public struct Inventory {
+public struct Inventory: Sendable {
     fileprivate var cache: [PositionKey: Position] = [:]
     
     public init(positions: [Position] = []) {
@@ -41,7 +41,7 @@ public struct Inventory {
 }
 
 extension Inventory {
-    var isEmpty: Bool {
+    public var isEmpty: Bool {
         positions.isEmpty
     }
     
