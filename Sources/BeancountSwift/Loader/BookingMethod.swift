@@ -114,7 +114,7 @@ var strictBooking: BookingMethodImpl {
             let number = min(abs(match.units.number), abs(posting.units.number))
             let matchUnits = Amount(number: number * sign, currency: match.units.currency)
             
-            var updatedPosting = Posting(
+            let updatedPosting = Posting(
                 account: posting.account,
                 units: matchUnits,
                 cost: match.cost,

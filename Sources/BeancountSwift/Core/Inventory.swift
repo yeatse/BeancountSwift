@@ -6,10 +6,12 @@
 //
 
 import Foundation
+import OrderedCollections
+import Algorithms
 
 /// https://beancount.github.io/docs/beancount_design_doc.html#inventory
 public struct Inventory: Sendable {
-    fileprivate var cache: [PositionKey: Position] = [:]
+    fileprivate var cache: OrderedDictionary<PositionKey, Position> = [:]
     
     public init(positions: [Position] = []) {
         positions.forEach { addPosition($0) }
@@ -46,7 +48,7 @@ extension Inventory {
     }
     
     var positions: some RandomAccessCollection<Position> {
-        cache.sorted { $0.key < $1.key }.map(\.value)
+        cache.map(\.value)
     }
     
     public var currencies: Set<Currency> {
@@ -169,19 +171,24 @@ extension Inventory {
             
             let number = pos.units.number + units.number
             if number == .zero {
-                cache.removeValue(forKey: key)
+                cache[key] = nil
             } else {
-                cache[key] = Position(
+                let index = cache.keys.partitioningIndex(where: { $0 > key })
+                cache.updateValue(Position(
                     units: Amount(number: number, currency: units.currency),
                     cost: cost
-                )
+                ), forKey: key, insertingAt: index)
             }
             return (pos, booking)
         } else {
             if units.number == .zero {
                 booking = .ignored
             } else {
-                cache[key] = Position(units: units, cost: cost)
+                let index = cache.keys.partitioningIndex(where: { $0 > key })
+                cache.updateValue(Position(
+                    units: units,
+                    cost: cost
+                ), forKey: key, insertingAt: index)
                 booking = .created
             }
             return (nil, booking)

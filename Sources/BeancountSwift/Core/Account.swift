@@ -47,11 +47,7 @@ extension Account {
     }
     
     public func isChild(of account: Account) -> Bool {
-        let regex = Regex {
-            account.id
-            ChoiceOf { Anchor.endOfLine; ":" }
-        }
-        return id.contains(regex)
+        return id == account.id || id.hasPrefix(account.id + ":")
     }
     
     public var leaf: String {
