@@ -227,6 +227,9 @@ extension Transaction: DirectivePrintable {
         for link in self.links {
             strings.append("^\(link.id)")
         }
+        if let comment, !comment.isEmpty {
+            strings.append("  ;\(comment)")
+        }
         lines.append(strings.joined(separator: " "))
         let metaline = meta.toString.lineAligned()
         if !metaline.isEmpty {
@@ -243,10 +246,18 @@ extension Open: DirectivePrintable {
     func print(date: Date, meta: MetaData, comment: String?) -> String {
         let currencies = self.currencies.map(\.description).joined(separator: ",")
         let booking = self.booking.map { "\"\($0.rawValue)\"" } ?? ""
-        var result = "\(date.isoDescription) open \(account.description) \(currencies) \(booking)"
-        if let comment, !comment.isEmpty {
-            result += "    ;\(comment)"
+        
+        var resultLine = [date.isoDescription, "open", account.description]
+        if !currencies.isEmpty {
+            resultLine.append(currencies)
         }
+        if !booking.isEmpty {
+            resultLine.append(booking)
+        }
+        if let comment, !comment.isEmpty {
+            resultLine.append(" ;\(comment)")
+        }
+        var result = resultLine.joined(separator: " ")
         let metaline = meta.toString.lineAligned()
         if !metaline.isEmpty {
             result += "\n" + metaline
