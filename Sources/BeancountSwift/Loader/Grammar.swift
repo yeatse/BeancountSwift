@@ -269,6 +269,12 @@ extension Directive<CostSpec>: Parsable {
         }) {
             meta.merge(metadata) { $1 }
         }
+        let comment = try node.child(byFieldName: "comment").map {
+            try String(from: $0, content: content)
+                .dropFirst()
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        
         let content: DirectiveContent<CostSpec> =
         switch node.nodeType {
             case "balance": .balance(try Balance(from: node, content: content))
@@ -285,7 +291,7 @@ extension Directive<CostSpec>: Parsable {
             case "transaction": .transaction(try Transaction(from: node, content: content))
             default: throw SyntaxError.badNode(node, content: content)
         }
-        self.init(meta: meta, date: date, content: content)
+        self.init(meta: meta, date: date, comment: comment, content: content)
     }
 }
 

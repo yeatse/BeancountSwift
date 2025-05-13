@@ -22,4 +22,18 @@ final class GrammarTests: XCTestCase {
         XCTAssertEqual(posting.units, "20 AAPL")
         XCTAssertEqual(posting.cost, CostSpec(merge: true))
     }
+    
+    func testOpenAccount() throws {
+        let p: ContentProvider =
+                """
+                  2014-01-01 open Assets:Invest ; Investing
+                """
+        let ledger = try p.parseLedger()
+        let directive = ledger.directives[0]
+        XCTAssertEqual(directive.comment, "Investing")
+        guard case .open(let open) = directive.content else {
+            return XCTFail()
+        }
+        XCTAssertEqual(open.account, "Assets:Invest")
+    }
 }

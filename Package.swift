@@ -12,7 +12,7 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(url: "https://github.com/ChimeHQ/SwiftTreeSitter.git", branch: "main"),
+        .package(url: "https://github.com/tree-sitter/swift-tree-sitter.git", branch: "main"),
         .package(url: "https://github.com/yeatse/tree-sitter-beancount.git", branch: "main"),
         .package(url: "https://github.com/apple/swift-algorithms", from: "1.2.0"),
         .package(url: "https://github.com/apple/swift-collections", from: "1.1.0"),
@@ -21,7 +21,7 @@ let package = Package(
         .target(
             name: "BeancountSwift",
             dependencies: [
-                .product(name: "SwiftTreeSitter", package: "SwiftTreeSitter"),
+                .product(name: "SwiftTreeSitter", package: "swift-tree-sitter"),
                 .product(name: "TreeSitterBeancount", package: "tree-sitter-beancount"),
                 .product(name: "Algorithms", package: "swift-algorithms"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
