@@ -23,6 +23,16 @@ public struct Directive<T: PostingCost>: Hashable, Sendable {
     }
 }
 
+extension Directive<Cost>: Identifiable {
+    public var id: String {
+        if let filename = meta.filename, let lineno = meta.lineno {
+            return "\(filename)-\(lineno)"
+        } else {
+            return UUID().uuidString
+        }
+    }
+}
+
 public enum DirectiveContent<T: PostingCost>: Hashable, Sendable {
     case open(Open)
     case close(Close)

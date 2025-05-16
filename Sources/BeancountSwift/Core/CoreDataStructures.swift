@@ -104,6 +104,16 @@ public struct Posting<T: PostingCost>: Hashable, Sendable {
     }
 }
 
+extension Posting<Cost>: Identifiable {
+    public var id: String {
+        if let filename = meta?.filename, let lineno = meta?.lineno {
+            return "\(filename)-\(lineno)"
+        } else {
+            return UUID().uuidString
+        }
+    }
+}
+
 public struct Tag: Hashable, Identifiable, Sendable {
     public var id: String
     

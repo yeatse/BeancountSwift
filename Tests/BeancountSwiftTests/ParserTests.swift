@@ -139,4 +139,27 @@ final class ParserTests: XCTestCase {
         XCTAssertEqual(txn.postings[0].meta?.filename, "main")
         XCTAssertEqual(txn.postings[1].meta?.filename, "main")
     }
+    
+    func testIdentifiers() throws {
+        let p: ContentProvider =
+            """
+            ; first directive
+            2013-05-01 * "Valid date for parser"
+              Expenses:Restaurant         100 USD
+              Assets:US:Cash             -100 USD
+            
+            2014-12-15 * "Payee" "Narration"
+              phone: 1234-5678
+              Assets:Checking   101.23 USD
+              Equity:Blah
+            """
+        let ledger = try Loader().load(file: "test.bean", contentProvider: p)
+        XCTAssertEqual(ledger.directives[0].id, "test.bean-1")
+        XCTAssertEqual(ledger.directives[0].transaction.postings[0].id, "test.bean-2")
+        XCTAssertEqual(ledger.directives[0].transaction.postings[1].id, "test.bean-3")
+        
+        XCTAssertEqual(ledger.directives[1].id, "test.bean-5")
+        XCTAssertEqual(ledger.directives[1].transaction.postings[0].id, "test.bean-7")
+        XCTAssertEqual(ledger.directives[1].transaction.postings[1].id, "test.bean-8")
+    }
 }
