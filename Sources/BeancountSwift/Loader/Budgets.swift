@@ -67,11 +67,11 @@ public struct BudgetParser<T> where T: PostingCost {
     }
     
     /// Calculate the budget for an account in an interval.
-    public func calculateBudget(for account: Account, withIn dateRange: DateInterval, includingChildren: Bool) -> [Currency: Decimal] {
+    public func calculateBudget(for account: Account, withIn dateRange: Range<Date>, includingChildren: Bool) -> [Currency: Decimal] {
         if includingChildren {
-            return Self.calculateBudgetChildren(for: budgets, account: account, from: dateRange.start, to: dateRange.end)
+            return Self.calculateBudgetChildren(for: budgets, account: account, from: dateRange.lowerBound, to: dateRange.upperBound)
         } else {
-            return Self.calculateBudget(from: budgets, account: account, from: dateRange.start, to: dateRange.end)
+            return Self.calculateBudget(from: budgets, account: account, from: dateRange.lowerBound, to: dateRange.upperBound)
         }
     }
 }
