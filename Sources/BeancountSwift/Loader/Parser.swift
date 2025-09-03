@@ -9,15 +9,30 @@ import Foundation
 import SwiftTreeSitter
 import TreeSitterBeancount
 
+/// Errors that can occur during Beancount parsing.
+/// 
+/// ParserError represents various parsing failures that can occur when
+/// processing Beancount files, providing detailed context for debugging.
 enum ParserError: Error {
+    /// The file content could not be parsed as valid syntax.
     case badContent(file: String, content: String)
+    /// Invalid syntax encountered at a specific location.
     case invalidSyntax(file: String, lineno: UInt32, content: String?)
+    /// An include file was referenced multiple times.
     case duplicatedInclude(String)
+    /// Attempted to pop a tag that wasn't pushed.
     case popAbsentTag(file: String, lineno: UInt32, tag: Tag)
+    /// Tags were pushed but not popped at end of file.
     case unbalancedTags(file: String, tags: [Tag])
 }
 
 extension DirectiveContent {
+    /// Determines the sort order for directives on the same date.
+    /// 
+    /// Provides stable ordering for directives that occur on the same date,
+    /// ensuring opens come before transactions, which come before closes, etc.
+    /// 
+    /// - Returns: Sort priority integer (lower values sort first)
     var sortOrder: Int {
         switch self {
             case .open(_): -2
@@ -45,6 +60,12 @@ extension Directive: Comparable {
 }
 
 extension Posting<CostSpec> {
+    /// Indicates whether this posting has missing or invalid information.
+    /// 
+    /// Checks for missing amounts, invalid numbers, or incomplete cost specifications
+    /// that would prevent the posting from being processed correctly.
+    /// 
+    /// - Returns: True if the posting is incomplete or invalid
     var isIncomplete: Bool {
         if units == .missing || units.number == .nan || units.currency == .missing {
             return true
@@ -66,12 +87,23 @@ extension Posting<CostSpec> {
 }
 
 extension Transaction<CostSpec> {
+    /// Indicates whether this transaction has any incomplete postings.
+    /// 
+    /// A transaction is considered incomplete if any of its postings are incomplete.
+    /// 
+    /// - Returns: True if any posting in the transaction is incomplete
     var isIncomplete: Bool {
         postings.contains(where: \.isIncomplete)
     }
 }
 
 extension Directive<CostSpec> {
+    /// Indicates whether this directive is incomplete.
+    /// 
+    /// Only transaction directives can be incomplete (due to incomplete postings).
+    /// All other directive types are considered complete by definition.
+    /// 
+    /// - Returns: True if this is an incomplete transaction directive
     var isIncomplete: Bool {
         if case .transaction(let txn) = content {
             return txn.isIncomplete
@@ -81,7 +113,27 @@ extension Directive<CostSpec> {
     }
 }
 
+/// A parser for Beancount files using Tree-sitter for syntax parsing.
+/// 
+/// The Parser processes Beancount text files and converts them into structured
+/// Swift data types. It handles include files, tag management, options processing,
+/// and comprehensive error reporting.
+/// 
+/// This corresponds to the parsing functionality in the original Beancount Python
+/// library, providing the same level of syntax support and error handling.
+/// 
+/// ## Usage
+/// ```swift
+/// let parser = Parser()
+/// let ledger = try parser.parse(file: "accounts.beancount", contentProvider: provider)
+/// ```
 public struct Parser: Sendable {
+    /// Creates and configures a Tree-sitter parser for Beancount syntax.
+    /// 
+    /// Initializes the Tree-sitter parser with the Beancount grammar for
+    /// accurate syntax parsing of Beancount files.
+    /// 
+    /// - Returns: A configured Tree-sitter parser instance
     private var treeSitter: SwiftTreeSitter.Parser {
         let parser = SwiftTreeSitter.Parser()
         let language = Language(language: tree_sitter_beancount())
@@ -89,6 +141,17 @@ public struct Parser: Sendable {
         return parser
     }
     
+    /// Parses a Beancount file and all its includes into a complete ledger.
+    /// 
+    /// Processes the main file and recursively handles all include directives,
+    /// building a complete ledger with all directives, options, plugins, and errors.
+    /// Maintains proper ordering and prevents circular includes.
+    /// 
+    /// - Parameters:
+    ///   - file: The main Beancount file to parse
+    ///   - contentProvider: Provider for file content access
+    /// - Returns: A complete parsed ledger with cost specifications
+    /// - Throws: Parser errors for syntax issues, missing files, or circular includes
     func parse(file: String, contentProvider: ContentProviding) throws -> ParsedLedger<
         CostSpec
     > {
@@ -119,6 +182,13 @@ public struct Parser: Sendable {
         return ledger
     }
     
+    /// Parses a single directive from a text snippet.
+    /// 
+    /// Attempts to parse a single Beancount directive from the provided text.
+    /// Useful for interactive parsing, validation, or processing individual directives.
+    /// 
+    /// - Parameter content: The text content containing a single directive
+    /// - Returns: The parsed directive, or nil if parsing fails
     public func parseSnippet(from content: String) -> Directive<CostSpec>? {
         guard let tree = treeSitter.parse(content) else { return nil }
         let directives: Set<String> = ["transaction", "balance", "open", "close", "pad", "document", "note", "event", "price", "commodity", "query", "custom"]
@@ -128,6 +198,16 @@ public struct Parser: Sendable {
         return nil
     }
     
+    /// Parses the content of a single file.
+    /// 
+    /// Processes the syntax tree to extract directives, options, plugins, and includes.
+    /// Handles tag stack management and provides comprehensive error reporting.
+    /// 
+    /// - Parameters:
+    ///   - content: The file content to parse
+    ///   - file: The filename for error reporting
+    /// - Returns: A tuple of the parsed ledger and list of include files
+    /// - Throws: Parser errors for syntax issues or tag management problems
     private func parse(content: String, in file: String) throws -> (
         ParsedLedger<CostSpec>, includes: [String]
     ) {

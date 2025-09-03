@@ -5,17 +5,53 @@
 //  Created by Yeatse on 2024/7/31.
 //
 
+/// Provides budget management and calculation functionality for Beancount.
+/// 
+/// This module implements budget parsing, storage, and calculation features,
+/// allowing users to define periodic budgets for accounts and track spending
+/// against those budgets over time.
+/// 
+/// Budgets are represented as custom directives in Beancount files and can
+/// specify daily, weekly, monthly, quarterly, or yearly budget amounts.
+
 import Foundation
 import OrderedCollections
 
-/// A budget entry.
+/// Represents a budget allocation for a specific account and time period.
+/// 
+/// Budget defines a periodic budget amount for an account, specifying how much
+/// should be allocated over a given time period (daily, monthly, etc.).
+/// 
+/// ## Usage
+/// ```swift
+/// let budget = Budget(
+///     account: Account(id: "Expenses:Food"),
+///     startDate: Date(),
+///     period: .month,
+///     number: 500.00,
+///     currency: Currency(id: "USD")
+/// )
+/// ```
 public struct Budget {
+    /// The account this budget applies to.
     public let account: Account
+    /// The date when this budget becomes active.
     public let startDate: Date
+    /// The time period for this budget (day, week, month, etc.).
     public let period: Calendar.Component
+    /// The budget amount for the specified period.
     public let number: Decimal
+    /// The currency of the budget amount.
     public let currency: Currency
     
+    /// Creates a budget entry.
+    /// 
+    /// - Parameters:
+    ///   - account: The account this budget applies to
+    ///   - startDate: When this budget becomes active
+    ///   - period: The time period for this budget
+    ///   - number: The budget amount for the period
+    ///   - currency: The currency of the budget amount
     public init(account: Account, startDate: Date, period: Calendar.Component, number: Decimal, currency: Currency) {
         self.account = account
         self.startDate = startDate
@@ -26,6 +62,14 @@ public struct Budget {
 }
 
 public extension Directive {
+    /// Creates a custom directive from a budget entry.
+    /// 
+    /// Converts a Budget into a Beancount custom directive that can be
+    /// written to a ledger file. The directive uses the "budget" type
+    /// with account, interval, and amount values.
+    /// 
+    /// - Parameter budget: The budget to convert
+    /// - Returns: A directive representing the budget, or nil if conversion fails
     init?(from budget: Budget) {
         let intervalMap: [Calendar.Component: String] = [
             .day: "daily",
@@ -46,27 +90,73 @@ public extension Directive {
     }
 }
 
+/// A budget entry paired with its originating directive.
+/// 
+/// BudgetDirective links a parsed budget back to the custom directive
+/// it was created from, preserving the full context and metadata.
 public struct BudgetDirective<T> where T: PostingCost {
+    /// The parsed budget information.
     public let budget: Budget
+    /// The original custom directive and its content.
     public let directive: DirectiveValue<T, Custom>
 }
 
+/// A dictionary mapping accounts to their budget directives.
+/// 
+/// BudgetDictionary organizes budget directives by account for efficient lookup
+/// and calculation. Multiple budget directives per account are supported to
+/// handle budget changes over time.
 public typealias BudgetDictionary<T> = OrderedDictionary<Account, [BudgetDirective<T>]> where T: PostingCost
 
+/// Errors that can occur during budget parsing.
 enum BudgetError: Error {
+    /// An unsupported time interval was specified.
     case invalidInterval
+    /// Budget directive parsing failed due to invalid format.
     case parsingFailed
 }
 
+/// Parser and calculator for budget directives.
+/// 
+/// BudgetParser processes custom budget directives from Beancount files
+/// and provides methods for calculating budget amounts over time periods.
+/// It handles periodic budgets with different intervals and can include
+/// child account budgets in calculations.
+/// 
+/// ## Usage
+/// ```swift
+/// let parser = BudgetParser(from: directives)
+/// let monthlyBudget = parser.calculateBudget(
+///     for: Account(id: "Expenses:Food"),
+///     withIn: startDate..<endDate,
+///     includingChildren: false
+/// )
+/// ```
 public struct BudgetParser<T> where T: PostingCost {
+    /// All parsed budget directives organized by account.
     public let budgets: BudgetDictionary<T>
+    /// Any errors encountered during parsing.
     public let errors: [Error]
     
+    /// Creates a budget parser from directive entries.
+    /// 
+    /// Processes all custom directives in the entries to extract budget information.
+    /// 
+    /// - Parameter entries: The directives to parse for budget information
     public init(from entries: [Directive<T>]) {
         (budgets, errors) = Self.parseBudgets(from: entries)
     }
     
-    /// Calculate the budget for an account in an interval.
+    /// Calculates the total budget for an account over a date range.
+    /// 
+    /// Computes the budget amount by summing daily budget allocations over
+    /// the specified date range. Can optionally include child account budgets.
+    /// 
+    /// - Parameters:
+    ///   - account: The account to calculate budget for
+    ///   - dateRange: The date range to calculate over
+    ///   - includingChildren: Whether to include child account budgets
+    /// - Returns: A dictionary mapping currencies to total budget amounts
     public func calculateBudget(for account: Account, withIn dateRange: Range<Date>, includingChildren: Bool) -> [Currency: Decimal] {
         if includingChildren {
             return Self.calculateBudgetChildren(for: budgets, account: account, from: dateRange.lowerBound, to: dateRange.upperBound)
@@ -131,8 +221,15 @@ extension BudgetParser {
         return (budgets, errors)
     }
     
-    /// Find matching budgets.
-    /// - Returns: The budget that is active on the specified date for the specified account.
+    /// Finds the active budgets for a specific date.
+    /// 
+    /// Returns the most recent budget for each currency that was active
+    /// on or before the specified date. This handles budget changes over time.
+    /// 
+    /// - Parameters:
+    ///   - budgets: List of budgets to search (should be sorted by start date)
+    ///   - activeDate: The date to find active budgets for
+    /// - Returns: A dictionary mapping currencies to their active budgets
     private static func matchingBudgets(_ budgets: [Budget], activeDate: Date) -> [Currency: Budget] {
         var lastSeenBudgets: [Currency: Budget] = [:]
         for budget in budgets {

@@ -8,14 +8,41 @@
 import Foundation
 import RegexBuilder
 
-/// https://beancount.github.io/docs/beancount_design_doc.html#account
+/// A Beancount account name, representing a hierarchical account path.
+/// 
+/// Accounts in Beancount are organized in a hierarchy using colon-separated names
+/// like "Assets:US:Bank:Checking". Account names must start with a capital letter
+/// and follow specific naming conventions.
+///
+/// This corresponds to account handling in the original Beancount Python library,
+/// providing all the utilities for account manipulation and classification.
+///
+/// ## Account Structure
+/// - Root accounts: Assets, Liabilities, Equity, Income, Expenses
+/// - Sub-accounts are separated by colons: "Assets:Bank:Checking"
+/// - Account names must match the regex pattern for validity
+///
+/// ## Usage
+/// ```swift
+/// let account = Account(id: "Assets:US:Bank:Checking")
+/// print(account.root)       // "Assets"
+/// print(account.leaf)       // "Checking"
+/// print(account.parent?.id) // "Assets:US:Bank"
+/// ```
+///
+/// - SeeAlso: [Beancount Design Doc - Account](https://beancount.github.io/docs/beancount_design_doc.html#account)
 public struct Account: Identifiable, Equatable, Hashable, Sendable {
+    /// The full account name as a colon-separated string.
     public var id: String
     
+    /// Creates an account with the specified name.
+    /// 
+    /// - Parameter id: The account name (e.g., "Assets:Bank:Checking")
     public init(id: String) {
         self.id = id
     }
     
+    /// An empty account constant used as a placeholder or default value.
     public static let empty = Account(id: "")
 }
 
@@ -25,6 +52,10 @@ extension Account {
         #/(?:[\p{Lu}][\p{L}\p{Nd}-]*)(?::[\p{Lu}\p{Nd}][\p{L}\p{Nd}-]*)+/#
     }
     
+    /// Validates whether the account name conforms to Beancount naming conventions.
+    /// 
+    /// Account names must start with a capital letter and contain only letters,
+    /// numbers, and hyphens, with components separated by colons.
     public var isValid: Bool {
         try! Account.regex.wholeMatch(in: id) != nil
     }
@@ -55,14 +86,42 @@ extension Account {
         return true
     }
     
+    /// Creates an account from individual name components.
+    /// 
+    /// - Parameter components: Array of account name components
+    /// - Returns: A new account with components joined by colons
+    /// 
+    /// ## Example
+    /// ```swift
+    /// let account = Account.joined(from: ["Assets", "Bank", "Checking"])
+    /// // Results in "Assets:Bank:Checking"
+    /// ```
     public static func joined(from components: [String]) -> Account {
         .init(id: components.joined(separator: ":"))
     }
     
+    /// Splits the account name into individual components.
+    /// 
+    /// - Returns: Array of account name components
+    /// 
+    /// ## Example
+    /// ```swift
+    /// let account = Account(id: "Assets:Bank:Checking")
+    /// let components = account.split() // ["Assets", "Bank", "Checking"]
+    /// ```
     public func split() -> [String] {
         id.split(separator: #/:/#).map { String($0) }
     }
     
+    /// Returns the parent account, or nil if this is a root account.
+    /// 
+    /// The parent is the account with all components except the last one.
+    /// 
+    /// ## Example
+    /// ```swift
+    /// let account = Account(id: "Assets:Bank:Checking")
+    /// let parent = account.parent // Account(id: "Assets:Bank")
+    /// ```
     public var parent: Account? {
         let components = id.split(separator: #/:/#)
         if components.count <= 1 {
@@ -72,29 +131,94 @@ extension Account {
         }
     }
     
+    /// Determines if this account is a child (or same as) the specified account.
+    /// 
+    /// An account is considered a child if it starts with the parent's name
+    /// followed by a colon, or if it's the same account.
+    /// 
+    /// - Parameter account: The potential parent account
+    /// - Returns: True if this account is a child of the specified account
+    /// 
+    /// ## Example
+    /// ```swift
+    /// let child = Account(id: "Assets:Bank:Checking")
+    /// let parent = Account(id: "Assets:Bank")
+    /// print(child.isChild(of: parent)) // true
+    /// ```
     public func isChild(of account: Account) -> Bool {
         return id == account.id || id.hasPrefix(account.id + ":")
     }
     
+    /// Returns the leaf (last component) of the account name.
+    /// 
+    /// For "Assets:Bank:Checking", the leaf is "Checking".
+    /// For root accounts like "Assets", returns the entire name.
+    /// 
+    /// ## Example
+    /// ```swift
+    /// let account = Account(id: "Assets:Bank:Checking")
+    /// print(account.leaf) // "Checking"
+    /// ```
     public var leaf: String {
         guard let lastSep = id.lastIndex(of: ":") else { return id }
         return String(id[id.index(after: lastSep)...])
     }
     
+    /// Returns the account name without the root component.
+    /// 
+    /// For "Assets:Bank:Checking", returns "Bank:Checking".
+    /// For root accounts, returns an empty string.
+    /// 
+    /// ## Example
+    /// ```swift
+    /// let account = Account(id: "Assets:Bank:Checking")
+    /// print(account.sansRoot) // "Bank:Checking"
+    /// ```
     public var sansRoot: String {
         guard let firstSep = id.firstIndex(of: ":") else { return "" }
         return String(id[id.index(after: firstSep)...])
     }
     
+    /// Returns the account name with only the specified number of components.
+    /// 
+    /// - Parameter components: Number of components to include from the beginning
+    /// - Returns: Account name with the specified number of components
+    /// 
+    /// ## Example
+    /// ```swift
+    /// let account = Account(id: "Assets:Bank:Checking:Main")
+    /// print(account.root(2)) // "Assets:Bank"
+    /// ```
     public func root(_ components: Int) -> String {
         return id.split(separator: #/:/#).prefix(components).joined(separator: ":")
     }
     
+    /// Returns the root (first component) of the account name.
+    /// 
+    /// For "Assets:Bank:Checking", returns "Assets".
+    /// For root accounts, returns the entire name.
+    /// 
+    /// ## Example
+    /// ```swift
+    /// let account = Account(id: "Assets:Bank:Checking")
+    /// print(account.root) // "Assets"
+    /// ```
     public var root: String {
         guard let sepIndex = id.firstIndex(of: ":") else { return id }
         return String(id[..<sepIndex])
     }
     
+    /// Checks if the account contains the specified component.
+    /// 
+    /// - Parameter component: The component name to search for
+    /// - Returns: True if the account contains this component
+    /// 
+    /// ## Example
+    /// ```swift
+    /// let account = Account(id: "Assets:US:Bank:Checking")
+    /// print(account.hasComponent("Bank")) // true
+    /// print(account.hasComponent("EU"))   // false
+    /// ```
     public func hasComponent(_ component: String) -> Bool {
         let regex = Regex {
             ChoiceOf { Anchor.startOfLine; ":" }
@@ -104,6 +228,22 @@ extension Account {
         return id.contains(regex)
     }
     
+    /// Finds the common prefix of multiple account names.
+    /// 
+    /// Returns the longest common prefix shared by all accounts in the array.
+    /// 
+    /// - Parameter accounts: Array of accounts to find the common prefix for
+    /// - Returns: The common prefix as a colon-separated string
+    /// 
+    /// ## Example
+    /// ```swift
+    /// let accounts = [
+    ///     Account(id: "Assets:US:Bank:Checking"),
+    ///     Account(id: "Assets:US:Bank:Savings"),
+    ///     Account(id: "Assets:US:Investment")
+    /// ]
+    /// let prefix = Account.commonPrefix(in: accounts) // "Assets:US"
+    /// ```
     public static func commonPrefix(in accounts: [Account]) -> String {
         func commonPrefix<T: Equatable>(of arrays: [[T]]) -> [T] {
             guard let firstArray = arrays.first, !firstArray.isEmpty else {
@@ -193,21 +333,59 @@ extension Account {
     }
 }
 
+/// The five fundamental account types in double-entry accounting.
+/// 
+/// These correspond to the standard accounting equation:
+/// Assets = Liabilities + Equity + (Income - Expenses)
+/// 
+/// - SeeAlso: [Beancount Account Types](http://furius.ca/beancount/doc/cheat_sheet.html#account-categories)
 public enum AccountType: Comparable, Sendable {
+    /// Asset accounts (things you own): cash, bank accounts, investments, etc.
     case assets
+    /// Liability accounts (things you owe): credit cards, loans, mortgages, etc.
     case liabilities
+    /// Equity accounts (net worth): opening balances, retained earnings, etc.
     case equity
+    /// Income accounts (money coming in): salary, dividends, interest, etc.
     case income
+    /// Expense accounts (money going out): groceries, rent, utilities, etc.
     case expenses
 }
 
+/// Configuration for account type root names.
+/// 
+/// Allows customization of the root account names used to identify
+/// the five fundamental account types. The default configuration
+/// uses English names following Beancount conventions.
+/// 
+/// ## Usage
+/// ```swift
+/// // Using default English names
+/// let account = Account(id: "Assets:Bank:Checking")
+/// let type = account.type() // .assets
+/// 
+/// // Using custom configuration
+/// let germanConfig = AccountTypeConfiguration(
+///     assets: "Aktiva",
+///     liabilities: "Passiva", 
+///     equity: "Eigenkapital",
+///     income: "Ertrag",
+///     expenses: "Aufwand"
+/// )
+/// ```
 public struct AccountTypeConfiguration : Sendable {
+    /// Root name for asset accounts (default: "Assets")
     public var assets: String
+    /// Root name for liability accounts (default: "Liabilities")
     public var liabilities: String
+    /// Root name for equity accounts (default: "Equity")
     public var equity: String
+    /// Root name for income accounts (default: "Income")
     public var income: String
+    /// Root name for expense accounts (default: "Expenses")
     public var expenses: String
     
+    /// Default English configuration following Beancount conventions.
     static public let `default` = AccountTypeConfiguration(
         assets: "Assets",
         liabilities: "Liabilities",
@@ -219,6 +397,19 @@ public struct AccountTypeConfiguration : Sendable {
 
 #if DEBUG
 extension Account: ExpressibleByStringLiteral {
+    /// Creates an account from a string literal in DEBUG builds only.
+    /// 
+    /// This convenience initializer allows using string literals for accounts
+    /// in test code and debugging scenarios.
+    /// 
+    /// - Parameter value: The account name as a string
+    /// 
+    /// ## Example
+    /// ```swift
+    /// let account: Account = "Assets:Bank:Checking"
+    /// ```
+    /// 
+    /// - Warning: Only available in DEBUG builds to prevent accidental use in production.
     public init(stringLiteral value: StringLiteralType) {
         self.id = value
     }

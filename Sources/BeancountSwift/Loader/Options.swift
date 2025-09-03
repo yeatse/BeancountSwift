@@ -7,10 +7,28 @@
 
 import Foundation
 
+/// A single configuration option from a Beancount file.
+/// 
+/// Represents a key-value pair option directive that configures various
+/// aspects of Beancount behavior, such as currencies, tolerances, and
+/// account naming conventions.
+/// 
+/// ## Usage
+/// ```swift
+/// let option = Option(key: "title", value: "My Ledger")
+/// let currencyOption = Option(key: "operating_currency", value: "USD")
+/// ```
 public struct Option {
+    /// The option key (e.g., "title", "operating_currency").
     let key: String
+    /// The option value.
     let value: String
     
+    /// Creates a new option.
+    /// 
+    /// - Parameters:
+    ///   - key: The option key
+    ///   - value: The option value
     public init(key: String, value: String) {
         self.key = key
         self.value = value
@@ -27,21 +45,55 @@ public struct DisplayConfiguration: Sendable {
     }
 }
 
+/// Configuration options for a Beancount ledger.
+/// 
+/// Options contains all the configuration settings that control how Beancount
+/// processes and interprets the ledger. This includes currencies, account naming,
+/// booking methods, and tolerance settings.
+/// 
+/// This corresponds to the options functionality in the original Beancount Python
+/// library, providing the same configuration capabilities.
+/// 
+/// ## Usage
+/// ```swift
+/// let options = Options(from: optionsList)
+/// print(options.title)
+/// print(options.defaultCurrency)
+/// ```
 public struct Options: Sendable {
+    /// The title of the ledger (from "title" option).
     public private(set) var title: String = ""
+    /// The operating currencies for this ledger (from "operating_currency" options).
     public private(set) var operatingCurrencies: [Currency] = [
         Currency(id: "USD")
     ]
+    /// The default currency (first operating currency).
+    /// 
+    /// - Returns: The primary operating currency, defaulting to USD
     public var defaultCurrency: Currency {
         operatingCurrencies.first ?? Currency(id: "USD")
     }
+    /// The booking method for handling lot matching (from "booking_method" option).
     public private(set) var bookingMethod: BookingMethod = .STRICT
+    /// Account type naming configuration (from "name_*" options).
     public private(set) var accountNames: AccountTypeConfiguration = .default
+    /// Tolerance configuration for balance checking (from "inferred_tolerance_*" options).
     public private(set) var tolerances: ToleranceConfiguration = .default
     public private(set) var display: DisplayConfiguration = .default
     
+    /// Raw option values grouped by key for advanced access.
+    /// 
+    /// Provides access to all option values as they appeared in the source,
+    /// useful for custom processing or accessing non-standard options.
     public let rawOptions: [String: [String]]
     
+    /// Creates an Options configuration from a list of option directives.
+    /// 
+    /// Processes all option directives from the ledger and applies them to
+    /// configure the various Beancount settings. Unknown options are preserved
+    /// in rawOptions for custom processing.
+    /// 
+    /// - Parameter options: Array of option directives to process
     init(from options: [Option]) {
         rawOptions = options.grouped(by: \.key).mapValues { $0.map(\.value) }
         var mutableTolerance = tolerances
