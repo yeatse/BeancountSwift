@@ -57,7 +57,11 @@ public struct Options: Sendable {
                 case "name_income": accountNames.income = values[0]
                 case "name_expenses": accountNames.expenses = values[0]
                 case "infer_tolerance_from_cost": mutableTolerance.interFromCost = (values[0] == "True")
-                case "inferred_tolerance_multiplier":
+                case "tolerance_multiplier":
+                    if let multiplier = Decimal(string: values[0]) {
+                        mutableTolerance.multiplier = multiplier
+                    }
+                case "inferred_tolerance_multiplier": // Deprecated, but still supported
                     if let multiplier = Decimal(string: values[0]) {
                         mutableTolerance.multiplier = multiplier
                     }
