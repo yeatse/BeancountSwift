@@ -82,10 +82,12 @@ struct PadPlugin: BeancountPlugin {
                                                                       postings: [
                                                                         Posting(account: activePad.content.account,
                                                                                 units: diffPosition.units,
-                                                                                cost: diffPosition.cost),
+                                                                                cost: diffPosition.cost,
+                                                                                meta: activePad.directive.meta),
                                                                         Posting(account: activePad.content.sourceAccount,
                                                                                 units: negDiffPosition.units,
-                                                                                cost: negDiffPosition.cost)
+                                                                                cost: negDiffPosition.cost,
+                                                                                meta: activePad.directive.meta)
                                                                       ])
                                         let newEntry = Directive(meta: activePad.directive.meta,
                                                                  date: activePad.directive.date,
