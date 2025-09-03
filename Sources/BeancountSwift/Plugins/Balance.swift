@@ -58,32 +58,36 @@ struct BalanceCheckPlugin: BeancountPlugin {
                     }
                 case .balance(let balance):
                     let expectedAmount = balance.amount
-                    guard let openClose = openCloseMap[balance.account] else {
+                    let openClose = openCloseMap[balance.account]
+                    if openClose == nil {
                         errors.append(BalanceError.unknownAccount(account: balance.account))
-                        continue
                     }
-                    if let open = openClose.0,
+                    
+                    if let openClose = openClose,
+                       let open = openClose.0,
                        !open.content.currencies.isEmpty,
                        !open.content.currencies.contains(expectedAmount.currency)
                     {
                         errors.append(BalanceError.invalidCurrency(currency: expectedAmount.currency))
                     }
-                    let realAcount = realRoot.subaccount(with: balance.account.id)!
-                    let subtreeBalance = realAcount.computeBalance()
-                    let balanceAmount = subtreeBalance.getCurrencyUnits(in: expectedAmount.currency)
-                    let diffAmount = balanceAmount - expectedAmount
-                    let tolerance = balance.tolerance(options: options)
-                    if diffAmount.number.magnitude > tolerance {
-                        errors.append(BalanceError.balanceFailed(
-                            account: balance.account,
-                            expected: expectedAmount,
-                            balance: balanceAmount
-                        ))
-                        newEntry.content = .balance(.init(
-                            account: balance.account,
-                            amount: balance.amount,
-                            tolerance: balance.tolerance,
-                            diffAmount: diffAmount))
+                    
+                    if let realAcount = realRoot.subaccount(with: balance.account.id) {
+                        let subtreeBalance = realAcount.computeBalance()
+                        let balanceAmount = subtreeBalance.getCurrencyUnits(in: expectedAmount.currency)
+                        let diffAmount = balanceAmount - expectedAmount
+                        let tolerance = balance.tolerance(options: options)
+                        if diffAmount.number.magnitude > tolerance {
+                            errors.append(BalanceError.balanceFailed(
+                                account: balance.account,
+                                expected: expectedAmount,
+                                balance: balanceAmount
+                            ))
+                            newEntry.content = .balance(.init(
+                                account: balance.account,
+                                amount: balance.amount,
+                                tolerance: balance.tolerance,
+                                diffAmount: diffAmount))
+                        }
                     }
                 default:
                     break

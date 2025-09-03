@@ -344,6 +344,14 @@ final class BalanceTests: XCTestCase {
           """
         let ledger = try p.loadLedger()
         XCTAssert(ledger.errors[0] is BalanceError)
+        // balance check shouldn't "eat" the balance entry.
+        XCTAssertEqual(ledger.directives.count, 3)
+        let entry = ledger.directives[2]
+        if case .balance(_) = entry.content {
+            // Test passes - entry is indeed a balance directive
+        } else {
+            XCTFail("Expected balance directive")
+        }
     }
     
     func testGetBalanceToleranceExplicit() throws {
