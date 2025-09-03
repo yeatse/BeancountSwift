@@ -17,6 +17,16 @@ public struct Option {
     }
 }
 
+public struct DisplayConfiguration: Sendable {
+    public var displayPrecision: [Currency: Decimal]
+    
+    static let `default` = DisplayConfiguration(displayPrecision: [:])
+    
+    init(displayPrecision: [Currency: Decimal]) {
+        self.displayPrecision = displayPrecision
+    }
+}
+
 public struct Options: Sendable {
     public private(set) var title: String = ""
     public private(set) var operatingCurrencies: [Currency] = [
@@ -28,11 +38,15 @@ public struct Options: Sendable {
     public private(set) var bookingMethod: BookingMethod = .STRICT
     public private(set) var accountNames: AccountTypeConfiguration = .default
     public private(set) var tolerances: ToleranceConfiguration = .default
+    public private(set) var display: DisplayConfiguration = .default
     
     public let rawOptions: [String: [String]]
     
     init(from options: [Option]) {
         rawOptions = options.grouped(by: \.key).mapValues { $0.map(\.value) }
+        var mutableTolerance = tolerances
+        var mutableDisplay = display
+        
         for (key, values) in rawOptions {
             switch key {
                 case "title": title = values[0]
@@ -42,16 +56,23 @@ public struct Options: Sendable {
                 case "name_equity": accountNames.equity = values[0]
                 case "name_income": accountNames.income = values[0]
                 case "name_expenses": accountNames.expenses = values[0]
-                case "infer_tolerance_from_cost": tolerances.interFromCost = (values[0] == "True")
+                case "infer_tolerance_from_cost": mutableTolerance.interFromCost = (values[0] == "True")
                 case "inferred_tolerance_multiplier":
                     if let multiplier = Decimal(string: values[0]) {
-                        tolerances.multiplier = multiplier
+                        mutableTolerance.multiplier = multiplier
                     }
                 case "inferred_tolerance_default":
                     for value in values {
                         let components = value.split(separator: ":").map { String($0) }
                         if components.count == 2, let value = Decimal(string: components[1]) {
-                            tolerances.defaultTolerances[Currency(id: components[0])] = value
+                            mutableTolerance.defaultTolerances[Currency(id: components[0])] = value
+                        }
+                    }
+                case "display_precision":
+                    for value in values {
+                        let components = value.split(separator: ":").map { String($0) }
+                        if components.count == 2, let precision = Decimal(string: components[1]) {
+                            mutableDisplay.displayPrecision[Currency(id: components[0])] = precision
                         }
                     }
                 case "booking_method":
@@ -62,5 +83,8 @@ public struct Options: Sendable {
                     break
             }
         }
+        
+        tolerances = mutableTolerance
+        display = mutableDisplay
     }
 }
