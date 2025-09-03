@@ -51,11 +51,37 @@ public struct Options: Sendable {
             switch key {
                 case "title": title = values[0]
                 case "operating_currency": operatingCurrencies = values.map { Currency(id: $0) }
-                case "name_assets": accountNames.assets = values[0]
-                case "name_liabilities": accountNames.liabilities = values[0]
-                case "name_equity": accountNames.equity = values[0]
-                case "name_income": accountNames.income = values[0]
-                case "name_expenses": accountNames.expenses = values[0]
+                case "name_assets": 
+                    if Account(id: values[0]).isValidRoot {
+                        accountNames.assets = values[0]
+                    } else {
+                        // Could add error handling here in the future
+                        accountNames.assets = values[0]
+                    }
+                case "name_liabilities":
+                    if Account(id: values[0]).isValidRoot {
+                        accountNames.liabilities = values[0]
+                    } else {
+                        accountNames.liabilities = values[0]
+                    }
+                case "name_equity":
+                    if Account(id: values[0]).isValidRoot {
+                        accountNames.equity = values[0]
+                    } else {
+                        accountNames.equity = values[0]
+                    }
+                case "name_income":
+                    if Account(id: values[0]).isValidRoot {
+                        accountNames.income = values[0]
+                    } else {
+                        accountNames.income = values[0]
+                    }
+                case "name_expenses":
+                    if Account(id: values[0]).isValidRoot {
+                        accountNames.expenses = values[0]
+                    } else {
+                        accountNames.expenses = values[0]
+                    }
                 case "infer_tolerance_from_cost": mutableTolerance.interFromCost = (values[0] == "True")
                 case "tolerance_multiplier":
                     if let multiplier = Decimal(string: values[0]) {

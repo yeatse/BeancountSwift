@@ -29,6 +29,32 @@ extension Account {
         try! Account.regex.wholeMatch(in: id) != nil
     }
     
+    /// Return true if the given string is a valid root account name.
+    /// This just checks for valid syntax.
+    public var isValidRoot: Bool {
+        return try! #/^[\p{Lu}][\p{L}\p{Nd}-]*$/#.wholeMatch(in: id) != nil
+    }
+    
+    /// Return true if the given string is a valid leaf account name.
+    /// This just checks for valid syntax.
+    public var isValidLeaf: Bool {
+        // Check for empty components by looking for consecutive colons
+        if id.contains("::") {
+            return false
+        }
+        
+        let components = id.split(separator: ":")
+        guard !components.isEmpty else { return false }
+        
+        // Each component should match the leaf pattern
+        for component in components {
+            if try! #/^[\p{Lu}\p{Nd}][\p{L}\p{Nd}-]*$/#.wholeMatch(in: component) == nil {
+                return false
+            }
+        }
+        return true
+    }
+    
     public static func joined(from components: [String]) -> Account {
         .init(id: components.joined(separator: ":"))
     }

@@ -103,4 +103,36 @@ final class AccountTests: XCTestCase {
         XCTAssertEqual(Account.commonPrefix(in: ["Liabilit", "Liabilities"]), "")
         XCTAssertEqual(Account.commonPrefix(in: ["Liabilities:US:Mort", "Liabilities:US:Mortgage"]), "Liabilities:US")
     }
+    
+    func testIsValidRoot() {
+        XCTAssertTrue(Account(id: "Assets").isValidRoot)
+        XCTAssertTrue(Account(id: "Liabilities").isValidRoot)
+        XCTAssertTrue(Account(id: "Equity").isValidRoot)
+        XCTAssertTrue(Account(id: "Income").isValidRoot)
+        XCTAssertTrue(Account(id: "Expenses").isValidRoot)
+        XCTAssertTrue(Account(id: "Opening-Balances").isValidRoot)
+        
+        XCTAssertFalse(Account(id: "assets").isValidRoot)
+        XCTAssertFalse(Account(id: "Assets:US").isValidRoot)
+        XCTAssertFalse(Account(id: "123Assets").isValidRoot)
+        XCTAssertFalse(Account(id: "").isValidRoot)
+        XCTAssertFalse(Account(id: "Asset*").isValidRoot)
+    }
+    
+    func testIsValidLeaf() {
+        XCTAssertTrue(Account(id: "Assets:US:Bank:Checking").isValidLeaf)
+        XCTAssertTrue(Account(id: "Liabilities:Credit-Card").isValidLeaf)
+        XCTAssertTrue(Account(id: "Expenses:Food:Restaurant").isValidLeaf)
+        XCTAssertTrue(Account(id: "Income:Salary").isValidLeaf)
+        XCTAssertTrue(Account(id: "Assets").isValidLeaf)
+        XCTAssertTrue(Account(id: "Opening-Balances").isValidLeaf)
+        XCTAssertTrue(Account(id: "123Account").isValidLeaf)
+        
+        XCTAssertFalse(Account(id: "assets:US:Bank").isValidLeaf)
+        XCTAssertFalse(Account(id: "Assets:us:Bank").isValidLeaf)
+        XCTAssertFalse(Account(id: "Assets:US:bank").isValidLeaf)
+        XCTAssertFalse(Account(id: "").isValidLeaf)
+        XCTAssertFalse(Account(id: "Assets:US:Bank*").isValidLeaf)
+        XCTAssertFalse(Account(id: "Assets::Bank").isValidLeaf)
+    }
 }
