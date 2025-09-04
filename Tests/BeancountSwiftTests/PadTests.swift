@@ -5,11 +5,11 @@
 //  Created by Yeatse on 2024/1/28.
 //
 
-import XCTest
+import Testing
 
-final class PadTests: XCTestCase {
+struct PadTests {
     
-    func testPadSimple() throws {
+    @Test func padSimple() throws {
         let p: ContentProvider =
         """
         2013-05-01 open Assets:Checking
@@ -21,7 +21,7 @@ final class PadTests: XCTestCase {
         2013-05-03 balance Assets:Checking                                 172.45 USD
         """
         let ledger = try p.loadLedger()
-        XCTAssertTrue(ledger.errors.isEmpty)
+        #expect(ledger.errors.isEmpty)
         
         assertEqualEntries(ledger.directives,
           """
@@ -39,7 +39,7 @@ final class PadTests: XCTestCase {
           """)
     }
     
-    func testPadToZero() throws {
+    @Test func padToZero() throws {
         let p: ContentProvider =
         """
         ;; Test the case that this directive generates a padding entry, padding to zero.
@@ -55,7 +55,7 @@ final class PadTests: XCTestCase {
         2013-05-03 balance Assets:Checking                                 0.00 USD
         """
         let ledger = try p.loadLedger()
-        XCTAssertTrue(ledger.errors.isEmpty)
+        #expect(ledger.errors.isEmpty)
         
         assertEqualEntries(ledger.directives,
           """

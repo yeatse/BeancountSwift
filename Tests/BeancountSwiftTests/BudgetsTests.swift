@@ -5,13 +5,14 @@
 //  Created by Yeatse on 2024/8/4.
 //
 
-import XCTest
+import Foundation
+import Testing
 
 @testable import BeancountSwift
 
-final class BudgetsTests: XCTestCase {
+struct BudgetsTests {
     
-    func testBudgets() throws {
+    @Test func budgets() throws {
         let p: ContentProvider =
         """
         2016-01-01 custom "budget" Expenses:Groceries "weekly" 100.00 CNY
@@ -22,17 +23,17 @@ final class BudgetsTests: XCTestCase {
         let ledger = try p.parseLedger()
         let budgets = BudgetParser(from: ledger.directives)
         
-        XCTAssertEqual(budgets.errors.count, 2)
+        #expect(budgets.errors.count == 2)
         
         let empty = BudgetParser.calculateBudget(from: budgets.budgets, account: "Expenses", from: "2016-06-01", to: "2016-06-08")
-        XCTAssert(empty.isEmpty)
+        #expect(empty.isEmpty)
         
         let budgets_ = BudgetParser.calculateBudget(from: budgets.budgets, account: "Expenses:Groceries", from: "2016-06-01", to: "2016-06-08")
-        XCTAssert(almostEqual(budgets_["CNY"]!, 100))
-        XCTAssert(almostEqual(budgets_["EUR"]!, 10))
+        #expect(almostEqual(budgets_["CNY"]!, 100))
+        #expect(almostEqual(budgets_["EUR"]!, 10))
     }
     
-    func testBudgetsDaily() throws {
+    @Test func budgetsDaily() throws {
         let p: ContentProvider =
         """
         2016-05-01 custom "budget" Expenses:Books "daily" 2.5 EUR
@@ -41,7 +42,7 @@ final class BudgetsTests: XCTestCase {
         let budgets = BudgetParser(from: ledger.directives)
         
         let cal1 = BudgetParser.calculateBudget(from: budgets.budgets, account: "Expenses:Books", from: "2010-02-01", to: "2010-02-02")
-        XCTAssertFalse(cal1.keys.contains("EUR"))
+        #expect(!cal1.keys.contains("EUR"))
         
         let cases: [(Date, Date, Decimal)] = [
             ("2016-05-01", "2016-05-02", "2.5"),
@@ -51,11 +52,11 @@ final class BudgetsTests: XCTestCase {
         ]
         for (start, end, num) in cases {
             let budget = BudgetParser.calculateBudget(from: budgets.budgets, account: "Expenses:Books", from: start, to: end)
-            XCTAssertEqual(budget["EUR"], num)
+            #expect(budget["EUR"] == num)
         }
     }
     
-    func testBudgetsWeekly() throws {
+    @Test func budgetsWeekly() throws {
         let p: ContentProvider =
            """
            2016-05-01 custom "budget" Expenses:Books "weekly" 21 EUR
@@ -69,11 +70,11 @@ final class BudgetsTests: XCTestCase {
         ]
         for (start, end, num) in cases {
             let budget = BudgetParser.calculateBudget(from: budgets.budgets, account: "Expenses:Books", from: start, to: end)
-            XCTAssertEqual(budget["EUR"], num)
+            #expect(budget["EUR"] == num)
         }
     }
     
-    func testBudgetsMonthly() throws {
+    @Test func budgetsMonthly() throws {
         let p: ContentProvider =
            """
            2014-05-01 custom "budget" Expenses:Books "monthly" 100 EUR
@@ -88,11 +89,11 @@ final class BudgetsTests: XCTestCase {
         ]
         for (start, end, num) in cases {
             let budget = BudgetParser.calculateBudget(from: budgets.budgets, account: "Expenses:Books", from: start, to: end)
-            XCTAssertEqual(budget["EUR"], num)
+            #expect(budget["EUR"] == num)
         }
     }
     
-    func testBudgetsQuarterly() throws {
+    @Test func budgetsQuarterly() throws {
         let p: ContentProvider =
            """
            2014-05-01 custom "budget" Expenses:Books "quarterly" 123456.7 EUR
@@ -106,11 +107,11 @@ final class BudgetsTests: XCTestCase {
         ]
         for (start, end, num) in cases {
             let budget = BudgetParser.calculateBudget(from: budgets.budgets, account: "Expenses:Books", from: start, to: end)
-            XCTAssertEqual(budget["EUR"], num)
+            #expect(budget["EUR"] == num)
         }
     }
     
-    func testBudgetsYearly() throws {
+    @Test func budgetsYearly() throws {
         let p: ContentProvider =
            """
            2010-01-01 custom "budget" Expenses:Books "yearly" 99999.87 EUR
@@ -123,11 +124,11 @@ final class BudgetsTests: XCTestCase {
         ]
         for (start, end, num) in cases {
             let budget = BudgetParser.calculateBudget(from: budgets.budgets, account: "Expenses:Books", from: start, to: end)
-            XCTAssertEqual(budget["EUR"], num)
+            #expect(budget["EUR"] == num)
         }
     }
     
-    func testBudgetsChildren() throws {
+    @Test func budgetsChildren() throws {
         let p: ContentProvider =
            """
            2017-01-01 custom "budget" Expenses:Books "daily" 10.00 USD
@@ -137,24 +138,24 @@ final class BudgetsTests: XCTestCase {
         let budgets = BudgetParser(from: ledger.directives)
         
         var budget = BudgetParser.calculateBudgetChildren(for: budgets.budgets, account: "Expenses", from: "2017-01-01", to: "2017-01-02")
-        XCTAssertEqual(budget["USD"], "12")
+        #expect(budget["USD"] == "12")
         
         budget = BudgetParser.calculateBudgetChildren(for: budgets.budgets, account: "Expenses:Books", from: "2017-01-01", to: "2017-01-02")
-        XCTAssertEqual(budget["USD"], "12")
+        #expect(budget["USD"] == "12")
         
         budget = BudgetParser.calculateBudgetChildren(for: budgets.budgets, account: "Expenses:Books:Notebooks", from: "2017-01-01", to: "2017-01-02")
-        XCTAssertEqual(budget["USD"], "2")
+        #expect(budget["USD"] == "2")
     }
     
-    func testBudgetsSerializing() throws {
+    @Test func budgetsSerializing() throws {
         let budget = Budget(account: "Expenses:Books", startDate: "2017-01-01", period: .day, number: 10, currency: "USD")
         let directive = Directive<CostSpec>(from: budget)!
-        XCTAssertEqual(directive.date, "2017-01-01")
-        XCTAssertEqual(directive.content, .custom(Custom(type: "budget", values: [
+        #expect(directive.date == "2017-01-01")
+        #expect(directive.content == .custom(Custom(type: "budget", values: [
             .account("Expenses:Books"),
             .string("daily"),
             .amount("10 USD")
         ])))
-        XCTAssertEqual(directive.description, "2017-01-01 custom \"budget\" Expenses:Books \"daily\" 10.00 USD\n")
+        #expect(directive.description == "2017-01-01 custom \"budget\" Expenses:Books \"daily\" 10.00 USD\n")
     }
 }

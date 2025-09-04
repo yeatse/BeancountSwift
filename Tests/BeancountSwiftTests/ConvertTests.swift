@@ -5,7 +5,8 @@
 //  Created by Yeatse on 2024/1/27.
 //
 
-import XCTest
+import Foundation
+import Testing
 @testable import BeancountSwift
 
 extension PriceMap {
@@ -16,36 +17,36 @@ extension PriceMap {
     }
 }
 
-final class ConvertTests: XCTestCase {
+struct ConvertTests {
     func _pos(_ units: Amount, _ cost: Cost? = nil) -> Position {
         return .init(units: units, cost: cost)
     }
     
-    func testCostEmpty() {
-        XCTAssertEqual(_pos("100 HOOL").totalCost, "100 HOOL")
+    @Test func costEmpty() {
+        #expect(_pos("100 HOOL").totalCost == "100 HOOL")
     }
     
-    func testCostNotEmpty() {
-        XCTAssertEqual(_pos("100 HOOL", .init(number: "514.00", currency: "USD", date: .distantPast)).totalCost,
+    @Test func costNotEmpty() {
+        #expect(_pos("100 HOOL", .init(number: "514.00", currency: "USD", date: .distantPast)).totalCost ==
                        "51400.00 USD")
     }
     
-    func testCostMissing() {
-        XCTAssertEqual(_pos("100 HOOL", .init(number: .nan, currency: "USD", date: .distantPast)).totalCost,
+    @Test func costMissing() {
+        #expect(_pos("100 HOOL", .init(number: .nan, currency: "USD", date: .distantPast)).totalCost ==
                        "100 HOOL")
     }
     
-    func testWeightNoCost() {
-        XCTAssertEqual(_pos("100 HOOL").weight, "100 HOOL")
+    @Test func weightNoCost() {
+        #expect(_pos("100 HOOL").weight == "100 HOOL")
     }
     
-    func testWeightWithCost() {
-        XCTAssertEqual(_pos("100 HOOL", .init(number: "514.00", currency: "USD", date: .distantPast)).weight,
+    @Test func weightWithCost() {
+        #expect(_pos("100 HOOL", .init(number: "514.00", currency: "USD", date: .distantPast)).weight ==
                        "51400.00 USD")
     }
     
-    func testWeightWithCostMissing() {
-        XCTAssertEqual(_pos("100 HOOL", .init(number: .nan, currency: "USD", date: .distantPast)).weight,
+    @Test func weightWithCostMissing() {
+        #expect(_pos("100 HOOL", .init(number: .nan, currency: "USD", date: .distantPast)).weight ==
                        "100 HOOL")
     }
     
@@ -61,75 +62,75 @@ final class ConvertTests: XCTestCase {
     ])
     
     
-    func testValueNoCurrency() {
+    @Test func valueNoCurrency() {
         let pos = _pos("100 HOOL")
-        XCTAssertEqual(pos.marketValue(from: emptyPriceMap),
+        #expect(pos.marketValue(from: emptyPriceMap) ==
                        "100 HOOL")
-        XCTAssertEqual(pos.marketValue(from: hitPriceMap),
+        #expect(pos.marketValue(from: hitPriceMap) ==
                        "100 HOOL")
     }
     
-    func testValueCurrencyFromCost() {
+    @Test func valueCurrencyFromCost() {
         let pos = _pos("100 HOOL", .init(number: "514.00", currency: "USD", date: .distantPast))
-        XCTAssertEqual(pos.marketValue(from: hitPriceMap),
+        #expect(pos.marketValue(from: hitPriceMap) ==
                        "53000.00 USD")
-        XCTAssertEqual(pos.marketValue(from: emptyPriceMap),
+        #expect(pos.marketValue(from: emptyPriceMap) ==
                        "100 HOOL")
     }
     
-    func testConvertPositionSuccess() {
+    @Test func convertPositionSuccess() {
         let pos = _pos("100 HOOL", .init(number: "514.00", currency: "USD", date: .distantPast))
-        XCTAssertEqual(pos.converted(to: "USD", priceMap: hitPriceMap),
+        #expect(pos.converted(to: "USD", priceMap: hitPriceMap) ==
                        "53000.00 USD")
     }
     
-    func testConvertPositionMissButSameCurrency() {
+    @Test func convertPositionMissButSameCurrency() {
         let pos = _pos("100 HOOL", .init(number: "514.00", currency: "USD", date: .distantPast))
-        XCTAssertEqual(pos.converted(to: "USD", priceMap: emptyPriceMap),
+        #expect(pos.converted(to: "USD", priceMap: emptyPriceMap) ==
                        "100 HOOL")
     }
     
-    func testConvertPositionMissAndMissRateToRate() {
+    @Test func convertPositionMissAndMissRateToRate() {
         let pos = _pos("100 HOOL", .init(number: "514.00", currency: "USD", date: .distantPast))
-        XCTAssertEqual(pos.converted(to: "JPY", priceMap: hitPriceMap),
+        #expect(pos.converted(to: "JPY", priceMap: hitPriceMap) ==
                        "100 HOOL")
     }
     
-    func testConvertPositionMissAndMissValueRate() {
+    @Test func convertPositionMissAndMissValueRate() {
         let pos = _pos("100 HOOL", .init(number: "514.00", currency: "USD", date: .distantPast))
-        XCTAssertEqual(pos.converted(to: "CAD", priceMap: rateOnlyPriceMap),
+        #expect(pos.converted(to: "CAD", priceMap: rateOnlyPriceMap) ==
                        "100 HOOL")
     }
     
-    func testConvertPositionMissAndMissBoth() {
+    @Test func convertPositionMissAndMissBoth() {
         let pos = _pos("100 HOOL", .init(number: "514.00", currency: "USD", date: .distantPast))
-        XCTAssertEqual(pos.converted(to: "CAD", priceMap: emptyPriceMap),
+        #expect(pos.converted(to: "CAD", priceMap: emptyPriceMap) ==
                        "100 HOOL")
     }
     
-    func testConvertPositionMissAndSuccessOnImplieds() {
+    @Test func convertPositionMissAndSuccessOnImplieds() {
         let pos = _pos("100 HOOL", .init(number: "514.00", currency: "USD", date: .distantPast))
-        XCTAssertEqual(pos.converted(to: "CAD", priceMap: hitPriceMap),
+        #expect(pos.converted(to: "CAD", priceMap: hitPriceMap) ==
                        "63600.00 CAD")
     }
     
-    func testConvertAmountFail() {
+    @Test func convertAmountFail() {
         let amt: Amount = "127.00 USD"
-        XCTAssertEqual(amt.converted(to: "CAD", priceMap: emptyPriceMap), amt)
+        #expect(amt.converted(to: "CAD", priceMap: emptyPriceMap) == amt)
     }
     
-    func testConvertAmountSuccess() {
+    @Test func convertAmountSuccess() {
         let amt: Amount = "127.00 USD"
-        XCTAssertEqual(amt.converted(to: "CAD", priceMap: hitPriceMap), "152.40 CAD")
+        #expect(amt.converted(to: "CAD", priceMap: hitPriceMap) == "152.40 CAD")
     }
     
-    func testConvertAmountNoop() {
+    @Test func convertAmountNoop() {
         let amt: Amount = "127.00 USD"
-        XCTAssertEqual(amt.converted(to: "USD", priceMap: emptyPriceMap), amt)
-        XCTAssertEqual(amt.converted(to: "USD", priceMap: hitPriceMap), amt)
+        #expect(amt.converted(to: "USD", priceMap: emptyPriceMap) == amt)
+        #expect(amt.converted(to: "USD", priceMap: hitPriceMap) == amt)
     }
     
-    func testConvertAmountWithDate() throws {
+    @Test func convertAmountWithDate() throws {
         let p: ContentProvider =
         """
         2013-01-01 price  USD  1.20 CAD
@@ -150,7 +151,7 @@ final class ConvertTests: XCTestCase {
         ]
         let amount: Amount = "100 USD"
         for exp in cases {
-            XCTAssertEqual(amount.converted(to: "CAD", priceMap: priceMap, date: exp.0),
+            #expect(amount.converted(to: "CAD", priceMap: priceMap, date: exp.0) ==
                            exp.1)
         }
     }

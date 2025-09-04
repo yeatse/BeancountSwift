@@ -1,9 +1,9 @@
-import XCTest
+import Testing
 
 @testable import BeancountSwift
 
-final class BeancountSwiftTests: XCTestCase {
-    func testParser() throws {
+struct BeancountSwiftTests {
+    @Test func parser() throws {
         let p: ContentProvider = """
             option "title" "我的账本"
             option "operating_currency" "CNY"

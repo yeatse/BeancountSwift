@@ -5,37 +5,38 @@
 //  Created by Yeatse on 2024/1/5.
 //
 
-import XCTest
+import Testing
+import Foundation
 
 @testable import BeancountSwift
 
-final class InventoryTests: XCTestCase {
-    func testFromString() {
+struct InventoryTests {
+    @Test func fromString() {
         var inv: Inventory = "10 USD"
-        XCTAssertEqual(
-            inv,
+        #expect(
+            inv ==
             Inventory(positions: [
                 Position(units: Amount(number: 10, currency: "USD"))
             ]))
 
         inv = "   10.00   USD "
-        XCTAssertEqual(
-            inv,
+        #expect(
+            inv ==
             Inventory(positions: [
                 Position(units: Amount(number: 10, currency: "USD"))
             ]))
 
         inv = "1 USD, 2 CAD"
-        XCTAssertEqual(
-            inv,
+        #expect(
+            inv ==
             Inventory(positions: [
                 Position(units: Amount(number: 1, currency: "USD")),
                 Position(units: Amount(number: 2, currency: "CAD")),
             ]))
 
         inv = "2.2 HOOL {532.43 USD}, 3.413 EUR"
-        XCTAssertEqual(
-            inv,
+        #expect(
+            inv ==
             Inventory(positions: [
                 Position(
                     units: Amount(number: Decimal(string: "2.2")!, currency: "HOOL"),
@@ -45,8 +46,8 @@ final class InventoryTests: XCTestCase {
             ]))
 
         inv = "1.1 HOOL {500.00 # 11.00 USD}, 100 CAD"
-        XCTAssertEqual(
-            inv,
+        #expect(
+            inv ==
             Inventory(positions: [
                 Position(
                     units: Amount(number: Decimal(string: "1.1")!, currency: "HOOL"),
@@ -58,31 +59,31 @@ final class InventoryTests: XCTestCase {
     func checkAmount(inventory: Inventory, number: Decimal, currency: Currency) {
         let amount = Amount(number: number, currency: currency)
         let invAmount = inventory.getCurrencyUnits(in: currency)
-        XCTAssertEqual(amount, invAmount)
+        #expect(amount == invAmount)
     }
 
-    func testCtorEmptyLen() {
+    @Test func ctorEmptyLen() {
         var inv = Inventory()
-        XCTAssertTrue(inv.isEmpty)
-        XCTAssertEqual(inv.positions.count, 0)
+        #expect(inv.isEmpty)
+        #expect(inv.positions.count == 0)
 
         inv = Inventory(positions: ["100.00 USD", "101.00 USD"])
-        XCTAssertFalse(inv.isEmpty)
-        XCTAssertEqual(inv.positions.count, 1)
+        #expect(!inv.isEmpty)
+        #expect(inv.positions.count == 1)
 
         inv = Inventory(positions: ["100.00 USD", "100.00 CAD"])
-        XCTAssertFalse(inv.isEmpty)
-        XCTAssertEqual(inv.positions.count, 2)
+        #expect(!inv.isEmpty)
+        #expect(inv.positions.count == 2)
 
         inv = Inventory()
-        XCTAssertEqual(inv.positions.count, 0)
+        #expect(inv.positions.count == 0)
         inv.addAmount("100 USD")
-        XCTAssertEqual(inv.positions.count, 1)
+        #expect(inv.positions.count == 1)
         inv.addAmount("100 CAD")
-        XCTAssertEqual(inv.positions.count, 2)
+        #expect(inv.positions.count == 2)
     }
 
-    func testCopy() {
+    @Test func copy() {
         var inv = Inventory()
         inv.addAmount("100.00 USD")
         checkAmount(inventory: inv, number: 100, currency: "USD")
@@ -95,145 +96,145 @@ final class InventoryTests: XCTestCase {
         checkAmount(inventory: inv, number: 100, currency: "USD")
     }
 
-    func testEqualOp() {
+    @Test func equalOp() {
         let inv1: Inventory = "100 USD, 100 CAD"
         let inv2: Inventory = "100 CAD, 100 USD"
-        XCTAssertEqual(inv1, inv2)
-        XCTAssertEqual(inv2, inv1)
+        #expect(inv1 == inv2)
+        #expect(inv2 == inv1)
 
         let inv3: Inventory = "200 USD, 100 CAD"
-        XCTAssertNotEqual(inv1, inv3)
-        XCTAssertNotEqual(inv3, inv1)
+        #expect(inv1 != inv3)
+        #expect(inv3 != inv1)
 
         let inv4: Inventory = "100 USD, 100 JPY"
-        XCTAssertNotEqual(inv1, inv4)
-        XCTAssertNotEqual(inv4, inv1)
+        #expect(inv1 != inv4)
+        #expect(inv4 != inv1)
 
         let inv5: Inventory = "100 JPY, 100 USD"
-        XCTAssertEqual(inv4, inv5)
+        #expect(inv4 == inv5)
     }
 
-    func testLtOp() {
+    @Test func ltOp() {
         let inv1: Inventory = "100 USD, 100 CAD"
         let inv2: Inventory = "100 CAD, 100 USD"
-        XCTAssertLessThan(inv1, inv2)
-        XCTAssertGreaterThan(inv2, inv1)
+        #expect(inv1 < inv2)
+        #expect(inv2 > inv1)
 
         let inv3: Inventory = "200 USD, 100 CAD"
-        XCTAssertLessThan(inv1, inv2)
-        XCTAssertLessThan(inv2, inv3)
-        XCTAssertGreaterThan(inv3, inv1)
+        #expect(inv1 < inv2)
+        #expect(inv2 < inv3)
+        #expect(inv3 > inv1)
 
         let inv4: Inventory = "100 USD, 100 JPY"
-        XCTAssertGreaterThan(inv1, inv4)
+        #expect(inv1 > inv4)
 
         let inv5: Inventory = "100 JPY, 100 USD"
-        XCTAssertGreaterThan(inv1, inv5)
-        XCTAssertGreaterThan(inv4, inv5)
+        #expect(inv1 > inv5)
+        #expect(inv4 > inv5)
     }
 
-    func testIsSmallValue() {
+    @Test func isSmallValue() {
         let testInv: Inventory = "1.50 JPY, 1.51 USD, 1.52 CAD"
         for inv in [testInv, -testInv] {
-            XCTAssertFalse(inv.isSmall(tolerance: 1.49))
-            XCTAssertFalse(inv.isSmall(tolerance: 1.50))
-            XCTAssertTrue(inv.isSmall(tolerance: 1.53))
-            XCTAssertTrue(inv.isSmall(tolerance: 1.52))
+            #expect(!inv.isSmall(tolerance: 1.49))
+            #expect(!inv.isSmall(tolerance: 1.50))
+            #expect(inv.isSmall(tolerance: 1.53))
+            #expect(inv.isSmall(tolerance: 1.52))
         }
     }
 
-    func testIsSmallDict() {
+    @Test func isSmallDict() {
         let testInv: Inventory = "0.03 JPY, 0.003 USD"
         for inv in [testInv, -testInv] {
-            XCTAssertTrue(inv.isSmall(tolerances: ["JPY": 0.05, "USD": 0.005]))
-            XCTAssertFalse(inv.isSmall(tolerances: ["JPY": 0.005, "USD": 0.0005]))
-            XCTAssertTrue(inv.isSmall(tolerances: ["JPY": 0.05, "USD": 0.05]))
-            XCTAssertFalse(inv.isSmall(tolerances: ["JPY": 0.005, "USD": 0.005]))
+            #expect(inv.isSmall(tolerances: ["JPY": 0.05, "USD": 0.005]))
+            #expect(!inv.isSmall(tolerances: ["JPY": 0.005, "USD": 0.0005]))
+            #expect(inv.isSmall(tolerances: ["JPY": 0.05, "USD": 0.05]))
+            #expect(!inv.isSmall(tolerances: ["JPY": 0.005, "USD": 0.005]))
 
-            XCTAssertTrue(inv.isSmall(tolerances: ["JPY": 0.03, "USD": 0.003]))
-            XCTAssertFalse(inv.isSmall(tolerances: ["JPY": 0.02999999999999, "USD": 0.003]))
-            XCTAssertFalse(inv.isSmall(tolerances: ["JPY": 0.03, "USD": 0.00299999]))
+            #expect(inv.isSmall(tolerances: ["JPY": 0.03, "USD": 0.003]))
+            #expect(!inv.isSmall(tolerances: ["JPY": 0.02999999999999, "USD": 0.003]))
+            #expect(!inv.isSmall(tolerances: ["JPY": 0.03, "USD": 0.00299999]))
 
-            XCTAssertFalse(inv.isSmall(tolerances: ["JPY": 0.05]))
-            XCTAssertFalse(inv.isSmall(tolerances: ["USD": 0.005]))
+            #expect(!inv.isSmall(tolerances: ["JPY": 0.05]))
+            #expect(!inv.isSmall(tolerances: ["USD": 0.005]))
 
-            XCTAssertTrue(inv.isSmall(tolerances: ["JPY": 0.05, "USD": 0.005, "CAD": 0.0005]))
+            #expect(inv.isSmall(tolerances: ["JPY": 0.05, "USD": 0.005, "CAD": 0.0005]))
 
-            XCTAssertFalse(inv.isSmall(tolerances: [:]))
+            #expect(!inv.isSmall(tolerances: [:]))
         }
     }
 
-    func testIsSmallWithDefault() {
+    @Test func isSmallWithDefault() {
         let inv: Inventory = "0.03 JPY"
-        XCTAssertTrue(inv.isSmall(tolerances: ["JPY": 0.05]))
-        XCTAssertFalse(inv.isSmall(tolerances: ["JPY": 0.02]))
+        #expect(inv.isSmall(tolerances: ["JPY": 0.05]))
+        #expect(!inv.isSmall(tolerances: ["JPY": 0.02]))
     }
 
-    func testIsMixed() {
+    @Test func isMixed() {
         var inv: Inventory = "100 HOOL {250 USD}, 101 HOOL {251 USD}"
-        XCTAssertFalse(inv.isMixed())
+        #expect(!inv.isMixed())
 
         inv = "100 HOOL {250 USD}, -1 HOOL {251 USD}"
-        XCTAssertTrue(inv.isMixed())
+        #expect(inv.isMixed())
 
         inv = "-2 HOOL {250 USD}, -1 HOOL {251 USD}"
-        XCTAssertFalse(inv.isMixed())
+        #expect(!inv.isMixed())
     }
 
-    func testIsReducedBy() {
+    @Test func isReducedBy() {
         var inv: Inventory = "100 HOOL {250 USD}, 101 HOOL {251 USD}"
-        XCTAssertFalse(inv.isReducedBy("2 HOOL"))
-        XCTAssertFalse(inv.isReducedBy("0 HOOL"))
-        XCTAssertTrue(inv.isReducedBy("-2 HOOL"))
+        #expect(!inv.isReducedBy("2 HOOL"))
+        #expect(!inv.isReducedBy("0 HOOL"))
+        #expect(inv.isReducedBy("-2 HOOL"))
 
         inv = "100 HOOL {250 USD}, -101 HOOL {251 USD}"
-        XCTAssertTrue(inv.isReducedBy("2 HOOL"))
-        XCTAssertFalse(inv.isReducedBy("0 HOOL"))
-        XCTAssertTrue(inv.isReducedBy("-2 HOOL"))
+        #expect(inv.isReducedBy("2 HOOL"))
+        #expect(!inv.isReducedBy("0 HOOL"))
+        #expect(inv.isReducedBy("-2 HOOL"))
     }
 
-    func testNegOp() {
+    @Test func negOp() {
         var inv = Inventory()
         inv.addAmount("10 USD")
         checkAmount(inventory: -inv, number: -10, currency: "USD")
 
         let pinv: Inventory = "1.50 JPY, 1.51 USD, 1.52 CAD"
         let ninv: Inventory = "-1.50 JPY, -1.51 USD, -1.52 CAD"
-        XCTAssertEqual(-pinv, ninv)
+        #expect(-pinv == ninv)
     }
 
-    func testAbsOp() {
+    @Test func absOp() {
         let inv: Inventory = "1.50 USD, 2.00 USD, -1.52 CAD"
-        XCTAssertEqual(inv.absolute, "3.50 USD, 1.52 CAD")
+        #expect(inv.absolute == "3.50 USD, 1.52 CAD")
     }
 
-    func testMulOp() {
+    @Test func mulOp() {
         let inv: Inventory = "10 HOOL {1.11 USD}, 2.22 CAD"
         let inv2 = inv * 3
-        XCTAssertEqual(inv2, "30 HOOL {1.11 USD}, 6.66 CAD")
+        #expect(inv2 == "30 HOOL {1.11 USD}, 6.66 CAD")
     }
 
-    func testGetOnlyPosition() {
+    @Test func getOnlyPosition() {
         let inv: Inventory = "10 HOOL {1.11 USD}"
-        XCTAssertEqual(inv.onlyPosition?.units, "10 HOOL")
-        XCTAssertNil(Inventory().onlyPosition)
+        #expect(inv.onlyPosition?.units == "10 HOOL")
+        #expect(Inventory().onlyPosition == nil)
     }
 
-    func testGetCurrencyUnits() {
+    @Test func getCurrencyUnits() {
         let inv: Inventory = "40.50 JPY, 40.51 USD {1.01 CAD}, 40.52 CAD"
-        XCTAssertEqual(inv.getCurrencyUnits(in: "JPY"), "40.50 JPY")
-        XCTAssertEqual(inv.getCurrencyUnits(in: "USD"), "40.51 USD")
-        XCTAssertEqual(inv.getCurrencyUnits(in: "CAD"), "40.52 CAD")
-        XCTAssertEqual(inv.getCurrencyUnits(in: "AUD"), "0 AUD")
-        XCTAssertEqual(inv.getCurrencyUnits(in: "NZD"), "0 NZD")
+        #expect(inv.getCurrencyUnits(in: "JPY") == "40.50 JPY")
+        #expect(inv.getCurrencyUnits(in: "USD") == "40.51 USD")
+        #expect(inv.getCurrencyUnits(in: "CAD") == "40.52 CAD")
+        #expect(inv.getCurrencyUnits(in: "AUD") == "0 AUD")
+        #expect(inv.getCurrencyUnits(in: "NZD") == "0 NZD")
     }
 
-    func testSegregateUnits() {
+    @Test func segregateUnits() {
         let inv: Inventory =
             "2.2 HOOL {532.43 USD}, 2.3 HOOL {564.00 USD, 2015-07-14}, 3.41 CAD, 101.20 USD"
         let ccymap = inv.segregateUnits(by: ["HOOL", "USD", "EUR"])
-        XCTAssertEqual(
-            ccymap,
+        #expect(
+            ccymap ==
             [
                 nil: "3.41 CAD",
                 "USD": "101.20 USD",
@@ -242,12 +243,12 @@ final class InventoryTests: XCTestCase {
             ])
     }
 
-    func testSplit() {
+    @Test func split() {
         let inv: Inventory =
             "2.2 HOOL {532.43 USD}, 2.3 HOOL {564.00 USD, 2015-07-14}, 3.41 CAD, 101.20 USD"
         let ccymap = inv.split()
-        XCTAssertEqual(
-            ccymap,
+        #expect(
+            ccymap ==
             [
                 "CAD": "3.41 CAD",
                 "USD": "101.20 USD",
@@ -261,86 +262,82 @@ final class InventoryTests: XCTestCase {
         "40.50 USD {1.10 CAD, 2012-01-01}",
     ]
 
-    func testUnits() {
+    @Test func units() {
         var inv = Inventory()
-        XCTAssertEqual(inv.reduce(by: \.units), "")
+        #expect(inv.reduce(by: \.units) == "")
 
         inv = "40.50 JPY, 40.51 USD {1.01 CAD}, 40.52 CAD"
-        XCTAssertEqual(inv.reduce(by: \.units), "40.50 JPY, 40.51 USD, 40.52 CAD")
+        #expect(inv.reduce(by: \.units) == "40.50 JPY, 40.51 USD, 40.52 CAD")
 
         inv = "2 HOOL {400 USD}, 3 HOOL {410 USD}"
-        XCTAssertEqual(inv.reduce(by: \.units), "5 HOOL")
+        #expect(inv.reduce(by: \.units) == "5 HOOL")
 
         inv = "2 HOOL {400 USD}, -3 HOOL {410 USD}"
-        XCTAssertEqual(inv.reduce(by: \.units), "-1 HOOL")
+        #expect(inv.reduce(by: \.units) == "-1 HOOL")
 
         inv = Inventory(positions: allKindsOfPositions + ["50.00 CAD"])
-        XCTAssertEqual(inv.reduce(by: \.units), "121.50 USD, 50.00 CAD")
+        #expect(inv.reduce(by: \.units) == "121.50 USD, 50.00 CAD")
     }
 
-    func testCost() {
+    @Test func cost() {
         let inv = Inventory(positions: allKindsOfPositions + ["50.00 CAD"])
-        XCTAssertEqual(inv.reduce(by: \.totalCost), "40.50 USD, 139.10 CAD")
+        #expect(inv.reduce(by: \.totalCost) == "40.50 USD, 139.10 CAD")
     }
 
-    func testAverage() {
+    @Test func average() {
         var inv: Inventory = "40.50 JPY, 40.51 USD {1.01 CAD}, 40.52 CAD"
-        XCTAssertEqual(inv.average, inv)
+        #expect(inv.average == inv)
 
         inv = "40 USD {1.01 CAD}, 40 USD"
-        XCTAssertEqual(inv.average, inv)
+        #expect(inv.average == inv)
 
         inv = "40 USD {1.01 CAD}, 40 USD {1.02 CAD}"
-        XCTAssertEqual(inv.average, "80.00 USD {1.015 CAD}")
+        #expect(inv.average == "80.00 USD {1.015 CAD}")
 
         inv = "2 HOOL {500 USD}, 3 HOOL {520 USD}, 4 HOOL {530 USD}"
-        XCTAssertEqual(inv.average, "9 HOOL {520 USD}")
+        #expect(inv.average == "9 HOOL {520 USD}")
 
         inv = "2 HOOL {500 USD}"
         inv.addAmount("-2 HOOL", cost: Cost(number: 500, currency: "USD", date: .distantPast))
-        XCTAssertEqual(inv.average, "")
+        #expect(inv.average == "")
 
         inv = "2 HOOL {500 USD}"
         inv.addAmount("-2 HOOL", cost: Cost(number: 500, currency: "USD", date: .now))
-        XCTAssertEqual(inv.average, "")
+        #expect(inv.average == "")
     }
 
-    func testCurrencies() {
+    @Test func currencies() {
         var inv = Inventory()
-        XCTAssertEqual(Set(inv.currencies), [])
+        #expect(Set(inv.currencies) == [])
 
         inv = "40 USD {1.01 CAD}, 40 USD"
-        XCTAssertEqual(Set(inv.currencies), ["USD"])
+        #expect(Set(inv.currencies) == ["USD"])
 
         inv = "40 AAPL {1.01 USD}, 10 HOOL {2.02 USD}"
-        XCTAssertEqual(Set(inv.currencies), ["AAPL", "HOOL"])
+        #expect(Set(inv.currencies) == ["AAPL", "HOOL"])
     }
 
-    func testCurrencyPairs() {
+    @Test func currencyPairs() throws {
         var inv = Inventory()
-        XCTAssertTrue(inv.currencyPairs.isEmpty)
+        #expect(inv.currencyPairs.isEmpty)
 
         inv = "40 USD {1.01 CAD}, 40 USD"
         var pairs: [Position.CurrencyPair] = [["USD", "CAD"], ["USD", nil]]
         for pair in inv.currencyPairs {
-            guard let index = pairs.firstIndex(of: pair) else {
-                return XCTFail()
-            }
+            let index = try #require(pairs.firstIndex(of: pair))
             pairs.remove(at: index)
         }
-        XCTAssert(pairs.isEmpty)
+        #expect(pairs.isEmpty)
 
         inv = "40 AAPL {1.01 USD}, 10 HOOL {2.02 USD}"
         pairs = [["AAPL", "USD"], ["HOOL", "USD"]]
         for pair in inv.currencyPairs {
-            guard let index = pairs.firstIndex(of: pair) else {
-                return XCTFail()
-            }
+            let index = try #require(pairs.firstIndex(of: pair))
             pairs.remove(at: index)
         }
     }
 
-    func testAddAmount() {
+    @Test func addAmount() {
         var inv = Inventory()
         inv.addAmount("100.00 USD")
         checkAmount(inventory: inv, number: 100, currency: "USD")
@@ -361,28 +358,28 @@ final class InventoryTests: XCTestCase {
         checkAmount(inventory: inv, number: 10, currency: "USD")
     }
 
-    func testAddAmountZero() {
+    @Test func addAmountZero() {
         var inv = Inventory()
         inv.addAmount("0 USD")
-        XCTAssertEqual(inv.positions.count, 0)
+        #expect(inv.positions.count == 0)
     }
 
-    func testAddAmountBooking() {
+    @Test func addAmountBooking() {
         var inv = Inventory()
         var (_, booking) = inv.addAmount("100.00 USD")
-        XCTAssertEqual(booking, .created)
+        #expect(booking == .created)
 
         (_, booking) = inv.addAmount("20.00 USD")
-        XCTAssertEqual(booking, .augmented)
+        #expect(booking == .augmented)
 
         (_, booking) = inv.addAmount("-20 USD")
-        XCTAssertEqual(booking, .reduced)
+        #expect(booking == .reduced)
 
         (_, booking) = inv.addAmount("-100 USD")
-        XCTAssertEqual(booking, .reduced)
+        #expect(booking == .reduced)
     }
 
-    func testAddAmountMultiCurrency() {
+    @Test func addAmountMultiCurrency() {
         var inv = Inventory()
         inv.addAmount("100 USD")
         inv.addAmount("100 CAD")
@@ -394,7 +391,7 @@ final class InventoryTests: XCTestCase {
         checkAmount(inventory: inv, number: 100, currency: "CAD")
     }
 
-    func testAddAmountWithLots() {
+    @Test func addAmountWithLots() {
         var inv = Inventory()
         inv.addAmount("50 HOOL", cost: .init(number: 700, currency: "USD", date: .distantPast))
         checkAmount(inventory: inv, number: 50, currency: "HOOL")
@@ -403,7 +400,7 @@ final class InventoryTests: XCTestCase {
         checkAmount(inventory: inv, number: 10, currency: "HOOL")
 
         inv.addAmount("-12 HOOL", cost: .init(number: 700, currency: "USD", date: .distantPast))
-        XCTAssertTrue(inv.positions.first!.isNegativeAtCost)
+        #expect(inv.positions.first!.isNegativeAtCost)
 
         inv = Inventory()
         let now = Date.now
@@ -414,63 +411,63 @@ final class InventoryTests: XCTestCase {
         checkAmount(inventory: inv, number: 10, currency: "HOOL")
 
         inv.addAmount("-12 HOOL", cost: .init(number: 700, currency: "USD", date: now))
-        XCTAssertTrue(inv.positions.first!.isNegativeAtCost)
+        #expect(inv.positions.first!.isNegativeAtCost)
     }
 
-    func testAddAmountAllowNegative() {
+    @Test func addAmountAllowNegative() {
         var inv = Inventory()
         var (position, _) = inv.addAmount("-11 USD")
-        XCTAssertNil(position)
+        #expect(position == nil)
 
         (position, _) = inv.addAmount(
             "-11 USD", cost: .init(number: "1.10", currency: "CAD", date: .distantPast))
-        XCTAssertNil(position)
+        #expect(position == nil)
 
         (position, _) = inv.addAmount(
             "-11 USD", cost: .init(number: "1.10", currency: "CAD", date: "2012-01-01"))
-        XCTAssertNil(position)
+        #expect(position == nil)
 
         let invlist = Array(inv.positions)
-        XCTAssertTrue(invlist[1].isNegativeAtCost)
-        XCTAssertTrue(invlist[2].isNegativeAtCost)
+        #expect(invlist[1].isNegativeAtCost)
+        #expect(invlist[2].isNegativeAtCost)
         inv.addAmount("-11 USD", cost: .init(number: "1.10", currency: "CAD", date: .distantPast))
         inv.addAmount("-11 USD", cost: .init(number: "1.10", currency: "CAD", date: "2012-01-01"))
-        XCTAssertEqual(inv.positions.count, 3)
+        #expect(inv.positions.count == 3)
 
         inv = "10 USD, 10 USD {1.10 CAD}, 10 USD {1.10 CAD, 2012-01-01}"
         (position, _) = inv.addAmount("-11 USD")
-        XCTAssertEqual(position, "10 USD")
+        #expect(position == "10 USD")
         (position, _) = inv.addAmount(
             "-11 USD", cost: .init(number: "1.10", currency: "CAD", date: .distantPast))
-        XCTAssertEqual(position, "10 USD {1.10 CAD}")
+        #expect(position == "10 USD {1.10 CAD}")
         (position, _) = inv.addAmount(
             "-11 USD", cost: .init(number: "1.10", currency: "CAD", date: "2012-01-01"))
     }
 
-    func testAddPosition() {
+    @Test func addPosition() {
         var inv = Inventory()
         for position in allKindsOfPositions {
             inv.addPosition(position)
         }
-        XCTAssertEqual(Inventory(positions: allKindsOfPositions), inv)
+        #expect(Inventory(positions: allKindsOfPositions) == inv)
     }
 
-    func testAddOp() {
+    @Test func addOp() {
         let inv1: Inventory = "17.00 USD"
         let origInv1: Inventory = "17.00 USD"
         let inv2: Inventory = "21.00 CAD"
         let inv3 = inv1 + inv2
-        XCTAssertEqual(inv3, "17.00 USD, 21.00 CAD")
-        XCTAssertEqual(inv1, origInv1)
+        #expect(inv3 == "17.00 USD, 21.00 CAD")
+        #expect(inv1 == origInv1)
     }
 
-    func testUpdate() {
+    @Test func update() {
         var inv1: Inventory = "11 USD"
         inv1.addInventory("12 CAD")
-        XCTAssertEqual(inv1, "11 USD, 12 CAD")
+        #expect(inv1 == "11 USD, 12 CAD")
     }
 
-    func testSumInventories() {
+    @Test func sumInventories() {
         var inv1 = Inventory()
         inv1.addAmount("10 USD")
 
@@ -478,12 +475,12 @@ final class InventoryTests: XCTestCase {
         inv2.addAmount("20 CAD")
         inv2.addAmount("55 HOOL")
 
-        XCTAssertEqual(inv1 + inv2, "10 USD, 20 CAD, 55 HOOL")
+        #expect(inv1 + inv2 == "10 USD, 20 CAD, 55 HOOL")
     }
 
-    func testReduce() {
+    @Test func reduce() {
         let inv: Inventory = "100.00 USD, 101.00 CAD, 100 HOOL {300.00 USD}"
         let units = inv.reduce(by: \.units)
-        XCTAssertEqual(units, "100.00 USD, 101.00 CAD, 100 HOOL")
+        #expect(units == "100.00 USD, 101.00 CAD, 100 HOOL")
     }
 }

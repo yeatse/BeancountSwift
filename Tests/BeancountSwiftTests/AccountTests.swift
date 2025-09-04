@@ -5,134 +5,132 @@
 //  Created by Yeatse on 2024/1/28.
 //
 
-import XCTest
+import Testing
 @testable import BeancountSwift
 
-final class AccountTests: XCTestCase {
+struct AccountTests {
     
-    func testAccountRegexp() {
-        XCTAssertNotNil(try! Account.regex.wholeMatch(in: "Assets:Something"))
-        XCTAssertNil(try! Account.regex.wholeMatch(in: "assets:Something"))
+    @Test func accountRegexp() {
+        #expect(try! Account.regex.wholeMatch(in: "Assets:Something") != nil)
+        #expect(try! Account.regex.wholeMatch(in: "assets:Something") == nil)
     }
     
-    func testAccountIsValid() {
-        XCTAssertTrue(Account(id: "Assets:US:RBS:Checking").isValid)
-        XCTAssertTrue(Account(id: "Equity:Opening-Balances").isValid)
-        XCTAssertTrue(Account(id: "Income:US:ETrade:Dividends-USD").isValid)
-        XCTAssertTrue(Account(id: "Assets:US:RBS").isValid)
-        XCTAssertTrue(Account(id: "Assets:US").isValid)
-        XCTAssertFalse(Account(id: "Assets").isValid)
-        XCTAssertFalse(Account(id: "Invalid").isValid)
-        XCTAssertFalse(Account(id: "Other").isValid)
-        XCTAssertFalse(Account(id: "Assets:US:RBS*Checking").isValid)
-        XCTAssertFalse(Account(id: "Assets:US:RBS:Checking&").isValid)
-        XCTAssertFalse(Account(id: "Assets:US:RBS:checking").isValid)
-        XCTAssertFalse(Account(id: "Assets:us:RBS:checking").isValid)
+    @Test func accountIsValid() {
+        #expect(Account(id: "Assets:US:RBS:Checking").isValid)
+        #expect(Account(id: "Equity:Opening-Balances").isValid)
+        #expect(Account(id: "Income:US:ETrade:Dividends-USD").isValid)
+        #expect(Account(id: "Assets:US:RBS").isValid)
+        #expect(Account(id: "Assets:US").isValid)
+        #expect(!Account(id: "Assets").isValid)
+        #expect(!Account(id: "Invalid").isValid)
+        #expect(!Account(id: "Other").isValid)
+        #expect(!Account(id: "Assets:US:RBS*Checking").isValid)
+        #expect(!Account(id: "Assets:US:RBS:Checking&").isValid)
+        #expect(!Account(id: "Assets:US:RBS:checking").isValid)
+        #expect(!Account(id: "Assets:us:RBS:checking").isValid)
     }
     
-    func testJoinAccount() {
-        XCTAssertEqual(Account.joined(from: ["Expenses", "Toys", "Computer"]),
-                       "Expenses:Toys:Computer")
-        XCTAssertEqual(Account.joined(from: ["Expenses"]), "Expenses")
-        XCTAssertEqual(Account.joined(from: []), "")
+    @Test func joinAccount() {
+        #expect(Account.joined(from: ["Expenses", "Toys", "Computer"]) == "Expenses:Toys:Computer")
+        #expect(Account.joined(from: ["Expenses"]) == "Expenses")
+        #expect(Account.joined(from: []) == "")
     }
     
-    func testSplitAccount() {
-        XCTAssertEqual(Account(id: "Expenses:Toys:Computer").split(),
-                       ["Expenses", "Toys", "Computer"])
-        XCTAssertEqual(Account(id: "Expenses").split(), ["Expenses"])
-        XCTAssertEqual(Account(id: "").split(), [])
+    @Test func splitAccount() {
+        #expect(Account(id: "Expenses:Toys:Computer").split() == ["Expenses", "Toys", "Computer"])
+        #expect(Account(id: "Expenses").split() == ["Expenses"])
+        #expect(Account(id: "").split() == [])
     }
     
-    func testParentAccount() {
-        XCTAssertEqual(Account(id: "Expenses:Toys:Computer").parent, "Expenses:Toys")
-        XCTAssertEqual(Account(id: "Expenses:Toys").parent, "Expenses")
-        XCTAssertNil(Account(id: "Expenses").parent)
-        XCTAssertNil(Account(id: "").parent)
+    @Test func parentAccount() {
+        #expect(Account(id: "Expenses:Toys:Computer").parent == "Expenses:Toys")
+        #expect(Account(id: "Expenses:Toys").parent == "Expenses")
+        #expect(Account(id: "Expenses").parent == nil)
+        #expect(Account(id: "").parent == nil)
     }
     
-    func testIsChildAccount() {
+    @Test func isChildAccount() {
         let parent = Account(id: "Assets:Bank:Checking")
-        XCTAssertTrue(Account(id: "Assets:Bank:Checking").isChild(of: parent))
-        XCTAssertTrue(Account(id: "Assets:Bank:Checking:SubAccount").isChild(of: parent))
-        XCTAssertFalse(Account(id: "Assets:Bank:CheckingOld").isChild(of: parent))
-        XCTAssertFalse(Account(id: "Assets:Bank:Checking-Old").isChild(of: parent))
+        #expect(Account(id: "Assets:Bank:Checking").isChild(of: parent))
+        #expect(Account(id: "Assets:Bank:Checking:SubAccount").isChild(of: parent))
+        #expect(!Account(id: "Assets:Bank:CheckingOld").isChild(of: parent))
+        #expect(!Account(id: "Assets:Bank:Checking-Old").isChild(of: parent))
     }
     
-    func testLeafAccount() {
-        XCTAssertEqual(Account(id: "Expenses:Toys:Computer").leaf, "Computer")
-        XCTAssertEqual(Account(id: "Expenses:Toys").leaf, "Toys")
-        XCTAssertEqual(Account(id: "Expenses").leaf, "Expenses")
-        XCTAssertEqual(Account(id: "").leaf, "")
+    @Test func leafAccount() {
+        #expect(Account(id: "Expenses:Toys:Computer").leaf == "Computer")
+        #expect(Account(id: "Expenses:Toys").leaf == "Toys")
+        #expect(Account(id: "Expenses").leaf == "Expenses")
+        #expect(Account(id: "").leaf == "")
     }
     
-    func testAccountSansRoot() {
-        XCTAssertEqual(Account(id: "Expenses:Toys:Computer").sansRoot, "Toys:Computer")
-        XCTAssertEqual(Account(id: "Assets:US:BofA:Checking").sansRoot, "US:BofA:Checking")
-        XCTAssertEqual(Account(id: "Assets").sansRoot, "")
+    @Test func accountSansRoot() {
+        #expect(Account(id: "Expenses:Toys:Computer").sansRoot == "Toys:Computer")
+        #expect(Account(id: "Assets:US:BofA:Checking").sansRoot == "US:BofA:Checking")
+        #expect(Account(id: "Assets").sansRoot == "")
     }
     
-    func testAccountRoot() {
+    @Test func accountRoot() {
         let account = Account(id: "Liabilities:US:Credit-Card:Blue")
-        XCTAssertEqual(account.root(0), "")
-        XCTAssertEqual(account.root(1), "Liabilities")
-        XCTAssertEqual(account.root(2), "Liabilities:US")
-        XCTAssertEqual(account.root(3), "Liabilities:US:Credit-Card")
-        XCTAssertEqual(account.root(4), "Liabilities:US:Credit-Card:Blue")
-        XCTAssertEqual(account.root(5), "Liabilities:US:Credit-Card:Blue")
+        #expect(account.root(0) == "")
+        #expect(account.root(1) == "Liabilities")
+        #expect(account.root(2) == "Liabilities:US")
+        #expect(account.root(3) == "Liabilities:US:Credit-Card")
+        #expect(account.root(4) == "Liabilities:US:Credit-Card:Blue")
+        #expect(account.root(5) == "Liabilities:US:Credit-Card:Blue")
     }
     
-    func testHasAccountComponent() {
+    @Test func hasAccountComponent() {
         let account = Account(id: "Liabilities:US:Credit-Card")
-        XCTAssertTrue(account.hasComponent("US"))
-        XCTAssertFalse(account.hasComponent("CA"))
-        XCTAssertTrue(account.hasComponent("Credit-Card"))
-        XCTAssertTrue(account.hasComponent("Liabilities"))
-        XCTAssertFalse(account.hasComponent("Credit"))
-        XCTAssertFalse(account.hasComponent("Card"))
+        #expect(account.hasComponent("US"))
+        #expect(!account.hasComponent("CA"))
+        #expect(account.hasComponent("Credit-Card"))
+        #expect(account.hasComponent("Liabilities"))
+        #expect(!account.hasComponent("Credit"))
+        #expect(!account.hasComponent("Card"))
     }
     
-    func testCommonPrefix() {
-        XCTAssertEqual(Account.commonPrefix(in: ["Assets:US:Bank", "Liabilities:US:Mortgage"]), "")
-        XCTAssertEqual(Account.commonPrefix(in: []), "")
-        XCTAssertEqual(Account.commonPrefix(in: ["Liabilities:US:Credit-Card", "Liabilities:US:Mortgage"]), "Liabilities:US")
-        XCTAssertEqual(Account.commonPrefix(in: ["Liabilities:US", "Liabilities:US:Mortgage"]), "Liabilities:US")
-        XCTAssertEqual(Account.commonPrefix(in: ["Liabilities:US:Mortgage", "Liabilities:US"]), "Liabilities:US")
-        XCTAssertEqual(Account.commonPrefix(in: ["Liabilities", "Liabilities:US:Mortgage"]), "Liabilities")
-        XCTAssertEqual(Account.commonPrefix(in: ["Liabilities", "Liabilit"]), "")
-        XCTAssertEqual(Account.commonPrefix(in: ["Liabilit", "Liabilities"]), "")
-        XCTAssertEqual(Account.commonPrefix(in: ["Liabilities:US:Mort", "Liabilities:US:Mortgage"]), "Liabilities:US")
+    @Test func commonPrefix() {
+        #expect(Account.commonPrefix(in: ["Assets:US:Bank", "Liabilities:US:Mortgage"]) == "")
+        #expect(Account.commonPrefix(in: []) == "")
+        #expect(Account.commonPrefix(in: ["Liabilities:US:Credit-Card", "Liabilities:US:Mortgage"]) == "Liabilities:US")
+        #expect(Account.commonPrefix(in: ["Liabilities:US", "Liabilities:US:Mortgage"]) == "Liabilities:US")
+        #expect(Account.commonPrefix(in: ["Liabilities:US:Mortgage", "Liabilities:US"]) == "Liabilities:US")
+        #expect(Account.commonPrefix(in: ["Liabilities", "Liabilities:US:Mortgage"]) == "Liabilities")
+        #expect(Account.commonPrefix(in: ["Liabilities", "Liabilit"]) == "")
+        #expect(Account.commonPrefix(in: ["Liabilit", "Liabilities"]) == "")
+        #expect(Account.commonPrefix(in: ["Liabilities:US:Mort", "Liabilities:US:Mortgage"]) == "Liabilities:US")
     }
     
-    func testIsValidRoot() {
-        XCTAssertTrue(Account(id: "Assets").isValidRoot)
-        XCTAssertTrue(Account(id: "Liabilities").isValidRoot)
-        XCTAssertTrue(Account(id: "Equity").isValidRoot)
-        XCTAssertTrue(Account(id: "Income").isValidRoot)
-        XCTAssertTrue(Account(id: "Expenses").isValidRoot)
-        XCTAssertTrue(Account(id: "Opening-Balances").isValidRoot)
+    @Test func isValidRoot() {
+        #expect(Account(id: "Assets").isValidRoot)
+        #expect(Account(id: "Liabilities").isValidRoot)
+        #expect(Account(id: "Equity").isValidRoot)
+        #expect(Account(id: "Income").isValidRoot)
+        #expect(Account(id: "Expenses").isValidRoot)
+        #expect(Account(id: "Opening-Balances").isValidRoot)
         
-        XCTAssertFalse(Account(id: "assets").isValidRoot)
-        XCTAssertFalse(Account(id: "Assets:US").isValidRoot)
-        XCTAssertFalse(Account(id: "123Assets").isValidRoot)
-        XCTAssertFalse(Account(id: "").isValidRoot)
-        XCTAssertFalse(Account(id: "Asset*").isValidRoot)
+        #expect(!Account(id: "assets").isValidRoot)
+        #expect(!Account(id: "Assets:US").isValidRoot)
+        #expect(!Account(id: "123Assets").isValidRoot)
+        #expect(!Account(id: "").isValidRoot)
+        #expect(!Account(id: "Asset*").isValidRoot)
     }
     
-    func testIsValidLeaf() {
-        XCTAssertTrue(Account(id: "Assets:US:Bank:Checking").isValidLeaf)
-        XCTAssertTrue(Account(id: "Liabilities:Credit-Card").isValidLeaf)
-        XCTAssertTrue(Account(id: "Expenses:Food:Restaurant").isValidLeaf)
-        XCTAssertTrue(Account(id: "Income:Salary").isValidLeaf)
-        XCTAssertTrue(Account(id: "Assets").isValidLeaf)
-        XCTAssertTrue(Account(id: "Opening-Balances").isValidLeaf)
-        XCTAssertTrue(Account(id: "123Account").isValidLeaf)
+    @Test func isValidLeaf() {
+        #expect(Account(id: "Assets:US:Bank:Checking").isValidLeaf)
+        #expect(Account(id: "Liabilities:Credit-Card").isValidLeaf)
+        #expect(Account(id: "Expenses:Food:Restaurant").isValidLeaf)
+        #expect(Account(id: "Income:Salary").isValidLeaf)
+        #expect(Account(id: "Assets").isValidLeaf)
+        #expect(Account(id: "Opening-Balances").isValidLeaf)
+        #expect(Account(id: "123Account").isValidLeaf)
         
-        XCTAssertFalse(Account(id: "assets:US:Bank").isValidLeaf)
-        XCTAssertFalse(Account(id: "Assets:us:Bank").isValidLeaf)
-        XCTAssertFalse(Account(id: "Assets:US:bank").isValidLeaf)
-        XCTAssertFalse(Account(id: "").isValidLeaf)
-        XCTAssertFalse(Account(id: "Assets:US:Bank*").isValidLeaf)
-        XCTAssertFalse(Account(id: "Assets::Bank").isValidLeaf)
+        #expect(!Account(id: "assets:US:Bank").isValidLeaf)
+        #expect(!Account(id: "Assets:us:Bank").isValidLeaf)
+        #expect(!Account(id: "Assets:US:bank").isValidLeaf)
+        #expect(!Account(id: "").isValidLeaf)
+        #expect(!Account(id: "Assets:US:Bank*").isValidLeaf)
+        #expect(!Account(id: "Assets::Bank").isValidLeaf)
     }
 }

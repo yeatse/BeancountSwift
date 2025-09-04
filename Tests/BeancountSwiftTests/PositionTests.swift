@@ -5,39 +5,39 @@
 //  Created by Yeatse on 2024/1/7.
 //
 
-import XCTest
+import Testing
 
 @testable import BeancountSwift
 
-final class PositionTests: XCTestCase {
-    func testCompareZeroToNone() {
+struct PositionTests {
+    @Test func compareZeroToNone() {
         let pos1 = Position(units: Amount(number: .zero, currency: "CAD"))
         let pos2 = Position(units: Amount(number: .zero, currency: "USD"))
-        XCTAssertNotEqual(pos1, pos2)
+        #expect(pos1 != pos2)
     }
 
-    func testNeg() {
+    @Test func neg() {
         let pos = Position(units: "7 CAD")
         let npos = -pos
-        XCTAssertEqual(npos.units.number, -7)
-        XCTAssertEqual(npos.units.currency, "CAD")
-        XCTAssertEqual(pos.cost, npos.cost)
+        #expect(npos.units.number == -7)
+        #expect(npos.units.currency == "CAD")
+        #expect(pos.cost == npos.cost)
     }
 
-    func testAbs() {
+    @Test func abs() {
         var pos = Position(units: "7 CAD")
-        XCTAssertEqual(pos.absolute.units.number, 7)
+        #expect(pos.absolute.units.number == 7)
         pos = Position(units: "-7 CAD")
-        XCTAssertEqual(pos.absolute.units.number, 7)
+        #expect(pos.absolute.units.number == 7)
     }
 
-    func testMul() {
+    @Test func mul() {
         let pos: Position = "2 HOOL {100.00 USD}"
         let pos2 = pos * 3
-        XCTAssertEqual(pos2, "6 HOOL {100.00 USD}")
+        #expect(pos2 == "6 HOOL {100.00 USD}")
     }
 
-    func testEqAndSortKey() {
+    @Test func eqAndSortKey() {
         let pos1 = Position(units: "200 USD")
         let pos2 = Position(units: "201 USD")
         let pos3 = Position(units: "100 CAD")
@@ -45,19 +45,19 @@ final class PositionTests: XCTestCase {
         let pos5 = Position(units: "50 ZZZ")
         let positions = [pos5, pos4, pos3, pos2, pos1].sorted()
 
-        XCTAssertLessThan(pos1, pos2)
-        XCTAssertLessThan(pos2, pos3)
-        XCTAssertLessThan(pos3, pos4)
-        XCTAssertLessThan(pos4, pos5)
+        #expect(pos1 < pos2)
+        #expect(pos2 < pos3)
+        #expect(pos3 < pos4)
+        #expect(pos4 < pos5)
 
-        XCTAssertEqual(positions[0], pos1)
-        XCTAssertEqual(positions[1], pos2)
-        XCTAssertEqual(positions[2], pos3)
-        XCTAssertEqual(positions[3], pos4)
-        XCTAssertEqual(positions[4], pos5)
+        #expect(positions[0] == pos1)
+        #expect(positions[1] == pos2)
+        #expect(positions[2] == pos3)
+        #expect(positions[3] == pos4)
+        #expect(positions[4] == pos5)
     }
 
-    func testEqAndSortKeyByCost() {
+    @Test func eqAndSortKeyByCost() {
         let pos1 = Position(units: "1 USD")
         let pos2 = Position(
             units: "1 USD", cost: Cost(number: 10, currency: "USD", date: .distantPast))
@@ -67,50 +67,50 @@ final class PositionTests: XCTestCase {
             units: "1 USD", cost: Cost(number: 12, currency: "USD", date: .distantPast))
 
         var positions = [pos3, pos2, pos1, pos4]
-        XCTAssertEqual([pos1, pos2, pos3, pos4], positions.sorted())
+        #expect([pos1, pos2, pos3, pos4] == positions.sorted())
 
         for _ in 0..<64 {
             positions.shuffle()
-            XCTAssertEqual([pos1, pos2, pos3, pos4], positions.sorted())
+            #expect([pos1, pos2, pos3, pos4] == positions.sorted())
         }
     }
 
-    func testQuantities() {
+    @Test func quantities() {
         var pos = Position(units: "10 USD")
-        XCTAssertEqual(pos.units, "10 USD")
-        XCTAssertEqual(pos.totalCost, "10 USD")
+        #expect(pos.units == "10 USD")
+        #expect(pos.totalCost == "10 USD")
 
         pos = Position(
             units: "10 USD", cost: Cost(number: "1.5", currency: "AUD", date: .distantPast))
-        XCTAssertEqual(pos.units, "10 USD")
-        XCTAssertEqual(pos.totalCost, "15 AUD")
+        #expect(pos.units == "10 USD")
+        #expect(pos.totalCost == "15 AUD")
     }
 
-    func testNegative() {
+    @Test func negative() {
         let pos = Position(
             units: "28372 USD", cost: Cost(number: 10, currency: "AUD", date: .distantPast))
         let negpos = -pos
-        XCTAssertEqual(negpos.units, "-28372 USD")
-        XCTAssertEqual(negpos.totalCost, "-283720 AUD")
+        #expect(negpos.units == "-28372 USD")
+        #expect(negpos.totalCost == "-283720 AUD")
     }
 
-    func testIsNegativeAtCost() {
+    @Test func isNegativeAtCost() {
         let pos1 = Position(
             units: "1 USD", cost: Cost(number: 10, currency: "AUD", date: .distantPast))
         let pos2 = Position(
             units: "-1 USD", cost: Cost(number: 10, currency: "AUD", date: .distantPast))
-        XCTAssertFalse(pos1.isNegativeAtCost)
-        XCTAssertTrue(pos2.isNegativeAtCost)
+        #expect(!pos1.isNegativeAtCost)
+        #expect(pos2.isNegativeAtCost)
     }
 
-    func testCurrencyPair() {
+    @Test func currencyPair() {
         var pair = Position(units: "100 USD").currencyPair
-        XCTAssert(pair.unit == "USD" && pair.cost == nil)
+        #expect(pair.unit == "USD" && pair.cost == nil)
 
         pair = Position(
             units: "100 AAPL",
             cost: Cost(number: "43.23", currency: "USD", date: .distantPast)
         ).currencyPair
-        XCTAssertEqual(pair.unit == "AAPL", pair.cost == "USD")
+        #expect(pair.unit == "AAPL" && pair.cost == "USD")
     }
 }

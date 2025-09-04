@@ -5,7 +5,7 @@
 //  Created by Yeatse on 2024/2/26.
 //
 
-import XCTest
+import Testing
 @testable import BeancountSwift
 
 let testInput = """
@@ -41,17 +41,17 @@ let testInput = """
 
 """
 
-final class GettersTests: XCTestCase {
+struct GettersTests {
     func loadEntries() throws -> [Directive<Cost>] {
         let p = ContentProvider(source: testInput)
         let loader = try p.loadLedger()
         return loader.directives
     }
     
-    func testGetAccountsUseMap() throws {
+    @Test func getAccountsUseMap() throws {
         let entries = try loadEntries()
         let accounts = entries.accountsUsage()
-        XCTAssertEqual(accounts, [
+        #expect(accounts == [
             "Expenses:Coffee": "2012-02-01"..."2013-06-22",
             "Expenses:Restaurant": "2012-02-01"..."2013-06-20",
             "Assets:US:Cash": "2012-02-01"..."2014-02-01",
@@ -60,10 +60,10 @@ final class GettersTests: XCTestCase {
         ])
     }
     
-    func testGetAccounts() throws {
+    @Test func getAccounts() throws {
         let entries = try loadEntries()
         let accounts = entries.allAccounts()
-        XCTAssertEqual(accounts, [
+        #expect(accounts == [
             "Assets:US:Cash",
             "Assets:US:Credit-Card",
             "Expenses:Grocery",
@@ -72,39 +72,39 @@ final class GettersTests: XCTestCase {
         ])
     }
     
-    func testGetEntryAccounts() throws {
+    @Test func getEntryAccounts() throws {
         let entries = try loadEntries()
         let accounts = entries.firstNonNil { entry in
             if case .transaction = entry.content { entry } else { nil }
         }!.usedAccounts()
-        XCTAssertEqual(accounts, [
+        #expect(accounts == [
             "Assets:US:Cash",
             "Expenses:Grocery",
             "Expenses:Restaurant"
         ])
     }
     
-    func testGetAllTags() throws {
+    @Test func getAllTags() throws {
         let entries = try loadEntries()
         let tags = entries.allTags()
-        XCTAssertEqual(tags, ["books", "dinner"])
+        #expect(tags == ["books", "dinner"])
     }
     
-    func testGetAllPayees() throws {
+    @Test func getAllPayees() throws {
         let entries = try loadEntries()
         let payees = entries.allPayees()
-        XCTAssertEqual(payees, ["La Colombe", "Whole Foods Market"])
+        #expect(payees == ["La Colombe", "Whole Foods Market"])
     }
     
-    func testGetAllLinks() throws {
+    @Test func getAllLinks() throws {
         let entries = try loadEntries()
         let links = entries.allLinks()
-        XCTAssertEqual(links, ["ee89ada94a39"])
+        #expect(links == ["ee89ada94a39"])
     }
     
-    func testGetCommodityDirectives() throws {
+    @Test func getCommodityDirectives() throws {
         let entries = try loadEntries()
         let commodities = entries.allCommodityDirectives()
-        XCTAssertEqual(Set(commodities.keys), ["HOOL", "PIPA"])
+        #expect(Set(commodities.keys) == ["HOOL", "PIPA"])
     }
 }

@@ -5,14 +5,14 @@
 //  Created by Yeatse on 2023/12/25.
 //
 
-import XCTest
+import Testing
 
 @testable import BeancountSwift
 
-final class BookingTests: XCTestCase {
+struct BookingTests {
     let booking = Booking()
     
-    func testZeroAmount() throws {
+    @Test func zeroAmount() throws {
         let p: ContentProvider =
             """
               2013-05-18 * ""
@@ -21,10 +21,10 @@ final class BookingTests: XCTestCase {
             """
         let ledger = try p.parseLedger()
         let bookedLedger = booking.book(ledger: ledger)
-        XCTAssertEqual(bookedLedger.errors.count, 0)
+        #expect(bookedLedger.errors.count == 0)
     }
 
-    func testZeroAmountWithCost() throws {
+    @Test func zeroAmountWithCost() throws {
         let p: ContentProvider =
             """
               2013-05-18 * ""
@@ -33,11 +33,11 @@ final class BookingTests: XCTestCase {
             """
         let ledger = try p.parseLedger()
         let bookedLedger = booking.book(ledger: ledger)
-        XCTAssertEqual(bookedLedger.errors.count, 1)
-        XCTAssert(bookedLedger.errors.first is InterpolationError)
+        #expect(bookedLedger.errors.count == 1)
+        #expect(bookedLedger.errors.first is InterpolationError)
     }
 
-    func testCostZero() throws {
+    @Test func costZero() throws {
         let p: ContentProvider =
             """
               2013-05-18 * ""
@@ -46,10 +46,10 @@ final class BookingTests: XCTestCase {
             """
         let ledger = try p.parseLedger()
         let bookedLedger = booking.book(ledger: ledger)
-        XCTAssertEqual(bookedLedger.errors.count, 0)
+        #expect(bookedLedger.errors.count == 0)
     }
 
-    func testCostNegative() throws {
+    @Test func costNegative() throws {
         let p: ContentProvider =
             """
               2013-05-18 * ""
@@ -58,12 +58,12 @@ final class BookingTests: XCTestCase {
             """
         let ledger = try p.parseLedger()
         let bookedLedger = booking.book(ledger: ledger)
-        XCTAssertEqual(bookedLedger.directives.count, 1)
-        XCTAssertEqual(bookedLedger.errors.count, 1)
-        XCTAssert(bookedLedger.errors.first is InterpolationError)
+        #expect(bookedLedger.directives.count == 1)
+        #expect(bookedLedger.errors.count == 1)
+        #expect(bookedLedger.errors.first is InterpolationError)
     }
     
-    func testAllCurrencyInterpolations() throws {
+    @Test func allCurrencyInterpolations() throws {
         let p: ContentProvider =
 """
 2015-10-02 *
@@ -79,7 +79,7 @@ final class BookingTests: XCTestCase {
     Assets:Other
 """
         let ledger = try p.loadLedger()
-        XCTAssert(ledger.errors.isEmpty)
+        #expect(ledger.errors.isEmpty)
     }
     
     func indexes(of groups: [(Currency, [Booking.Refer])]) -> [Currency: Set<Int>] {
@@ -92,7 +92,7 @@ final class BookingTests: XCTestCase {
         return result
     }
     
-    func testCategorizeUnitsUnambiguous() throws {
+    @Test func categorizeUnitsUnambiguous() throws {
         let p: ContentProvider =
         """
             2015-10-02 *
@@ -107,7 +107,7 @@ final class BookingTests: XCTestCase {
         // TOOD: not supported yet
     }
     
-    func testCategorizeUnitsAmbiguous() throws {
+    @Test func categorizeUnitsAmbiguous() throws {
         let p: ContentProvider =
         """
         ;; Uses the other legs to disambiguate.
@@ -123,26 +123,26 @@ final class BookingTests: XCTestCase {
         let ledger = try p.parseLedger()
         var (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[0].transaction,
                                                             balances: [:])
-        XCTAssert(errors.isEmpty)
-        XCTAssertEqual(indexes(of: groups), [
+        #expect(errors.isEmpty)
+        #expect(indexes(of: groups) == [
             "USD": [0, 1]
         ])
         
         (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[1].transaction,
                                                         balances: ["Assets:Account": "1.00 USD"])
-        XCTAssert(errors.isEmpty)
-        XCTAssertEqual(indexes(of: groups), [
+        #expect(errors.isEmpty)
+        #expect(indexes(of: groups) == [
             "USD": [0, 1]
         ])
         
         (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[1].transaction,
                                                         balances: [:])
-        XCTAssert(!errors.isEmpty)
-        XCTAssert(String(describing: errors.first).contains("failedToCategorize"))
-        XCTAssertEqual(indexes(of: groups), [:])
+        #expect(!errors.isEmpty)
+        #expect(String(describing: errors.first).contains("failedToCategorize"))
+        #expect(indexes(of: groups) == [:])
     }
     
-    func testCategorizeUnitsPriceUnambiguous() throws {
+    @Test func categorizeUnitsPriceUnambiguous() throws {
         let p: ContentProvider =
         """
         2015-10-02 *
@@ -156,23 +156,23 @@ final class BookingTests: XCTestCase {
         let ledger = try p.parseLedger()
         var (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[0].transaction,
                                                             balances: [:])
-        XCTAssert(errors.isEmpty)
-        XCTAssertEqual(indexes(of: groups), [
+        #expect(errors.isEmpty)
+        #expect(indexes(of: groups) == [
             "CAD": [0, 1]
         ])
         
         (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[1].transaction,
                                                         balances: ["Assets:Account": "1.00 USD"])
-        XCTAssert(errors.isEmpty)
-        XCTAssertEqual(indexes(of: groups), [
+        #expect(errors.isEmpty)
+        #expect(indexes(of: groups) == [
             "CAD": [0, 1]
         ])
         
         (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[1].transaction,
                                                         balances: [:])
-        XCTAssert(!errors.isEmpty)
-        XCTAssert(String(describing: errors.first).contains("cannotResolve"))
-        XCTAssertEqual(indexes(of: groups), [
+        #expect(!errors.isEmpty)
+        #expect(String(describing: errors.first).contains("cannotResolve"))
+        #expect(indexes(of: groups) == [
             "CAD": [0, 1]
         ])
     }

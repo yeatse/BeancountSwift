@@ -5,7 +5,7 @@
 //  Created by 杨超 on 2024/2/15.
 //
 
-import XCTest
+import Testing
 @testable import BeancountSwift
 
 private extension Directive {
@@ -17,8 +17,8 @@ private extension Directive {
     }
 }
 
-final class BalanceTests: XCTestCase {
-    func testSimpleError() throws {
+struct BalanceTests {
+    @Test func simpleError() throws {
         let p: ContentProvider =
         """
           2013-05-01 open Assets:US:Checking
@@ -26,11 +26,11 @@ final class BalanceTests: XCTestCase {
           2013-05-03 balance Assets:US:Checking   100 USD
         """
         let ledger = try p.loadLedger()
-        XCTAssert(ledger.errors[0] is BalanceError)
-        XCTAssertEqual(ledger.directives[1].balance.diffAmount, "-100 USD")
+        #expect(ledger.errors[0] is BalanceError)
+        #expect(ledger.directives[1].balance.diffAmount == "-100 USD")
     }
     
-    func testSimpleFirst() throws {
+    @Test func simpleFirst() throws {
         let p: ContentProvider =
         """
         2013-05-01 open Assets:Bank:Checking
@@ -43,12 +43,12 @@ final class BalanceTests: XCTestCase {
         2013-05-03 balance Assets:Bank:Checking   100 USD
         """
         let ledger = try p.loadLedger()
-        XCTAssert(ledger.errors.isEmpty)
+        #expect(ledger.errors.isEmpty)
         let entry = ledger.directives.last!
-        XCTAssertNil(entry.balance.diffAmount)
+        #expect(entry.balance.diffAmount == nil)
     }
     
-    func testSimpleCont() throws {
+    @Test func simpleCont() throws {
         let p: ContentProvider =
           """
           2013-05-01 open Assets:Bank:Checking
@@ -67,10 +67,10 @@ final class BalanceTests: XCTestCase {
           2013-05-05 balance Assets:Bank:Checking   110 USD
           """
         let ledger = try p.loadLedger()
-        XCTAssert(ledger.errors.isEmpty)
+        #expect(ledger.errors.isEmpty)
     }
     
-    func testSimplePartialCurrencyFirst() throws {
+    @Test func simplePartialCurrencyFirst() throws {
         let p: ContentProvider =
           """
           2013-05-01 open Assets:Bank:Checking
@@ -85,10 +85,10 @@ final class BalanceTests: XCTestCase {
           2013-05-03 balance Assets:Bank:Checking   200 CAD
           """
         let ledger = try p.loadLedger()
-        XCTAssert(ledger.errors.isEmpty)
+        #expect(ledger.errors.isEmpty)
     }
     
-    func testSimplePartialCurrencyCont() throws {
+    @Test func simplePartialCurrencyCont() throws {
         let p: ContentProvider =
           """
           2013-05-01 open Assets:Bank:Checking
@@ -110,10 +110,10 @@ final class BalanceTests: XCTestCase {
           2013-05-05 balance Assets:Bank:Checking   220 CAD
           """
         let ledger = try p.loadLedger()
-        XCTAssert(ledger.errors.isEmpty)
+        #expect(ledger.errors.isEmpty)
     }
     
-    func testSimpleInvalidCurrency() throws {
+    @Test func simpleInvalidCurrency() throws {
         let p: ContentProvider =
           """
           2013-05-01 open Assets:Bank:Checking      CAD
@@ -123,10 +123,10 @@ final class BalanceTests: XCTestCase {
           2013-05-03 balance Assets:Bank:Checking   0.00 USD
           """
         let ledger = try p.loadLedger()
-        XCTAssert(ledger.errors[0] is BalanceError)
+        #expect(ledger.errors[0] is BalanceError)
     }
     
-    func testParents() throws {
+    @Test func parents() throws {
         let p: ContentProvider =
           """
           2013-05-01 open Assets:Bank
@@ -153,14 +153,14 @@ final class BalanceTests: XCTestCase {
           2013-05-05 balance Assets:Bank             60 USD
           """
         let ledger = try p.loadLedger()
-        XCTAssert(ledger.errors.isEmpty)
+        #expect(ledger.errors.isEmpty)
         let diffAmounts = ledger.directives.compactMap { directive in
             if case .balance(let x) = directive.content { x } else { nil }
         }.map(\.diffAmount)
-        XCTAssertEqual(diffAmounts, [nil, nil, nil, nil])
+        #expect(diffAmounts == [nil, nil, nil, nil])
     }
     
-    func testParentsOnly() throws {
+    @Test func parentsOnly() throws {
         let p: ContentProvider =
           """
           2013-05-01 open Assets:Bank
@@ -179,14 +179,14 @@ final class BalanceTests: XCTestCase {
           2013-05-05 balance Assets:Bank             110 USD
           """
         let ledger = try p.loadLedger()
-        XCTAssert(ledger.errors.isEmpty)
+        #expect(ledger.errors.isEmpty)
         let diffAmounts = ledger.directives.compactMap { directive in
             if case .balance(let x) = directive.content { x } else { nil }
         }.map(\.diffAmount)
-        XCTAssertEqual(diffAmounts, [nil])
+        #expect(diffAmounts == [nil])
     }
     
-    func testParentsWithPostings() throws {
+    @Test func parentsWithPostings() throws {
         let p: ContentProvider =
           """
           2013-05-01 open Assets:Bank
@@ -209,14 +209,14 @@ final class BalanceTests: XCTestCase {
           2013-05-05 balance Assets:Bank             125 USD
           """
         let ledger = try p.loadLedger()
-        XCTAssert(ledger.errors.isEmpty)
+        #expect(ledger.errors.isEmpty)
         let diffAmounts = ledger.directives.compactMap { directive in
             if case .balance(let x) = directive.content { x } else { nil }
         }.map(\.diffAmount)
-        XCTAssertEqual(diffAmounts, [nil])
+        #expect(diffAmounts == [nil])
     }
     
-    func testWithLots() throws {
+    @Test func withLots() throws {
         let p: ContentProvider =
           """
           2013-05-01 open Assets:Bank:Investing
@@ -229,10 +229,10 @@ final class BalanceTests: XCTestCase {
           2013-05-03 balance Assets:Bank:Investing    1 HOOL
           """
         let ledger = try p.loadLedger()
-        XCTAssert(ledger.errors.isEmpty)
+        #expect(ledger.errors.isEmpty)
     }
     
-    func testCheckSameData() throws {
+    @Test func checkSameData() throws {
         let p: ContentProvider =
           """
           2013-05-01 open Assets:US:Checking   USD
@@ -246,10 +246,10 @@ final class BalanceTests: XCTestCase {
           2013-05-03 balance Assets:US:Checking   100 USD
           """
         let ledger = try p.loadLedger()
-        XCTAssert(ledger.errors.isEmpty)
+        #expect(ledger.errors.isEmpty)
     }
     
-    func testPrecision() throws {
+    @Test func precision() throws {
         let p: ContentProvider =
           """
           2013-05-01 open Assets:Bank:Checking
@@ -274,10 +274,10 @@ final class BalanceTests: XCTestCase {
           2013-05-05 balance Assets:Bank:Checking   0.01502 USD
           """
         let ledger = try p.loadLedger()
-        XCTAssert(ledger.errors.isEmpty)
+        #expect(ledger.errors.isEmpty)
     }
     
-    func testBalanceBeforeCreate() throws {
+    @Test func balanceBeforeCreate() throws {
         let p: ContentProvider =
           """
           2013-05-01 open Assets:US:Checking   USD
@@ -290,10 +290,10 @@ final class BalanceTests: XCTestCase {
             Expenses:Something           -100 USD
           """
         let ledger = try p.loadLedger()
-        XCTAssert(ledger.errors.isEmpty)
+        #expect(ledger.errors.isEmpty)
     }
     
-    func testBalanceWithPrefixAccount() throws {
+    @Test func balanceWithPrefixAccount() throws {
         let p: ContentProvider =
           """
           2013-05-01 open Assets:Bank:Checking
@@ -311,10 +311,10 @@ final class BalanceTests: XCTestCase {
           2013-05-10 balance Assets:Bank:Checking   100 USD
           """
         let ledger = try p.loadLedger()
-        XCTAssert(ledger.errors.isEmpty)
+        #expect(ledger.errors.isEmpty)
     }
     
-    func testBalanceMixedCostAndNoCost() throws {
+    @Test func balanceMixedCostAndNoCost() throws {
         let p: ContentProvider =
           """
           2013-05-01 open Assets:Invest
@@ -331,10 +331,10 @@ final class BalanceTests: XCTestCase {
           2013-05-10 balance Assets:Invest   0 HOOL
           """
         let ledger = try p.loadLedger()
-        XCTAssert(ledger.errors.isEmpty)
+        #expect(ledger.errors.isEmpty)
     }
     
-    func testBalanceAccountDoesNotExist() throws {
+    @Test func balanceAccountDoesNotExist() throws {
         let p: ContentProvider =
           """
           2013-05-01 open Assets:Invest
@@ -343,18 +343,18 @@ final class BalanceTests: XCTestCase {
           2013-05-10 balance Assets:Invest:Invalid   0 HOOL
           """
         let ledger = try p.loadLedger()
-        XCTAssert(ledger.errors[0] is BalanceError)
+        #expect(ledger.errors[0] is BalanceError)
         // balance check shouldn't "eat" the balance entry.
-        XCTAssertEqual(ledger.directives.count, 3)
+        #expect(ledger.directives.count == 3)
         let entry = ledger.directives[2]
         if case .balance(_) = entry.content {
             // Test passes - entry is indeed a balance directive
         } else {
-            XCTFail("Expected balance directive")
+            Issue.record("Expected balance directive")
         }
     }
     
-    func testGetBalanceToleranceExplicit() throws {
+    @Test func getBalanceToleranceExplicit() throws {
         let p: ContentProvider =
           """
           2015-05-01 open Assets:Bank:Checking
@@ -369,10 +369,10 @@ final class BalanceTests: XCTestCase {
         let tolerances = ledger.directives.dropFirst().map { entry in
             entry.balance.tolerance(options: ledger.options)
         }
-        XCTAssertEqual(tolerances, (0..<6).map { _ in "0.002" })
+        #expect(tolerances == (0..<6).map { _ in "0.002" })
     }
     
-    func testGetBalanceToleranceRegular() throws {
+    @Test func getBalanceToleranceRegular() throws {
         let p: ContentProvider =
           """
           2015-05-01 open Assets:Bank:Checking
@@ -390,13 +390,13 @@ final class BalanceTests: XCTestCase {
         let tolerances = ledger.directives.dropFirst().map { entry in
             entry.balance.tolerance(options: ledger.options)
         }
-        XCTAssertEqual(tolerances, [
+        #expect(tolerances == [
             "0", "0.1", "0.01", "0.001",
             "0", "0.1", "0.01", "0.001", "0.01"
         ])
     }
     
-    func testBalanceWithTolerance() throws {
+    @Test func balanceWithTolerance() throws {
         let p: ContentProvider =
           """
           2013-05-01 open Assets:Bank:Checking
@@ -415,8 +415,8 @@ final class BalanceTests: XCTestCase {
           2015-05-10 balance Assets:Bank:Checking   23.03 ~ 0.01 USD
           """
         let ledger = try p.loadLedger()
-        XCTAssertEqual(ledger.errors.count, 2)
-        XCTAssert(String(describing: ledger.errors[0]).contains("23.022"))
-        XCTAssert(String(describing: ledger.errors[1]).contains("23.026"))
+        #expect(ledger.errors.count == 2)
+        #expect(String(describing: ledger.errors[0]).contains("23.022"))
+        #expect(String(describing: ledger.errors[1]).contains("23.026"))
     }
 }
