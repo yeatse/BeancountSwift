@@ -6,7 +6,7 @@
 //
 
 @testable import BeancountSwift
-import XCTest
+import Testing
 import Foundation
 
 struct ContentProvider: ContentProviding {
@@ -101,7 +101,7 @@ extension Directive {
 }
 
 func assertEqualEntries<T>(_ lhs: some RandomAccessCollection<Directive<T>>, _ rhs: [Directive<T>]) {
-    XCTAssertEqual(lhs.map({ $0.removingMeta() }), rhs.map({ $0.removingMeta() }))
+    #expect(lhs.map({ $0.removingMeta() }) == rhs.map({ $0.removingMeta() }))
 }
 
 func assertEqualEntries(_ lhs: some RandomAccessCollection<Directive<Cost>>, _ rhs: String) {
@@ -111,4 +111,10 @@ func assertEqualEntries(_ lhs: some RandomAccessCollection<Directive<Cost>>, _ r
 
 func almostEqual(_ lhs: Decimal, _ rhs: Decimal) -> Bool {
     return abs(lhs - rhs) < Decimal(Double.ulpOfOne)
+}
+
+extension DefaultDictionary: ExpressibleByDictionaryLiteral where Value == Inventory {
+    public init(dictionaryLiteral elements: (Key, Value)...) {
+        self.init(Dictionary(uniqueKeysWithValues: elements)) { Value() }
+    }
 }

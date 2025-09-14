@@ -82,7 +82,7 @@ struct Interpolate {
     ///   - postings: The postings to analyze
     ///   - options: Configuration options
     /// - Returns: A tolerance mapping for balance checking
-    func inferTolerances<T: PostingCost>(postings: [Posting<T>], options: [String: Option])
+    func inferTolerances<T: PostingCost>(postings: [Posting<T>], options: Options)
     -> ToleranceMapping
     {
         return .init(mapping: [:], default: .zero)
@@ -96,17 +96,13 @@ struct Interpolate {
     /// 
     /// - Parameter postings: The booked postings to analyze
     /// - Returns: An inventory representing the residual imbalance
-    func computeResidual(postings: [Booking.BookedPosting]) -> Inventory {
+    func computeResidual(postings: [Posting<Cost>]) -> Inventory {
         var inventory = Inventory()
         for posting in postings {
             if let meta = posting.meta, meta[Interpolate.automaticResidual, default: .bool(false)] == .bool(true) {
                 continue
             }
-            let weight = switch posting {
-            case .incomplete(let posting): posting.weight
-            case .complete(let posting): posting.weight
-            }
-            inventory.addAmount(weight)
+            inventory.addAmount(posting.weight)
         }
         return inventory
     }

@@ -45,22 +45,18 @@ struct Booking {
     let interpolate = Interpolate()
     
     func book(ledger: ParsedLedger<CostSpec>) -> ParsedLedger<Cost> {
-        let method = ledger.options.bookingMethod
-        var bookings: [Account: BookingMethod] = [:]
+        
+        var bookingMethods = DefaultDictionary<Account, BookingMethod>(default: ledger.options.bookingMethod)
         for directive in ledger.directives {
             if case .open(let open) = directive.content, let booking = open.booking {
-                bookings[open.account] = booking
+                bookingMethods[open.account] = booking
             }
         }
-        let bookingStore = BookingMethodStore(
-            mappings: bookings,
-            defaultMethod: method
-        )
         
         var newEntries = [Directive<Cost>]()
         var errors = [Error]()
         
-        var balances = [Account: Inventory]()
+        var balances = DefaultDictionary<Account, Inventory> { Inventory() }
         for directive in ledger.directives {
             let newEntry: Directive<Cost>
             if case .transaction(let txn) = directive.content {
@@ -79,7 +75,7 @@ struct Booking {
                 )
                 
                 // Get the list of tolerances.
-                let tolerances = interpolate.inferTolerances(postings: txn.postings, options: [:])
+                let tolerances = interpolate.inferTolerances(postings: txn.postings, options: ledger.options)
                 
                 // Resolve reductions to a particular lot in their inventory balance.
                 var replPostings = [Posting<Cost>]()
@@ -88,7 +84,7 @@ struct Booking {
                         entry: directive,
                         groupPostings: groupPostings,
                         balances: balances,
-                        methods: bookingStore
+                        methods: &bookingMethods
                     )
                     
                     guard bookingErrors.isEmpty else {
@@ -96,7 +92,7 @@ struct Booking {
                         continue
                     }
                     
-                    let (interPostings, interErrors) = interpolateGroup(
+                    let (interPostings, interErrors, _) = interpolateGroup(
                         postings: bookedPostings,
                         currency: currency,
                         tolerances: tolerances
@@ -124,7 +120,7 @@ struct Booking {
                 )
                 
                 for posting in replPostings {
-                    balances[posting.account, default: Inventory()].addPosition(.init(posting: posting))
+                    balances[posting.account].addPosition(posting)
                 }
             } else {
                 newEntry = .init(
@@ -162,14 +158,14 @@ struct Booking {
         return nil
     }
     
-    func categorizeByCurrency(transaction: Transaction<CostSpec>, balances: [Account: Inventory])
+    func categorizeByCurrency(transaction: Transaction<CostSpec>, balances: DefaultDictionary<Account, Inventory>)
     -> (
         [(Currency, [Refer])], [Error]
     )
     {
         var errors = [Error]()
         
-        var groups = [Currency: [Refer]]()
+        var groups = DefaultDictionary<Currency, [Refer]>(default: [])
         var sortDict = [Currency: Int]()
         var autoPostings = [Refer]()
         var unknown = [Refer]()
@@ -197,7 +193,7 @@ struct Booking {
             } else {
                 if let currency = getBucketCurrency(refer: refer) {
                     sortDict.putIfAbsent(key: currency, value: index)
-                    groups[currency, default: []].append(refer)
+                    groups[currency].append(refer)
                 } else {
                     unknown.append(refer)
                 }
@@ -223,7 +219,7 @@ struct Booking {
             let refer: Refer = (index, unitsCurrency, costCurrency, priceCurrency)
             let currency = getBucketCurrency(refer: refer)!
             sortDict.putIfAbsent(key: currency, value: index)
-            groups[currency, default: []].append(refer)
+            groups[currency].append(refer)
         }
         
         // Finally, try to resolve all the unknown legs using the inventory contents
@@ -231,7 +227,7 @@ struct Booking {
         for refer in unknown {
             var (index, unitsCurrency, costCurrency, priceCurrency) = refer
             let posting = transaction.postings[index]
-            let balance = balances[posting.account, default: Inventory()]
+            let balance = balances.peek(posting.account) ?? Inventory()
             
             if unitsCurrency == .missing {
                 let balanceCurrencies = balance.currencies
@@ -256,7 +252,7 @@ struct Booking {
             let refer: Refer = (index, unitsCurrency, costCurrency, priceCurrency)
             if let currency = getBucketCurrency(refer: refer) {
                 sortDict.putIfAbsent(key: currency, value: index)
-                groups[currency, default: []].append(refer)
+                groups[currency].append(refer)
             } else {
                 errors.append(
                     CategorizationError.failedToCategorize(txn: transaction, index: index)
@@ -271,12 +267,12 @@ struct Booking {
             for (rindex, refer) in refers.indexed() {
                 if refer.unitsCurrency == .missing {
                     let posting = transaction.postings[refer.index]
-                    guard let balance = balances[posting.account] else {
+                    guard let balance = balances.peek(posting.account) else {
                         continue
                     }
                     let balanceCurrencies = balance.currencies
                     if balanceCurrencies.count == 1 {
-                        groups[currency]![rindex] = (
+                        groups[currency][rindex] = (
                             refer.index,
                             balanceCurrencies.first,
                             refer.costCurrency,
@@ -295,7 +291,7 @@ struct Booking {
         for refer in autoPostings {
             for currency in groups.keys {
                 sortDict.putIfAbsent(key: currency, value: refer.index)
-                groups[currency]!.append((refer.index, currency, nil, nil))
+                groups[currency].append((refer.index, currency, nil, nil))
             }
         }
         
@@ -403,8 +399,8 @@ struct Booking {
     func bookReductions(
         entry: Directive<CostSpec>,
         groupPostings: [Posting<CostSpec>],
-        balances: [Account: Inventory],
-        methods: BookingMethodStore
+        balances: DefaultDictionary<Account, Inventory>,
+        methods: inout DefaultDictionary<Account, BookingMethod>
     ) -> ([BookedPosting], [Error]) {
         var errors = [Error]()
         var localBalances = [Account: Inventory]()
@@ -415,7 +411,10 @@ struct Booking {
             let costSpec = posting.cost
             let account = posting.account
             
-            var balance = localBalances[account, default: balances[account, default: Inventory()]]
+            if !localBalances.keys.contains(account) {
+                localBalances[account] = balances.peek(account) ?? Inventory()
+            }
+            var balance = localBalances[account]!
             guard let costSpec, units.number != .nan else {
                 bookedPostings.append(.incomplete(posting))
                 continue
@@ -492,7 +491,7 @@ struct Booking {
         postings: [BookedPosting],
         currency: Currency,
         tolerances: Interpolate.ToleranceMapping
-    ) -> ([Posting<Cost>], [Error]) {
+    ) -> ([Posting<Cost>], [Error], Bool) {
         var errors = [Error]()
         var incomplete = [(MissingType, Int)]()
         
@@ -515,7 +514,7 @@ struct Booking {
             }
         }
         
-        let newPosting: Posting<CostSpec>?
+        var newPosting: Posting<CostSpec>?
         var outPostings: [Posting<Cost>] = []
         
         if incomplete.isEmpty {
@@ -529,8 +528,7 @@ struct Booking {
             errors.append(InterpolationError.tooManyMissingNumbers(currency: currency))
         } else {
             let (missing, index) = incomplete[0]
-            let incompletePosting =
-            switch postings[index] {
+            let incompletePosting = switch postings[index] {
                 case .incomplete(let posting): posting
                 case .complete(_): fatalError()
             }
@@ -543,8 +541,11 @@ struct Booking {
                     return posting
                 }
             }
-            let postingsToCompute = newPostings.indexed().filter { idx, _ in idx != index }.map {
-                $1
+            let postingsToCompute = newPostings.compactMap { posting in
+                switch posting {
+                    case .complete(let p): p
+                    case .incomplete(_): nil
+                }
             }
             let residual = interpolate.computeResidual(postings: postingsToCompute)
             
@@ -564,7 +565,8 @@ struct Booking {
                             errors.append(InterpolationError.cannotInferPerUnitCost)
                             return (
                                 postings.compactMap { $0.complete },
-                                errors
+                                errors,
+                                true
                             )
                         } else {
                             let costTotal = cost.numberTotal ?? .zero
@@ -609,7 +611,8 @@ struct Booking {
                         errors.append(InterpolationError.cannotInferPrice)
                         return (
                             postings.compactMap { $0.complete },
-                            errors
+                            errors,
+                            true
                         )
                     } else {
                         let price = incompletePosting.price!
@@ -644,7 +647,7 @@ struct Booking {
                 errors.append(InterpolationError.costIsNegative)
             }
         }
-        return (outPostings, errors)
+        return (outPostings, errors, newPosting != nil)
     }
 }
 
@@ -667,18 +670,18 @@ extension CostSpec {
 }
 
 extension Posting<CostSpec> {
-    fileprivate func resolvedCost() -> Posting<Cost> {
-        guard let cost else {
-            return .init(
-                account: account,
-                units: units,
-                cost: nil,
-                price: price,
-                flag: flag,
-                meta: meta,
-                comment: comment
-            )
-        }
+    func resolved(units: Amount? = nil, cost: Cost? = nil) -> Posting<Cost> {
+        return .init(account: account,
+                     units: units ?? self.units,
+                     cost: cost ?? nil,
+                     price: price,
+                     flag: flag,
+                     meta: meta,
+                     comment: comment)
+    }
+    
+    func resolvedCost() -> Posting<Cost> {
+        guard let cost else { return resolved() }
         let numberPerUnit = cost.numberPerUnit
         let numberTotal = cost.numberTotal
         let unitCost: Decimal
@@ -692,19 +695,11 @@ extension Posting<CostSpec> {
         } else {
             unitCost = numberPerUnit!
         }
-        return .init(
-            account: account,
-            units: units,
-            cost: .init(
-                number: unitCost,
-                currency: cost.currency!,
-                date: cost.date!,
-                label: cost.label
-            ),
-            price: price,
-            flag: flag,
-            meta: meta,
-            comment: comment
-        )
+        return resolved(cost: .init(
+            number: unitCost,
+            currency: cost.currency!,
+            date: cost.date!,
+            label: cost.label
+        ))
     }
 }

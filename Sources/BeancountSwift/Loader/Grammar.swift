@@ -174,12 +174,13 @@ extension CompoundAmount: Parsable {
         let currency = try node.child(byFieldName: "currency").map {
             try Currency(from: $0, content: content)
         }
-        let per = try node.child(byFieldName: "number_per").map {
+        var per = try node.child(byFieldName: "number_per").map {
             try Decimal(from: $0, content: content)
         }
         let total = try node.child(byFieldName: "number_total").map {
             try Decimal(from: $0, content: content)
         }
+        if total == nil && per == nil { per = .nan }
         self.init(currency: currency, per: per, total: total)
     }
 }
