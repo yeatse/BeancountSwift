@@ -25,6 +25,7 @@ It exposes services for loading ledgers, parsing directives, and computing balan
 
 ## Development
 
+- Refer to [CLAUDE.md](./CLAUDE.md) for working with Claude Code
 - Refer to [AGENTS.md](./AGENTS.md) for working with Codex
 
 ## Contributing
