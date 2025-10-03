@@ -198,6 +198,57 @@ public struct Parser: Sendable {
         return nil
     }
     
+    /// Parses multiple directives from a text snippet.
+    /// 
+    /// Processes text content containing multiple Beancount directives and returns
+    /// all successfully parsed directives. Invalid or unparseable directives are
+    /// silently skipped, making this method suitable for batch processing of
+    /// potentially malformed input.
+    /// 
+    /// This method is useful for:
+    /// - Processing clipboard content with multiple directives
+    /// - Batch importing partially formatted data
+    /// - Interactive editing where some directives may be incomplete
+    /// - Testing and validation of directive collections
+    /// 
+    /// ## Example
+    /// ```swift
+    /// let content = """
+    /// 2024-01-01 open Assets:Checking USD
+    /// 2024-01-02 * "Grocery shopping"
+    ///   Assets:Checking  -50.00 USD
+    ///   Expenses:Food     50.00 USD
+    /// 2024-01-03 balance Assets:Checking  1000.00 USD
+    /// """
+    /// 
+    /// let parser = Parser()
+    /// let directives = parser.parseSnippets(from: content)
+    /// // Returns array with 3 successfully parsed directives
+    /// ```
+    /// 
+    /// - Parameter content: The text content containing zero or more Beancount directives
+    /// - Returns: An array of successfully parsed directives in document order
+    /// 
+    /// - Note: Unlike `parseSnippet(from:)` which expects exactly one directive,
+    ///   this method handles multiple directives and gracefully ignores parsing failures.
+    /// - Warning: Parsing errors are silently ignored. Use the main `parse(file:contentProvider:)`
+    ///   method if you need comprehensive error reporting.
+    public func parseSnippets(from content: String) -> [Directive<CostSpec>] {
+        var result: [Directive<CostSpec>] = []
+        guard let rootNode = treeSitter.parse(content)?.rootNode else { return result }
+        let directives: Set<String> = ["transaction", "balance", "open", "close", "pad", "document", "note", "event", "price", "commodity", "query", "custom"]
+        for i in 0..<rootNode.namedChildCount {
+            if let child = rootNode.namedChild(at: i),
+               let nodeType = child.nodeType,
+               directives.contains(nodeType),
+               let directive = try? Directive(from: child, content: content)
+            {
+                result.append(directive)
+            }
+        }
+        return result
+    }
+
     /// Parses the content of a single file.
     /// 
     /// Processes the syntax tree to extract directives, options, plugins, and includes.
