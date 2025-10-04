@@ -209,8 +209,10 @@ extension Posting: CustomStringConvertible {
         }
         
         var result = "\(flagStr)\(account.description) \(positionStr)"
-        if cost != nil || price != nil {
-            result += " ; \(weightStr)"
+        if let comment {
+            result += "  ; \(comment)"
+        } else if cost != nil || price != nil {
+            result += "  ; \(weightStr)"
         }
         if let meta {
             result += "\n\(meta.toString.lineAligned())"

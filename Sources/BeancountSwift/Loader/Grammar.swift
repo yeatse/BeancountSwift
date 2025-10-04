@@ -550,6 +550,11 @@ extension Posting<CostSpec>: Parsable {
         let priceAnnotation = try node.child(byFieldName: "price_annotation")?.namedChild(at: 0).map {
             try Amount(from: $0, content: content)
         }
+        let comment = try node.child(byFieldName: "comment").map {
+            try String(from: $0, content: content)
+                .dropFirst()
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
         var meta: MetaData = [
             "lineno": .number(Decimal(accountNode.pointRange.lowerBound.row))
         ]
@@ -565,7 +570,7 @@ extension Posting<CostSpec>: Parsable {
             price: priceAnnotation,
             flag: flag,
             meta: meta,
-            comment: nil
+            comment: comment
         )
     }
 }
