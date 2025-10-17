@@ -64,4 +64,105 @@ struct GrammarTests {
         let description = posting.description
         #expect(description.contains("; My comment"))
     }
+
+    @Test func padDirectivePrinting() throws {
+        let p: ContentProvider =
+                """
+                  2014-06-01 pad Assets:BofA:Checking Equity:Opening-Balances
+                """
+        let ledger = try p.parseLedger()
+        let directive = ledger.directives[0]
+        guard case .pad(let pad) = directive.content else {
+            Issue.record("Expected pad directive")
+            return
+        }
+        #expect(pad.account == "Assets:BofA:Checking")
+        #expect(pad.sourceAccount == "Equity:Opening-Balances")
+
+        let description = directive.description
+        #expect(description == "2014-06-01 pad Assets:BofA:Checking Equity:Opening-Balances\n")
+    }
+
+    @Test func balanceDirectivePrinting() throws {
+        let p: ContentProvider =
+                """
+                  2014-07-09 balance Assets:US:BofA:Checking 987.34 USD
+                """
+        let ledger = try p.parseLedger()
+        let directive = ledger.directives[0]
+        guard case .balance(let balance) = directive.content else {
+            Issue.record("Expected balance directive")
+            return
+        }
+        #expect(balance.account == "Assets:US:BofA:Checking")
+        #expect(balance.amount.number == 987.34)
+        #expect(balance.amount.currency == "USD")
+
+        let description = directive.description
+        #expect(description == "2014-07-09 balance Assets:US:BofA:Checking 987.34 USD\n")
+    }
+
+    @Test func balanceDirectiveWithTolerancePrinting() throws {
+        let p: ContentProvider =
+                """
+                  2014-07-09 balance Assets:Checking 1000.00 ~ 0.01 USD
+                """
+        let ledger = try p.parseLedger()
+        let directive = ledger.directives[0]
+        guard case .balance(let balance) = directive.content else {
+            Issue.record("Expected balance directive")
+            return
+        }
+        #expect(balance.account == "Assets:Checking")
+        #expect(balance.amount.number == 1000.00)
+        #expect(balance.amount.currency == "USD")
+        #expect(balance.tolerance == 0.01)
+
+        let description = directive.description
+        #expect(description == "2014-07-09 balance Assets:Checking 1000.00 ~ 0.01 USD\n")
+    }
+
+    @Test func padDirectiveWithCommentPrinting() throws {
+        let p: ContentProvider =
+                """
+                  2014-06-01 pad Assets:BofA:Checking Equity:Opening-Balances ; Opening balance
+                """
+        let ledger = try p.parseLedger()
+        let directive = ledger.directives[0]
+        guard case .pad = directive.content else {
+            Issue.record("Expected pad directive")
+            return
+        }
+
+        let description = directive.description
+        #expect(description == "2014-06-01 pad Assets:BofA:Checking Equity:Opening-Balances  ; Opening balance\n")
+    }
+
+    @Test func balanceDirectiveWithCommentPrinting() throws {
+        let p: ContentProvider =
+                """
+                  2014-07-09 balance Assets:Checking 987.34 USD ; Monthly check
+                """
+        let ledger = try p.parseLedger()
+        let directive = ledger.directives[0]
+        guard case .balance = directive.content else {
+            Issue.record("Expected balance directive")
+            return
+        }
+
+        let description = directive.description
+        #expect(description == "2014-07-09 balance Assets:Checking 987.34 USD  ; Monthly check\n")
+    }
+
+    @Test func balanceDirectiveWithDiffAmountPrinting() throws {
+        let balance = Balance(
+            account: "Assets:Checking",
+            amount: "1000.00 USD",
+            tolerance: nil,
+            diffAmount: "-10.50 USD"
+        )
+        let directive = Directive<CostSpec>(meta: [:], date: "2014-07-09", content: .balance(balance))
+        let description = directive.description
+        #expect(description == "2014-07-09 balance Assets:Checking 1000.00 USD  ; Diff: -10.50 USD\n")
+    }
 }

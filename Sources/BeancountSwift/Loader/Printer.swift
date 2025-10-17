@@ -283,6 +283,8 @@ extension Directive: CustomStringConvertible {
             case .transaction(let txn): txn.print(date: date, meta: meta, comment: comment)
             case .open(let open): open.print(date: date, meta: meta, comment: comment)
             case .custom(let custom): custom.print(date: date, meta: meta, comment: comment)
+            case .pad(let pad): pad.print(date: date, meta: meta, comment: comment)
+            case .balance(let balance): balance.print(date: date, meta: meta, comment: comment)
             default: ""
         }
         return text.appending("\n")
@@ -337,7 +339,7 @@ extension Transaction: DirectivePrintable {
             strings.append("^\(link.id)")
         }
         if let comment, !comment.isEmpty {
-            strings.append("  ;\(comment)")
+            strings.append("  ; \(comment)")
         }
         lines.append(strings.joined(separator: " "))
         let metaline = meta.toString.lineAligned()
@@ -373,7 +375,7 @@ extension Open: DirectivePrintable {
             resultLine.append(booking)
         }
         if let comment, !comment.isEmpty {
-            resultLine.append(" ;\(comment)")
+            resultLine.append(" ; \(comment)")
         }
         var result = resultLine.joined(separator: " ")
         let metaline = meta.toString.lineAligned()
@@ -386,9 +388,9 @@ extension Open: DirectivePrintable {
 
 extension Custom: DirectivePrintable {
     /// Formats the custom directive in Beancount syntax.
-    /// 
+    ///
     /// Produces a custom directive with date, type, and values.
-    /// 
+    ///
     /// - Parameters:
     ///   - date: Custom directive date
     ///   - meta: Custom directive metadata
@@ -398,8 +400,71 @@ extension Custom: DirectivePrintable {
         let customValues = values.map(\.description).joined(separator: " ")
         var result = "\(date.isoDescription) custom \"\(type)\" \(customValues)"
         if let comment, !comment.isEmpty {
-            result += "    ;\(comment)"
+            result += "    ; \(comment)"
         }
+        let metaline = meta.toString.lineAligned()
+        if !metaline.isEmpty {
+            result += "\n" + metaline
+        }
+        return result
+    }
+}
+
+extension Pad: DirectivePrintable {
+    /// Formats the pad directive in Beancount syntax.
+    ///
+    /// Produces a pad directive with date, account, and source account.
+    ///
+    /// - Parameters:
+    ///   - date: Pad directive date
+    ///   - meta: Pad directive metadata
+    ///   - comment: Optional directive comment
+    /// - Returns: The formatted pad directive string
+    func print(date: Date, meta: MetaData, comment: String?) -> String {
+        var resultLine = [date.isoDescription, "pad", account.description, sourceAccount.description]
+        if let comment, !comment.isEmpty {
+            resultLine.append(" ; \(comment)")
+        }
+        var result = resultLine.joined(separator: " ")
+        let metaline = meta.toString.lineAligned()
+        if !metaline.isEmpty {
+            result += "\n" + metaline
+        }
+        return result
+    }
+}
+
+extension Balance: DirectivePrintable {
+    /// Formats the balance directive in Beancount syntax.
+    ///
+    /// Produces a balance assertion with date, account, and expected amount.
+    /// Optionally includes tolerance if specified, formatted as "number ~ tolerance currency".
+    ///
+    /// - Parameters:
+    ///   - date: Balance directive date
+    ///   - meta: Balance directive metadata
+    ///   - comment: Optional directive comment
+    /// - Returns: The formatted balance directive string
+    func print(date: Date, meta: MetaData, comment: String?) -> String {
+        var resultLine = [date.isoDescription, "balance", account.description]
+
+        // Format amount with optional tolerance
+        if let tolerance {
+            let num = amount.number.formatted(withCurrency: amount.currency)
+            let tol = tolerance.formatted(.number.grouping(.never))
+            let curr = amount.currency.description
+            resultLine.append("\(num) ~ \(tol) \(curr)")
+        } else {
+            resultLine.append(amount.description)
+        }
+
+        if let comment, !comment.isEmpty {
+            resultLine.append(" ; \(comment)")
+        } else if let diffAmount {
+            resultLine.append(" ; Diff: \(diffAmount.description)")
+        }
+        
+        var result = resultLine.joined(separator: " ")
         let metaline = meta.toString.lineAligned()
         if !metaline.isEmpty {
             result += "\n" + metaline
