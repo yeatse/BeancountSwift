@@ -55,16 +55,6 @@ public struct Directive<T: PostingCost>: Hashable, Sendable {
     }
 }
 
-extension Directive<Cost>: Identifiable {
-    public var id: String {
-        if let filename = meta.filename, let lineno = meta.lineno {
-            return "\(filename)-\(lineno)"
-        } else {
-            return UUID().uuidString
-        }
-    }
-}
-
 /// Enumeration of all possible directive content types in Beancount.
 /// 
 /// This enum represents the different types of directives that can appear in a

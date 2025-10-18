@@ -270,22 +270,6 @@ public struct Posting<T: PostingCost>: Hashable, Sendable {
     }
 }
 
-extension Posting<Cost>: Identifiable {
-    /// Generates a unique identifier for this posting.
-    /// 
-    /// Uses filename and line number if available in metadata,
-    /// otherwise generates a random UUID.
-    /// 
-    /// - Returns: A unique string identifier for this posting
-    public var id: String {
-        if let filename = meta?.filename, let lineno = meta?.lineno {
-            return "\(filename)-\(lineno)"
-        } else {
-            return UUID().uuidString
-        }
-    }
-}
-
 /// A tag for categorizing and organizing transactions.
 /// 
 /// Tags are labels that can be attached to transactions for categorization,
