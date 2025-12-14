@@ -32,7 +32,7 @@ import OrderedCollections
 ///     currency: Currency(id: "USD")
 /// )
 /// ```
-public struct Budget {
+public struct Budget: Sendable {
     /// The account this budget applies to.
     public let account: Account
     /// The date when this budget becomes active.
@@ -94,7 +94,7 @@ public extension Directive {
 /// 
 /// BudgetDirective links a parsed budget back to the custom directive
 /// it was created from, preserving the full context and metadata.
-public struct BudgetDirective<T> where T: PostingCost {
+public struct BudgetDirective<T>: Sendable where T: PostingCost {
     /// The parsed budget information.
     public let budget: Budget
     /// The original custom directive and its content.
