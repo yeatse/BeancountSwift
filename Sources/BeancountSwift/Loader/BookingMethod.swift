@@ -125,11 +125,25 @@ extension Booking {
 /// 
 /// BookingError represents various issues that can arise when matching
 /// lots and resolving cost specifications during transaction processing.
-enum BookingError: Error {
+enum BookingError: LocatableError {
     /// A reduction posting could not be matched to existing lots.
     case reduction(Directive<CostSpec>)
     /// Multiple lots matched ambiguously and couldn't be resolved.
     case ambiguousMatch(Directive<CostSpec>)
+    
+    var location: LedgerLocation? {
+        switch self {
+        case .reduction(let directive):
+            if let filename = directive.meta.filename, let lineno = directive.meta.lineno {
+                return LedgerLocation(filename: filename, lineno: lineno)
+            }
+        case .ambiguousMatch(let directive):
+            if let filename = directive.meta.filename, let lineno = directive.meta.lineno {
+                return LedgerLocation(filename: filename, lineno: lineno)
+            }
+        }
+        return nil
+    }
 }
 
 /// Function signature for booking method implementations.

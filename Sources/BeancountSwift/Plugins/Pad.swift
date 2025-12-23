@@ -12,10 +12,22 @@ struct PadPlugin: BeancountPlugin {
     
     let realization = Realization()
     
-    enum PadError: Error {
+    enum PadError: LocatableError {
         case padWithCost(pad: Directive<Cost>)
         case negativePosition(pos: Position)
         case unusedPad(pad: Directive<Cost>)
+        
+        var location: LedgerLocation? {
+            switch self {
+            case .padWithCost(let pad), .unusedPad(let pad):
+                if let filename = pad.meta.filename, let lineno = pad.meta.lineno {
+                    return LedgerLocation(filename: filename, lineno: lineno)
+                }
+            case .negativePosition:
+                break
+            }
+            return nil
+        }
     }
     
     func process(entries: [Directive<Cost>], options: Options, config: String?) throws -> (entries: [Directive<Cost>], errors: [Error]) {

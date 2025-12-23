@@ -8,10 +8,25 @@
 import Foundation
 import Algorithms
 
-enum CategorizationError: Error {
+enum CategorizationError: LocatableError {
     case failedToCategorize(txn: Transaction<CostSpec>, index: Int)
     case extraAutoPostings(txn: Transaction<CostSpec>)
     case cannotResolve(txn: Transaction<CostSpec>, name: String)
+    
+    var location: LedgerLocation? {
+        func getLocation(_ txn: Transaction<CostSpec>) -> LedgerLocation? {
+            if let meta = txn.postings.first?.meta, let filename = meta.filename, let lineno = meta.lineno {
+                return LedgerLocation(filename: filename, lineno: lineno - 1)
+            } else {
+                return nil
+            }
+        }
+        switch self {
+        case .failedToCategorize(let txn, _): return getLocation(txn)
+        case .extraAutoPostings(let txn): return getLocation(txn)
+        case .cannotResolve(let txn, _): return getLocation(txn)
+        }
+    }
 }
 
 enum InterpolationError: Error {

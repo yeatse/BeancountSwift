@@ -22,10 +22,25 @@ extension Balance {
     }
 }
 
-enum BalanceError: Error {
-    case unknownAccount(account: Account)
-    case invalidCurrency(currency: Currency)
-    case balanceFailed(account: Account, expected: Amount, balance: Amount)
+enum BalanceError: LocatableError {
+    case unknownAccount(account: Account, entry: Directive<Cost>)
+    case invalidCurrency(currency: Currency, entry: Directive<Cost>)
+    case balanceFailed(account: Account, expected: Amount, balance: Amount, entry: Directive<Cost>)
+    
+    var location: LedgerLocation? {
+        func getLocation(_ entry: Directive<Cost>) -> LedgerLocation? {
+            if let filename = entry.meta.filename, let lineno = entry.meta.lineno {
+                return LedgerLocation(filename: filename, lineno: lineno)
+            } else {
+                return nil
+            }
+        }
+        return switch self {
+        case .unknownAccount(_, let entry): getLocation(entry)
+        case .invalidCurrency(_, let entry): getLocation(entry)
+        case .balanceFailed(_, _, _, let entry): getLocation(entry)
+        }
+    }
 }
 
 struct BalanceCheckPlugin: BeancountPlugin {
@@ -60,7 +75,7 @@ struct BalanceCheckPlugin: BeancountPlugin {
                     let expectedAmount = balance.amount
                     let openClose = openCloseMap[balance.account]
                     if openClose == nil {
-                        errors.append(BalanceError.unknownAccount(account: balance.account))
+                        errors.append(BalanceError.unknownAccount(account: balance.account, entry: entry))
                     }
                     
                     if let openClose = openClose,
@@ -68,7 +83,7 @@ struct BalanceCheckPlugin: BeancountPlugin {
                        !open.content.currencies.isEmpty,
                        !open.content.currencies.contains(expectedAmount.currency)
                     {
-                        errors.append(BalanceError.invalidCurrency(currency: expectedAmount.currency))
+                        errors.append(BalanceError.invalidCurrency(currency: expectedAmount.currency, entry: entry))
                     }
                     
                     if let realAcount = realRoot.subaccount(with: balance.account.id) {
@@ -80,7 +95,8 @@ struct BalanceCheckPlugin: BeancountPlugin {
                             errors.append(BalanceError.balanceFailed(
                                 account: balance.account,
                                 expected: expectedAmount,
-                                balance: balanceAmount
+                                balance: balanceAmount,
+                                entry: entry
                             ))
                             newEntry.content = .balance(.init(
                                 account: balance.account,

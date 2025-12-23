@@ -13,7 +13,7 @@ import TreeSitterBeancount
 /// 
 /// ParserError represents various parsing failures that can occur when
 /// processing Beancount files, providing detailed context for debugging.
-enum ParserError: Error {
+enum ParserError: LocatableError {
     /// The file content could not be parsed as valid syntax.
     case badContent(file: String, content: String)
     /// Invalid syntax encountered at a specific location.
@@ -24,6 +24,17 @@ enum ParserError: Error {
     case popAbsentTag(file: String, lineno: UInt32, tag: Tag)
     /// Tags were pushed but not popped at end of file.
     case unbalancedTags(file: String, tags: [Tag])
+    
+    var location: LedgerLocation? {
+        switch self {
+        case .invalidSyntax(let file, let lineno, _):
+            return LedgerLocation(filename: file, lineno: lineno)
+        case .popAbsentTag(let file, let lineno, _):
+            return LedgerLocation(filename: file, lineno: lineno)
+        default:
+            return nil
+        }
+    }
 }
 
 extension DirectiveContent {
