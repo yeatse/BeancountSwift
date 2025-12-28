@@ -264,7 +264,7 @@ extension RealAccount {
     /// 
     /// - Parameter name: The child account component name
     /// - Returns: True if the child exists
-    func contains(_ name: String) -> Bool {
+    public func contains(_ name: String) -> Bool {
         children.keys.contains(name)
     }
     
@@ -276,7 +276,7 @@ extension RealAccount {
     /// 
     /// - Parameter predicate: Function to test each account
     /// - Returns: Filtered account tree, or nil if no accounts match
-    func filtered(with predicate: (RealAccount) -> Bool) -> RealAccount? {
+    public func filtered(with predicate: (RealAccount) -> Bool) -> RealAccount? {
         let realCopy = RealAccount(account: account)
         realCopy.balance = balance
         realCopy.txnPostings = txnPostings
