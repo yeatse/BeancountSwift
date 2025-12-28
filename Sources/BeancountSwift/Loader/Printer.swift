@@ -44,30 +44,38 @@ extension Currency: CustomStringConvertible {
 
 private extension Decimal {
     /// Formats a decimal number with currency-specific formatting.
-    /// 
-    /// Applies appropriate decimal precision and formatting based on the currency.
-    /// Uses the shorter of two formatting options to minimize string length.
-    /// 
-    /// - Parameter currency: The currency for formatting context
-    /// - Returns: The formatted decimal string
-    func formatted(withCurrency currency: Currency?) -> String {
+    ///
+    /// Uses AttributedString-based currency formatting to determine appropriate decimal
+    /// precision while stripping the currency symbol from the output. When `rounded` is false,
+    /// selects the longer of two precision options to preserve significant digits.
+    ///
+    /// - Parameters:
+    ///   - currency: The currency for formatting context
+    ///   - rounded: Whether to use standard currency rounding (default: false).
+    ///              When false, preserves maximum precision between default and flexible formats.
+    /// - Returns: The formatted decimal string without currency symbol
+    func formatted(withCurrency currency: Currency?, rounded: Bool = false) -> String {
         guard let currency else {
-            return formatted(.number)
+            return formatted(.number.grouping(.never))
         }
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = currency.id
-        let fractionLength = formatter.minimumFractionDigits
-        
-        let result1 = formatted(.number.grouping(.never))
-        let result2 = formatted(.number
-            .precision(.fractionLength(fractionLength))
-            .grouping(.never))
-        if result1.count < result2.count {
-            return result2
+
+        var result = ""
+        let attributed: AttributedString
+        if rounded {
+            attributed = formatted(.currency(code: currency.id).presentation(.narrow).grouping(.never).attributed)
         } else {
-            return result1
+            let attr1 = formatted(.currency(code: currency.id).presentation(.narrow).grouping(.never).attributed)
+            let attr2 = formatted(.currency(code: currency.id).presentation(.narrow).grouping(.never).precision(.fractionLength(0...)).attributed)
+            attributed = attr1.characters.count >= attr2.characters.count ? attr1 : attr2
         }
+        for run in attributed.runs {
+            if run.numberSymbol == .currency {
+                continue
+            } else {
+                result += String(attributed[run.range].characters)
+            }
+        }
+        return result
     }
 }
 
@@ -78,7 +86,7 @@ extension Amount: CustomStringConvertible {
     /// 
     /// - Returns: The amount in Beancount format
     public var description: String {
-        let num = number.formatted(withCurrency: currency)
+        let num = number.formatted(withCurrency: currency, rounded: true)
         let curr = currency.description
         return "\(num) \(curr)"
     }
