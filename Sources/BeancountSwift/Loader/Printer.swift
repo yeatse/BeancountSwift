@@ -81,9 +81,10 @@ private extension Decimal {
 
 extension Amount: CustomStringConvertible {
     /// Returns the amount formatted in Beancount syntax.
-    /// 
+    ///
     /// Formats as: `number CURRENCY` (e.g., "100.00 USD")
-    /// 
+    /// Preserves original precision to maintain round-trip accuracy.
+    ///
     /// - Returns: The amount in Beancount format
     public var description: String {
         let num = number.formatted(withCurrency: currency, rounded: true)
