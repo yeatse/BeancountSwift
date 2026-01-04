@@ -54,19 +54,18 @@ public struct ParsedLedger<T: PostingCost>: Sendable {
 /// 
 /// ## Usage
 /// ```swift
-/// let loader = Loader()
-/// let ledger = try loader.load(file: "accounts.beancount", contentProvider: FileContentProvider())
+/// let ledger = try Loader.load(file: "accounts.beancount", contentProvider: FileContentProvider())
 /// ```
 /// 
 /// - SeeAlso: [Beancount Design Doc - Loader](http://furius.ca/beancount/doc/design_doc.html#loader)
-public struct Loader: Sendable {
-    private let prologue: [Plugin] = []
-    private let epilogue: [Plugin] = [
+public enum Loader {
+    private static let prologue: [Plugin] = []
+    private static let epilogue: [Plugin] = [
         .init(name: PadPlugin.name, config: nil),
         .init(name: BalanceCheckPlugin.name, config: nil)
     ]
     
-    func transform(ledger: ParsedLedger<Cost>) -> ParsedLedger<Cost> {
+    private static func transform(ledger: ParsedLedger<Cost>) -> ParsedLedger<Cost> {
         var result = ledger
         for plugin in prologue + ledger.plugins + epilogue {
             let (entries, errors) = plugin.process(
@@ -80,7 +79,7 @@ public struct Loader: Sendable {
         return result
     }
     
-    func validate(ledger: ParsedLedger<Cost>) -> ParsedLedger<Cost> {
+    private static func validate(ledger: ParsedLedger<Cost>) -> ParsedLedger<Cost> {
         let validationErrors = Validation.validate(entries: ledger.directives, options: ledger.options)
         var result = ledger
         result.errors += validationErrors
@@ -103,8 +102,7 @@ public struct Loader: Sendable {
     /// 
     /// ## Example
     /// ```swift
-    /// let loader = Loader()
-    /// let ledger = try loader.load(file: "main.beancount", contentProvider: FileContentProvider())
+    /// let ledger = try Loader.load(file: "main.beancount", contentProvider: FileContentProvider())
     /// 
     /// // Process results
     /// for directive in ledger.directives {
@@ -116,7 +114,7 @@ public struct Loader: Sendable {
     ///     print("Found \(ledger.errors.count) errors")
     /// }
     /// ```
-    public func load(file: String, contentProvider: ContentProviding) throws -> ParsedLedger<Cost> {
+    public static func load(file: String, contentProvider: ContentProviding) throws -> ParsedLedger<Cost> {
         // parsing
         let parsedResult = try Parser.parse(file: file, contentProvider: contentProvider)
 

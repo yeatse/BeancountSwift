@@ -10,8 +10,6 @@ import Foundation
 struct PadPlugin: BeancountPlugin {
     static let name = "pad"
     
-    let realization = Realization()
-    
     enum PadError: LocatableError {
         case padWithCost(pad: Directive<Cost>)
         case negativePosition(pos: Position)
@@ -41,7 +39,7 @@ struct PadPlugin: BeancountPlugin {
             }
         }
         let padDict = pads.grouped(by: \.content.account)
-        let byAccount = realization.groupPostingsByAccount(entries)
+        let byAccount = Realization.groupPostingsByAccount(entries)
         var newEntries: [UInt32: [Directive<Cost>]] = [:]
         
         // FIXME: padDict should be sorted by account

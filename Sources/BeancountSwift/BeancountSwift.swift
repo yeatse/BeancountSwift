@@ -11,8 +11,8 @@ import TreeSitterBeancount
 /// ## Usage
 /// ```swift
 /// let beancount = Beancount()
-/// let entries = try beancount.loader.loadFile(from: url)
-/// let accountTree = beancount.realization.realize(entries)
+/// let entries = try beancount.loader.load(file: "main.beancount", contentProvider: provider)
+/// let accountTree = beancount.realization.realize(entries: entries.directives)
 /// ```
 ///
 /// - SeeAlso: [Beancount Documentation](http://furius.ca/beancount/)
@@ -21,13 +21,19 @@ public struct Beancount: Sendable {
     ///
     /// The loader handles file I/O, includes processing, plugin execution, and parsing
     /// of Beancount ledger files into structured data.
-    public let loader = Loader()
+    public let loader = Loader.self
+    
+    /// Low-level parser for Beancount syntax using tree-sitter parsing.
+    ///
+    /// Provides direct access to the syntax tree and parsing capabilities for
+    /// Beancount files. Most users should use the `loader` instead.
+    public let parser = Parser.self
 
     /// Account realization and tree-building functionality.
     ///
     /// Converts flat lists of accounting entries into hierarchical account trees,
     /// computing running balances and account positions.
-    public let realization = Realization()
+    public let realization = Realization.self
 
     /// Creates a new Beancount instance with default configuration.
     public init() {}

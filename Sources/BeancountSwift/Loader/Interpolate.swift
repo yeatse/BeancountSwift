@@ -82,9 +82,7 @@ enum Interpolate {
     ///   - postings: The postings to analyze
     ///   - options: Configuration options
     /// - Returns: A tolerance mapping for balance checking
-    static func inferTolerances<T: PostingCost>(postings: [Posting<T>], options: Options)
-    -> ToleranceMapping
-    {
+    static func inferTolerances<T: PostingCost>(postings: [Posting<T>], options: Options) -> ToleranceMapping {
         return .init(mapping: [:], default: .zero)
     }
     

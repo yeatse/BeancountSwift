@@ -351,10 +351,9 @@ extension RealAccount {
 /// 
 /// ## Usage
 /// ```swift
-/// let realization = Realization()
-/// let accountTree = realization.realize(entries: directives)
+/// let accountTree = Realization.realize(entries: directives)
 /// ```
-public struct Realization: Sendable {
+public enum Realization {
     /// Builds the realized account tree from a list of directives.
     /// 
     /// Processes all directives to create a complete account tree with transaction
@@ -364,14 +363,14 @@ public struct Realization: Sendable {
     ///   - entries: The directives to process
     ///   - computeBalance: Whether to compute account balances (default: true)
     /// - Returns: The root of the realized account tree
-    public func realize(entries: [Directive<Cost>], computeBalance: Bool = true) -> RealAccount {
+    public static func realize(entries: [Directive<Cost>], computeBalance: Bool = true) -> RealAccount {
         let txnPostingsMap = groupPostingsByAccount(entries)
         let realRoot = RealAccount(account: .empty)
         for (accountName, txnPostings) in txnPostingsMap {
             let realAccount = realRoot.ensureSubaccount(with: accountName.id)
             realAccount.txnPostings = txnPostings
             if computeBalance {
-                realAccount.balance = self.computeBalance(in: txnPostings)
+                realAccount.balance = Self.computeBalance(in: txnPostings)
             }
         }
         return realRoot
@@ -385,7 +384,7 @@ public struct Realization: Sendable {
     /// 
     /// - Parameter entries: The directives to process
     /// - Returns: Dictionary mapping accounts to their affecting directives and postings
-    func groupPostingsByAccount(_ entries: [Directive<Cost>]) -> [Account: [TxnPostingsType]] {
+    static func groupPostingsByAccount(_ entries: [Directive<Cost>]) -> [Account: [TxnPostingsType]] {
         var txnPostingsMap = [Account: [TxnPostingsType]]()
         for entry in entries {
             switch entry.content {
@@ -427,7 +426,7 @@ public struct Realization: Sendable {
     /// 
     /// - Parameter postings: The postings and directives to process
     /// - Returns: The net inventory balance
-    func computeBalance(in postings: [TxnPostingsType]) -> Inventory {
+    static func computeBalance(in postings: [TxnPostingsType]) -> Inventory {
         var balance = Inventory()
         for posting in postings {
             if case .txnPosting(let txnPosting) = posting {
@@ -445,7 +444,7 @@ public struct Realization: Sendable {
     /// 
     /// - Parameter postings: The postings and directives to iterate through
     /// - Returns: Sequence of balance changes over time
-    func balanceChanges(in postings: [TxnPostingsType]) -> any Sequence<BalanceIterationResult> {
+    static func balanceChanges(in postings: [TxnPostingsType]) -> any Sequence<BalanceIterationResult> {
         AnySequence {
             BalanceIterator(txnPostings: postings)
         }.lazy

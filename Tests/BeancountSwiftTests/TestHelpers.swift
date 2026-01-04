@@ -11,7 +11,6 @@ import Foundation
 
 struct ContentProvider: ContentProviding {
     let source: String
-    let loader = Loader()
 
     func provideContent(for name: String) throws -> String {
         return source
@@ -22,7 +21,7 @@ struct ContentProvider: ContentProviding {
     }
     
     func loadLedger() throws -> ParsedLedger<Cost> {
-        return try loader.load(file: "test.bean", contentProvider: self)
+        return try Loader.load(file: "test.bean", contentProvider: self)
     }
 }
 

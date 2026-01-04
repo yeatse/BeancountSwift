@@ -399,13 +399,18 @@ public enum Validation {
     ) -> [Error] {
         // Run basic validation routines
         var errors: [Error] = []
-        errors.append(contentsOf: validateOpenClose(entries: entries, options: options))
-        errors.append(contentsOf: validateActiveAccounts(entries: entries, options: options))
-        errors.append(contentsOf: validateCurrencyConstraints(entries: entries, options: options))
-        errors.append(contentsOf: validateDuplicateBalances(entries: entries, options: options))
-        errors.append(contentsOf: validateDuplicateCommodities(entries: entries, options: options))
-        errors.append(contentsOf: validateDocumentsPaths(entries: entries, options: options))
-        errors.append(contentsOf: validateCheckTransactionBalances(entries: entries, options: options))
+        let basicValidations: [(([Directive<Cost>], Options) -> [Error])] = [
+            validateOpenClose(entries:options:),
+            validateActiveAccounts(entries:options:),
+            validateCurrencyConstraints(entries:options:),
+            validateDuplicateBalances(entries:options:),
+            validateDuplicateCommodities(entries:options:),
+            validateDocumentsPaths(entries:options:),
+            validateCheckTransactionBalances(entries:options:),
+        ]
+        for validation in basicValidations {
+            errors.append(contentsOf: validation(entries, options))
+        }
         
         // Run extra validations if provided
         if let extraValidations = extraValidations {
