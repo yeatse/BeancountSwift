@@ -121,12 +121,13 @@ struct PadPlugin: BeancountPlugin {
         var paddedEntries: [Directive<Cost>] = []
         for entry in entries {
             paddedEntries.append(entry)
-            if case .pad = entry.content {
-                if let lineno = entry.meta.lineno, let entryList = newEntries[lineno] {
-                    paddedEntries += entryList
-                } else {
-                    padErrors.append(PadError.unusedPad(pad: entry))
-                }
+            guard case .pad = entry.content else {
+                continue
+            }
+            if let lineno = entry.meta.lineno, let entryList = newEntries[lineno] {
+                paddedEntries += entryList
+            } else {
+                padErrors.append(PadError.unusedPad(pad: entry))
             }
         }
         return (paddedEntries, padErrors)

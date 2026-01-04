@@ -90,11 +90,10 @@ extension Directive {
     }
     
     var transaction: Transaction<T> {
-        if case .transaction(let txn) = content {
-            return txn
-        } else {
+        guard case .transaction(let txn) = content else {
             fatalError()
         }
+        return txn
     }
 }
 

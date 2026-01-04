@@ -187,6 +187,21 @@ extension Inventory {
         return true
     }
     
+    /// Return true if all the positions in the inventory are small.
+    ///
+    /// - Parameter tolerances: A dict of currency to the small number of units
+    /// under which a position is considered small
+    /// - Returns: A boolean
+    func isSmall(tolerances: Interpolate.ToleranceMapping) -> Bool {
+        for position in positions {
+            let tolerance = tolerances.mapping[position.units.currency, default: 0.01]
+            if abs(position.units.number) > tolerance {
+                return false
+            }
+        }
+        return true
+    }
+    
     /// Checks if the inventory contains mixed signs for any currency.
     /// 
     /// A mixed inventory has both positive and negative positions

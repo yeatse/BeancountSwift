@@ -8,7 +8,7 @@
 import Foundation
 
 /// Validation error types
-enum ValidationError: LocatableError {
+enum ValidationError: LocatableError, LocalizedError {
     case duplicateOpen(account: Account, entry: Directive<Cost>)
     case duplicateClose(account: Account, entry: Directive<Cost>)
     case closeBeforeOpen(account: Account, entry: Directive<Cost>)
@@ -45,7 +45,7 @@ enum ValidationError: LocatableError {
         }
     }
     
-    var localizedDescription: String {
+    var errorDescription: String? {
         return switch self {
         case .duplicateOpen(let account, _):
             "Duplicate open directive for \(account.id)"
@@ -374,7 +374,7 @@ public enum Validation {
             let residual = Interpolate.computeResidual(postings: transaction.postings)
             let tolerances = Interpolate.inferTolerances(postings: transaction.postings, options: options)
             
-            if !residual.isSmall(tolerance: tolerances.default) {
+            if !residual.isSmall(tolerances: tolerances) {
                 errors.append(ValidationError.transactionDoesNotBalance(residual: residual, entry: entry))
             }
         }

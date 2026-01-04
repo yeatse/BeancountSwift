@@ -83,7 +83,7 @@ enum Interpolate {
     ///   - options: Configuration options
     /// - Returns: A tolerance mapping for balance checking
     static func inferTolerances<T: PostingCost>(postings: [Posting<T>], options: Options) -> ToleranceMapping {
-        return .init(mapping: [:], default: .zero)
+        return .init(mapping: [:], default: 0.01)
     }
     
     /// Computes the residual amounts needed to balance a transaction.

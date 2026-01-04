@@ -73,79 +73,73 @@ enum Booking {
         
         var balances = DefaultDictionary<Account, Inventory> { Inventory() }
         for directive in ledger.directives {
-            let newEntry: Directive<Cost>
-            if case .transaction(let txn) = directive.content {
-                // Group postings by currency.
-                let (referGroups, catErrors) = categorizeByCurrency(
-                    transaction: txn,
-                    balances: balances
-                )
-                guard catErrors.isEmpty else {
-                    errors += catErrors
-                    continue
-                }
-                let postingGroups = replaceCurrencies(
-                    postings: txn.postings,
-                    referGroups: referGroups
-                )
-                
-                // Get the list of tolerances.
-                let tolerances = Interpolate.inferTolerances(postings: txn.postings, options: ledger.options)
-                
-                // Resolve reductions to a particular lot in their inventory balance.
-                var replPostings = [Posting<Cost>]()
-                for (currency, groupPostings) in postingGroups {
-                    let (bookedPostings, bookingErrors) = bookReductions(
-                        entry: directive,
-                        groupPostings: groupPostings,
-                        balances: balances,
-                        methods: &bookingMethods
-                    )
-                    
-                    guard bookingErrors.isEmpty else {
-                        errors += bookingErrors
-                        continue
-                    }
-                    
-                    let (interPostings, interErrors, _) = interpolateGroup(
-                        postings: bookedPostings,
-                        currency: currency,
-                        tolerances: tolerances
-                    )
-                    if !interErrors.isEmpty {
-                        errors += interErrors
-                    }
-                    replPostings += interPostings
-                }
-                
-                newEntry = .init(
-                    meta: directive.meta,
-                    date: directive.date,
-                    comment: directive.comment,
-                    content: .transaction(
-                        .init(
-                            flag: txn.flag,
-                            payee: txn.payee,
-                            narration: txn.narration,
-                            tags: txn.tags,
-                            links: txn.links,
-                            postings: replPostings
-                        )
-                    )
-                )
-                
-                for posting in replPostings {
-                    balances[posting.account].addPosition(posting)
-                }
-            } else {
-                newEntry = .init(
+            guard case .transaction(let txn) = directive.content else {
+                newEntries.append(.init(
                     meta: directive.meta,
                     date: directive.date,
                     comment: directive.comment,
                     content: directive.content.resolved()
-                )
+                ))
+                continue
             }
-            newEntries.append(newEntry)
+            // Group postings by currency.
+            let (referGroups, catErrors) = categorizeByCurrency(
+                transaction: txn,
+                balances: balances
+            )
+            guard catErrors.isEmpty else {
+                errors += catErrors
+                continue
+            }
+            let postingGroups = replaceCurrencies(
+                postings: txn.postings,
+                referGroups: referGroups
+            )
+            
+            // Get the list of tolerances.
+            let tolerances = Interpolate.inferTolerances(postings: txn.postings, options: ledger.options)
+            
+            // Resolve reductions to a particular lot in their inventory balance.
+            var replPostings = [Posting<Cost>]()
+            for (currency, groupPostings) in postingGroups {
+                let (bookedPostings, bookingErrors) = bookReductions(
+                    entry: directive,
+                    groupPostings: groupPostings,
+                    balances: balances,
+                    methods: &bookingMethods
+                )
+                
+                guard bookingErrors.isEmpty else {
+                    errors += bookingErrors
+                    continue
+                }
+                
+                let (interPostings, interErrors, _) = interpolateGroup(
+                    postings: bookedPostings,
+                    currency: currency,
+                    tolerances: tolerances
+                )
+                if !interErrors.isEmpty {
+                    errors += interErrors
+                }
+                replPostings += interPostings
+            }
+            for posting in replPostings {
+                balances[posting.account].addPosition(posting)
+            }
+            newEntries.append(.init(
+                meta: directive.meta,
+                date: directive.date,
+                comment: directive.comment,
+                content: .transaction(.init(
+                    flag: txn.flag,
+                    payee: txn.payee,
+                    narration: txn.narration,
+                    tags: txn.tags,
+                    links: txn.links,
+                    postings: replPostings
+                ))
+            ))
         }
         
         return .init(
@@ -511,21 +505,22 @@ enum Booking {
         var incomplete = [(MissingType, Int)]()
         
         for (index, posting) in postings.indexed() {
-            if case .incomplete(let posting) = posting {
-                if posting.units.number == .nan {
-                    incomplete.append((.units, index))
+            guard case .incomplete(let posting) = posting else {
+                continue
+            }
+            if posting.units.number == .nan {
+                incomplete.append((.units, index))
+            }
+            if let cost = posting.cost {
+                if cost.numberPerUnit == .nan {
+                    incomplete.append((.costPer, index))
                 }
-                if let cost = posting.cost {
-                    if cost.numberPerUnit == .nan {
-                        incomplete.append((.costPer, index))
-                    }
-                    if cost.numberTotal == .nan {
-                        incomplete.append((.costTotal, index))
-                    }
+                if cost.numberTotal == .nan {
+                    incomplete.append((.costTotal, index))
                 }
-                if let price = posting.price, price.number == .nan {
-                    incomplete.append((.price, index))
-                }
+            }
+            if let price = posting.price, price.number == .nan {
+                incomplete.append((.price, index))
             }
         }
         
