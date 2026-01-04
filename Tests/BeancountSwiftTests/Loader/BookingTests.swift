@@ -66,6 +66,9 @@ struct BookingTests {
     @Test func allCurrencyInterpolations() throws {
         let p: ContentProvider =
 """
+2015-10-01 open Assets:Account
+2015-10-01 open Assets:Other
+
 2015-10-02 *
     Assets:Account  100.00 USD
     Assets:Other

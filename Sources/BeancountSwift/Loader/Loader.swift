@@ -84,8 +84,11 @@ public struct Loader: Sendable {
     }
     
     func validate(ledger: ParsedLedger<Cost>) -> ParsedLedger<Cost> {
-        // TODO: validate
-        return ledger
+        let validation = Validation()
+        let validationErrors = validation.validate(entries: ledger.directives, options: ledger.options)
+        var result = ledger
+        result.errors += validationErrors
+        return result
     }
     
     /// Loads and processes a Beancount file through the complete pipeline.
