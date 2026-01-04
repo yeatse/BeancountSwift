@@ -128,7 +128,7 @@ struct ParserTests {
 
               2013-05-20 note  Assets:US:Cash   "Something"
             """
-        let ledger = try Parser().parse(file: "main", contentProvider: p)
+        let ledger = try Parser.parse(file: "main", contentProvider: p)
         #expect(ledger.directives.count == 4)
         #expect(ledger.directives[0].meta.filename == "main")
         #expect(ledger.directives[1].meta.filename == "main")
@@ -144,13 +144,13 @@ struct ParserTests {
     }
     
     @Test func parseSnippetTransaction() throws {
-        let parser = Parser()
+        
         let content = """
             2014-12-15 * "Payee" "Narration"
               Assets:Checking   101.23 USD
               Equity:Blah      -101.23 USD
             """
-        let directive = parser.parseSnippet(from: content)
+        let directive = Parser.parseSnippet(from: content)
         #expect(directive != nil)
         guard case .transaction(let txn) = directive?.content else {
             Issue.record("Expected transaction directive")
@@ -163,8 +163,8 @@ struct ParserTests {
     }
 
     @Test func parseSnippetOpen() throws {
-        let parser = Parser()
-        let directive = parser.parseSnippet(from: "2020-07-30 open Assets:Test USD")
+        
+        let directive = Parser.parseSnippet(from: "2020-07-30 open Assets:Test USD")
         #expect(directive != nil)
         guard case .open(let open) = directive?.content else {
             Issue.record("Expected open directive")
@@ -175,8 +175,8 @@ struct ParserTests {
     }
 
     @Test func parseSnippetClose() throws {
-        let parser = Parser()
-        let directive = parser.parseSnippet(from: "2020-12-31 close Assets:Test")
+        
+        let directive = Parser.parseSnippet(from: "2020-12-31 close Assets:Test")
         #expect(directive != nil)
         guard case .close(let close) = directive?.content else {
             Issue.record("Expected close directive")
@@ -186,8 +186,8 @@ struct ParserTests {
     }
 
     @Test func parseSnippetBalance() throws {
-        let parser = Parser()
-        let directive = parser.parseSnippet(from: "2020-07-30 balance Assets:Test 1000.00 USD")
+        
+        let directive = Parser.parseSnippet(from: "2020-07-30 balance Assets:Test 1000.00 USD")
         #expect(directive != nil)
         guard case .balance(let balance) = directive?.content else {
             Issue.record("Expected balance directive")
@@ -199,8 +199,8 @@ struct ParserTests {
     }
 
     @Test func parseSnippetNote() throws {
-        let parser = Parser()
-        let directive = parser.parseSnippet(from: "2020-07-30 note Assets:Test \"This is a note\"")
+        
+        let directive = Parser.parseSnippet(from: "2020-07-30 note Assets:Test \"This is a note\"")
         #expect(directive != nil)
         guard case .note(let note) = directive?.content else {
             Issue.record("Expected note directive")
@@ -211,8 +211,8 @@ struct ParserTests {
     }
 
     @Test func parseSnippetPrice() throws {
-        let parser = Parser()
-        let directive = parser.parseSnippet(from: "2020-07-30 price EUR 1.20 USD")
+        
+        let directive = Parser.parseSnippet(from: "2020-07-30 price EUR 1.20 USD")
         #expect(directive != nil)
         guard case .price(let price) = directive?.content else {
             Issue.record("Expected price directive")
@@ -224,25 +224,25 @@ struct ParserTests {
     }
 
     @Test func parseSnippetInvalidContent() throws {
-        let parser = Parser()
-        let directive = parser.parseSnippet(from: "invalid content")
+        
+        let directive = Parser.parseSnippet(from: "invalid content")
         #expect(directive == nil)
     }
 
     @Test func parseSnippetEmptyString() throws {
-        let parser = Parser()
-        let directive = parser.parseSnippet(from: "")
+        
+        let directive = Parser.parseSnippet(from: "")
         #expect(directive == nil)
     }
 
     @Test func parseSnippetMultipleDirectives() throws {
-        let parser = Parser()
+        
         let content = """
             2020-07-30 open Assets:Test USD
             2020-07-31 close Assets:Test
             """
         // parseSnippet should only return the first directive
-        let directive = parser.parseSnippet(from: content)
+        let directive = Parser.parseSnippet(from: content)
         #expect(directive != nil)
         guard case .open = directive?.content else {
             Issue.record("Expected open directive")
@@ -251,7 +251,7 @@ struct ParserTests {
     }
 
     @Test func parseSnippetsMultipleDirectives() throws {
-        let parser = Parser()
+        
         let content = """
             2020-07-30 open Assets:Checking USD
             2020-07-31 open Assets:Savings USD
@@ -263,7 +263,7 @@ struct ParserTests {
             2020-08-02 balance Assets:Checking 100.00 USD
             2020-12-31 close Assets:Savings
             """
-        let directives = parser.parseSnippets(from: content)
+        let directives = Parser.parseSnippets(from: content)
         #expect(directives.count == 5)
 
         guard case .open = directives[0].content else {
@@ -289,15 +289,15 @@ struct ParserTests {
     }
 
     @Test func parseSnippetsEmptyString() throws {
-        let parser = Parser()
-        let directives = parser.parseSnippets(from: "")
+        
+        let directives = Parser.parseSnippets(from: "")
         #expect(directives.isEmpty)
     }
 
     @Test func parseSnippetsSingleDirective() throws {
-        let parser = Parser()
+        
         let content = "2020-07-30 open Assets:Test USD"
-        let directives = parser.parseSnippets(from: content)
+        let directives = Parser.parseSnippets(from: content)
         #expect(directives.count == 1)
         guard case .open = directives[0].content else {
             Issue.record("Expected open directive")
@@ -306,14 +306,14 @@ struct ParserTests {
     }
 
     @Test func parseSnippetsWithInvalidContent() throws {
-        let parser = Parser()
+        
         let content = """
             2020-07-30 open Assets:Checking USD
             invalid line that should be skipped
             2020-07-31 close Assets:Checking
             another invalid line
             """
-        let directives = parser.parseSnippets(from: content)
+        let directives = Parser.parseSnippets(from: content)
         // Should parse only the valid directives
         #expect(directives.count == 2)
         guard case .open = directives[0].content else {
@@ -327,25 +327,25 @@ struct ParserTests {
     }
 
     @Test func parseSnippetsWithComments() throws {
-        let parser = Parser()
+        
         let content = """
             ; This is a comment
             2020-07-30 open Assets:Test USD
             ; Another comment
             2020-07-31 balance Assets:Test 100.00 USD
             """
-        let directives = parser.parseSnippets(from: content)
+        let directives = Parser.parseSnippets(from: content)
         #expect(directives.count == 2)
     }
 
     @Test func parseSnippetsPreservesOrder() throws {
-        let parser = Parser()
+        
         let content = """
             2020-07-30 open Assets:A USD
             2020-07-29 open Assets:B USD
             2020-07-31 open Assets:C USD
             """
-        let directives = parser.parseSnippets(from: content)
+        let directives = Parser.parseSnippets(from: content)
         #expect(directives.count == 3)
         #expect(directives[0].date == "2020-07-30")
         #expect(directives[1].date == "2020-07-29")

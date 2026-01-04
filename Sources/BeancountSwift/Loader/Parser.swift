@@ -124,28 +124,27 @@ extension Directive<CostSpec> {
     }
 }
 
-/// A parser for Beancount files using Tree-sitter for syntax parsing.
-/// 
-/// The Parser processes Beancount text files and converts them into structured
-/// Swift data types. It handles include files, tag management, options processing,
-/// and comprehensive error reporting.
-/// 
+/// Namespace for Beancount parsing functionality using Tree-sitter.
+///
+/// Parser provides static methods for processing Beancount text files and converting
+/// them into structured Swift data types. It handles include files, tag management,
+/// options processing, and comprehensive error reporting.
+///
 /// This corresponds to the parsing functionality in the original Beancount Python
 /// library, providing the same level of syntax support and error handling.
-/// 
+///
 /// ## Usage
 /// ```swift
-/// let parser = Parser()
-/// let ledger = try parser.parse(file: "accounts.beancount", contentProvider: provider)
+/// let ledger = try Parser.parse(file: "accounts.beancount", contentProvider: provider)
 /// ```
-public struct Parser: Sendable {
+public enum Parser {
     /// Creates and configures a Tree-sitter parser for Beancount syntax.
-    /// 
+    ///
     /// Initializes the Tree-sitter parser with the Beancount grammar for
     /// accurate syntax parsing of Beancount files.
-    /// 
+    ///
     /// - Returns: A configured Tree-sitter parser instance
-    private var treeSitter: SwiftTreeSitter.Parser {
+    private static func makeTreeSitter() -> SwiftTreeSitter.Parser {
         let parser = SwiftTreeSitter.Parser()
         let language = Language(language: tree_sitter_beancount())
         try! parser.setLanguage(language)
@@ -153,28 +152,28 @@ public struct Parser: Sendable {
     }
     
     /// Parses a Beancount file and all its includes into a complete ledger.
-    /// 
+    ///
     /// Processes the main file and recursively handles all include directives,
     /// building a complete ledger with all directives, options, plugins, and errors.
     /// Maintains proper ordering and prevents circular includes.
-    /// 
+    ///
     /// - Parameters:
     ///   - file: The main Beancount file to parse
     ///   - contentProvider: Provider for file content access
     /// - Returns: A complete parsed ledger with cost specifications
     /// - Throws: Parser errors for syntax issues, missing files, or circular includes
-    func parse(file: String, contentProvider: ContentProviding) throws -> ParsedLedger<
+    public static func parse(file: String, contentProvider: ContentProviding) throws -> ParsedLedger<
         CostSpec
     > {
         let content = try contentProvider.provideContent(for: file)
-        var (ledger, includes) = try parse(content: content, in: file)
+        var (ledger, includes) = try parseContent(content: content, in: file)
         
         var seenIncludes: Set<String> = [file]
         while !includes.isEmpty {
             let childFile = includes.popLast()!
             do {
                 let childContent = try contentProvider.provideContent(for: childFile)
-                let (childLedger, childIncludes) = try parse(content: childContent, in: file)
+                let (childLedger, childIncludes) = try parseContent(content: childContent, in: file)
                 ledger.directives += childLedger.directives
                 ledger.errors += childLedger.errors
                 for include in childIncludes {
@@ -194,13 +193,14 @@ public struct Parser: Sendable {
     }
     
     /// Parses a single directive from a text snippet.
-    /// 
+    ///
     /// Attempts to parse a single Beancount directive from the provided text.
     /// Useful for interactive parsing, validation, or processing individual directives.
-    /// 
+    ///
     /// - Parameter content: The text content containing a single directive
     /// - Returns: The parsed directive, or nil if parsing fails
-    public func parseSnippet(from content: String) -> Directive<CostSpec>? {
+    public static func parseSnippet(from content: String) -> Directive<CostSpec>? {
+        let treeSitter = makeTreeSitter()
         guard let tree = treeSitter.parse(content) else { return nil }
         let directives: Set<String> = ["transaction", "balance", "open", "close", "pad", "document", "note", "event", "price", "commodity", "query", "custom"]
         if let node = tree.rootNode?.namedChild(at: 0), let nodeType = node.nodeType, directives.contains(nodeType) {
@@ -244,8 +244,9 @@ public struct Parser: Sendable {
     ///   this method handles multiple directives and gracefully ignores parsing failures.
     /// - Warning: Parsing errors are silently ignored. Use the main `parse(file:contentProvider:)`
     ///   method if you need comprehensive error reporting.
-    public func parseSnippets(from content: String) -> [Directive<CostSpec>] {
+    public static func parseSnippets(from content: String) -> [Directive<CostSpec>] {
         var result: [Directive<CostSpec>] = []
+        let treeSitter = makeTreeSitter()
         guard let rootNode = treeSitter.parse(content)?.rootNode else { return result }
         let directives: Set<String> = ["transaction", "balance", "open", "close", "pad", "document", "note", "event", "price", "commodity", "query", "custom"]
         for i in 0..<rootNode.namedChildCount {
@@ -270,9 +271,10 @@ public struct Parser: Sendable {
     ///   - file: The filename for error reporting
     /// - Returns: A tuple of the parsed ledger and list of include files
     /// - Throws: Parser errors for syntax issues or tag management problems
-    private func parse(content: String, in file: String) throws -> (
+    private static func parseContent(content: String, in file: String) throws -> (
         ParsedLedger<CostSpec>, includes: [String]
     ) {
+        let treeSitter = makeTreeSitter()
         guard let tree = treeSitter.parse(content) else {
             throw ParserError.badContent(file: file, content: content)
         }

@@ -11,7 +11,6 @@ import Foundation
 
 struct ContentProvider: ContentProviding {
     let source: String
-    let parser = Parser()
     let loader = Loader()
 
     func provideContent(for name: String) throws -> String {
@@ -19,7 +18,7 @@ struct ContentProvider: ContentProviding {
     }
     
     func parseLedger() throws -> ParsedLedger<CostSpec> {
-        return try parser.parse(file: "test.bean", contentProvider: self)
+        return try Parser.parse(file: "test.bean", contentProvider: self)
     }
     
     func loadLedger() throws -> ParsedLedger<Cost> {

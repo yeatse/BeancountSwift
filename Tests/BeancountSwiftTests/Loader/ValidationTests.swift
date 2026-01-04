@@ -27,8 +27,8 @@ struct ValidationTests {
             2014-02-21 open Assets:US:Bank:Checking3
             """
         let ledger = try p.loadLedger()
-        let validation = Validation()
-        let errors = validation.validateOpenClose(entries: ledger.directives, options: ledger.options)
+        
+        let errors = Validation.validateOpenClose(entries: ledger.directives, options: ledger.options)
 
         #expect(errors.count == 2)
         let accounts = errors.compactMap { error -> String? in
@@ -60,8 +60,8 @@ struct ValidationTests {
             2014-03-22 close Assets:US:Bank:Checking3
             """
         let ledger = try p.loadLedger()
-        let validation = Validation()
-        let errors = validation.validateOpenClose(entries: ledger.directives, options: ledger.options)
+        
+        let errors = Validation.validateOpenClose(entries: ledger.directives, options: ledger.options)
 
         #expect(errors.count == 2)
         let accounts = errors.compactMap { error -> String? in
@@ -80,8 +80,8 @@ struct ValidationTests {
             2014-03-01 close Assets:US:Bank:Checking1
             """
         let ledger = try p.loadLedger()
-        let validation = Validation()
-        let errors = validation.validateOpenClose(entries: ledger.directives, options: ledger.options)
+        
+        let errors = Validation.validateOpenClose(entries: ledger.directives, options: ledger.options)
 
         #expect(errors.count == 1)
         if case let validationError as ValidationError = errors[0],
@@ -99,8 +99,8 @@ struct ValidationTests {
             2014-02-01 close Assets:US:Bank:Checking1
             """
         let ledger = try p.loadLedger()
-        let validation = Validation()
-        let errors = validation.validateOpenClose(entries: ledger.directives, options: ledger.options)
+        
+        let errors = Validation.validateOpenClose(entries: ledger.directives, options: ledger.options)
 
         #expect(errors.count == 1)
         // After sorting, close (02-01) comes before open (03-01)
@@ -142,8 +142,8 @@ struct ValidationTests {
             2014-03-06 balance Assets:US:Bank:Checking2 100 USD
             """
         let ledger = try p.loadLedger()
-        let validation = Validation()
-        let errors = validation.validateDuplicateBalances(entries: ledger.directives, options: ledger.options)
+        
+        let errors = Validation.validateDuplicateBalances(entries: ledger.directives, options: ledger.options)
 
         #expect(errors.count == 1)
         if let error = errors.first as? ValidationError,
@@ -167,8 +167,8 @@ struct ValidationTests {
             2014-01-06 commodity HOOL
             """
         let ledger = try p.loadLedger()
-        let validation = Validation()
-        let errors = validation.validateDuplicateCommodities(entries: ledger.directives, options: ledger.options)
+        
+        let errors = Validation.validateDuplicateCommodities(entries: ledger.directives, options: ledger.options)
 
         #expect(errors.count == 2)
         let dates = errors.compactMap { error -> Date? in
@@ -217,8 +217,8 @@ struct ValidationTests {
             2014-10-03 document Assets:Temporary "/path/to/allowed-doc.pdf"
             """
         let ledger = try p.loadLedger()
-        let validation = Validation()
-        let errors = validation.validateActiveAccounts(entries: ledger.directives, options: ledger.options)
+        
+        let errors = Validation.validateActiveAccounts(entries: ledger.directives, options: ledger.options)
 
         // Should have errors for: invalid before transaction, invalid note, pad, unknown account, invalid after
         #expect(errors.count == 5)
@@ -248,8 +248,8 @@ struct ValidationTests {
               Assets:US:Bank:Savings     -100 USD
             """
         let ledger = try p.loadLedger()
-        let validation = Validation()
-        let errors = validation.validateActiveAccounts(entries: ledger.directives, options: ledger.options)
+        
+        let errors = Validation.validateActiveAccounts(entries: ledger.directives, options: ledger.options)
 
         #expect(errors.count == 2)
         let allUnknownAccount = errors.allSatisfy { error in
@@ -270,8 +270,8 @@ struct ValidationTests {
             2014-02-05 balance Assets:US:Bank:Checking 0.00 USD
             """
         let ledger = try p.loadLedger()
-        let validation = Validation()
-        let errors = validation.validateActiveAccounts(entries: ledger.directives, options: ledger.options)
+        
+        let errors = Validation.validateActiveAccounts(entries: ledger.directives, options: ledger.options)
 
         // Balance directives should be allowed after close
         #expect(errors.isEmpty)
@@ -303,8 +303,8 @@ struct ValidationTests {
               Equity:Opening-Balances  -500 USD
             """
         let ledger = try p.loadLedger()
-        let validation = Validation()
-        let errors = validation.validateCurrencyConstraints(entries: ledger.directives, options: ledger.options)
+        
+        let errors = Validation.validateCurrencyConstraints(entries: ledger.directives, options: ledger.options)
 
         #expect(errors.count == 2)
         let invalidCurrencies = errors.compactMap { error -> Currency? in
@@ -331,8 +331,8 @@ struct ValidationTests {
             """
         let ledger = try p.loadLedger()
 
-        let validation = Validation()
-        let errors = validation.validateDocumentsPaths(entries: ledger.directives, options: ledger.options)
+        
+        let errors = Validation.validateDocumentsPaths(entries: ledger.directives, options: ledger.options)
 
         #expect(errors.count == 1)
         if case let validationError as ValidationError = errors[0],
@@ -356,8 +356,8 @@ struct ValidationTests {
               Expenses:Food      100 USD
             """
         let ledger = try p.loadLedger()
-        let validation = Validation()
-        let errors = validation.validateCheckTransactionBalances(entries: ledger.directives, options: ledger.options)
+        
+        let errors = Validation.validateCheckTransactionBalances(entries: ledger.directives, options: ledger.options)
 
         #expect(errors.isEmpty)
     }
@@ -373,8 +373,8 @@ struct ValidationTests {
               Expenses:Food       99 USD
             """
         let ledger = try p.loadLedger()
-        let validation = Validation()
-        let errors = validation.validateCheckTransactionBalances(entries: ledger.directives, options: ledger.options)
+        
+        let errors = Validation.validateCheckTransactionBalances(entries: ledger.directives, options: ledger.options)
 
         #expect(errors.count == 1)
         if case let validationError as ValidationError = errors[0],
@@ -409,8 +409,8 @@ struct ValidationTests {
               Expenses:Food      -1 CAD
             """
         let ledger = try p.loadLedger()
-        let validation = Validation()
-        let errors = validation.validate(entries: ledger.directives, options: ledger.options)
+        
+        let errors = Validation.validate(entries: ledger.directives, options: ledger.options)
 
         // Should have error for duplicate commodity and invalid currency
         #expect(errors.count >= 2)

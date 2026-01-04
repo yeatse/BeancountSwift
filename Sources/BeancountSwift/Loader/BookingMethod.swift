@@ -106,7 +106,7 @@ extension Booking {
     ///   - matches: The potential matching positions
     ///   - method: The booking method to use for resolution
     /// - Returns: A tuple of booked reductions, matched positions, and errors
-    func handleAmbiguousMatches(
+    static func handleAmbiguousMatches(
         entry: Directive<CostSpec>,
         posting: Posting<CostSpec>,
         matches: [Position],

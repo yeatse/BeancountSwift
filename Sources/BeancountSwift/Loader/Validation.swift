@@ -73,23 +73,21 @@ enum ValidationError: LocatableError {
     }
 }
 
-/// The main validation engine for checking Beancount directive constraints.
+/// Namespace for Beancount directive validation functionality.
 ///
-/// Validation performs various consistency checks on parsed directives to ensure
-/// they satisfy Beancount's semantic rules. These checks are run after all plugins
-/// have transformed the entries, just before serving them or generating reports.
+/// Validation provides static methods for performing various consistency checks
+/// on parsed directives to ensure they satisfy Beancount's semantic rules. These
+/// checks are run after all plugins have transformed the entries, just before
+/// serving them or generating reports.
 ///
 /// This corresponds to the validation functionality in the original Beancount Python
 /// library, providing the same constraint checking capabilities.
 ///
 /// ## Usage
 /// ```swift
-/// let validation = Validation()
-/// let errors = validation.validate(entries: directives, options: options)
+/// let errors = Validation.validate(entries: directives, options: options)
 /// ```
-public struct Validation: Sendable {
-    /// Creates a new validation instance.
-    public init() {}
+public enum Validation {
     
     /// Check constraints on open and close directives themselves.
     ///
@@ -108,7 +106,7 @@ public struct Validation: Sendable {
     ///   - entries: A list of directives.
     ///   - options: An options map.
     /// - Returns: A list of new errors, if any were found.
-    public func validateOpenClose(entries: [Directive<Cost>], options: Options) -> [Error] {
+    public static func validateOpenClose(entries: [Directive<Cost>], options: Options) -> [Error] {
         var errors: [Error] = []
         var openMap: [Account: Directive<Cost>] = [:]
         var closeMap: [Account: Directive<Cost>] = [:]
@@ -155,7 +153,7 @@ public struct Validation: Sendable {
     ///   - entries: A list of directives.
     ///   - options: An options map.
     /// - Returns: A list of new errors, if any were found.
-    public func validateDuplicateBalances(entries: [Directive<Cost>], options: Options) -> [Error] {
+    public static func validateDuplicateBalances(entries: [Directive<Cost>], options: Options) -> [Error] {
         var errors: [Error] = []
         
         // Mapping of (account, currency, date) to Balance entry.
@@ -191,7 +189,7 @@ public struct Validation: Sendable {
     ///   - entries: A list of directives.
     ///   - options: An options map.
     /// - Returns: A list of new errors, if any were found.
-    public func validateDuplicateCommodities(entries: [Directive<Cost>], options: Options) -> [Error] {
+    public static func validateDuplicateCommodities(entries: [Directive<Cost>], options: Options) -> [Error] {
         var errors: [Error] = []
         var commodityEntries: [Currency: Directive<Cost>] = [:]
         
@@ -227,7 +225,7 @@ public struct Validation: Sendable {
     ///   - entries: A list of directives.
     ///   - options: An options map.
     /// - Returns: A list of new errors, if any were found.
-    public func validateActiveAccounts(entries: [Directive<Cost>], options: Options) -> [Error] {
+    public static func validateActiveAccounts(entries: [Directive<Cost>], options: Options) -> [Error] {
         var errorPairs: [(Account, Directive<Cost>)] = []
         var activeSet: Set<Account> = []
         var openedAccounts: Set<Account> = []
@@ -246,7 +244,7 @@ public struct Validation: Sendable {
                     if !activeSet.contains(account) {
                         // Allow document and note directives that occur after an
                         // account is closed.
-                        if self.isAllowedAfterClose(entry) && openedAccounts.contains(account) {
+                        if isAllowedAfterClose(entry) && openedAccounts.contains(account) {
                             continue
                         }
                         
@@ -283,7 +281,7 @@ public struct Validation: Sendable {
     ///   - entries: A list of directives.
     ///   - options: An options map.
     /// - Returns: A list of new errors, if any were found.
-    public func validateCurrencyConstraints(entries: [Directive<Cost>], options: Options) -> [Error] {
+    public static func validateCurrencyConstraints(entries: [Directive<Cost>], options: Options) -> [Error] {
         // Get all the open entries with currency constraints.
         var openMap: [Account: Open] = [:]
         for entry in entries {
@@ -334,7 +332,7 @@ public struct Validation: Sendable {
     ///   - entries: A list of directives.
     ///   - options: An options map.
     /// - Returns: A list of new errors, if any were found.
-    public func validateDocumentsPaths(entries: [Directive<Cost>], options: Options) -> [Error] {
+    public static func validateDocumentsPaths(entries: [Directive<Cost>], options: Options) -> [Error] {
         var errors: [Error] = []
         
         for entry in entries {
@@ -355,9 +353,8 @@ public struct Validation: Sendable {
     ///   - entries: A list of directives.
     ///   - options: An options map.
     /// - Returns: A list of new errors, if any were found.
-    func validateCheckTransactionBalances(entries: [Directive<Cost>], options: Options) -> [Error] {
+    static func validateCheckTransactionBalances(entries: [Directive<Cost>], options: Options) -> [Error] {
         var errors: [Error] = []
-        let interpolate = Interpolate()
         
         for entry in entries {
             guard case .transaction(let transaction) = entry.content else {
@@ -374,8 +371,8 @@ public struct Validation: Sendable {
             // the plugins) are balanced.
             
             // Detect complete sets of postings that have residual balance
-            let residual = interpolate.computeResidual(postings: transaction.postings)
-            let tolerances = interpolate.inferTolerances(postings: transaction.postings, options: options)
+            let residual = Interpolate.computeResidual(postings: transaction.postings)
+            let tolerances = Interpolate.inferTolerances(postings: transaction.postings, options: options)
             
             if !residual.isSmall(tolerance: tolerances.default) {
                 errors.append(ValidationError.transactionDoesNotBalance(residual: residual, entry: entry))
@@ -395,10 +392,10 @@ public struct Validation: Sendable {
     ///   - options: An options map.
     ///   - extraValidations: Optional extra validation functions to run
     /// - Returns: A list of new errors, if any were found.
-    public func validate(
+    public static func validate(
         entries: [Directive<Cost>],
         options: Options,
-        extraValidations: [(Validation, [Directive<Cost>], Options) -> [Error]]? = nil
+        extraValidations: [(([Directive<Cost>], Options) -> [Error])]? = nil
     ) -> [Error] {
         // Run basic validation routines
         var errors: [Error] = []
@@ -413,7 +410,7 @@ public struct Validation: Sendable {
         // Run extra validations if provided
         if let extraValidations = extraValidations {
             for validationFunction in extraValidations {
-                let newErrors = validationFunction(self, entries, options)
+                let newErrors = validationFunction(entries, options)
                 errors.append(contentsOf: newErrors)
             }
         }
@@ -428,7 +425,7 @@ public struct Validation: Sendable {
     /// - Balance directives may be useful to ensure the closed account is empty.
     /// - Documents may be received well after account closure.
     /// - Notes may be taken in the future for various reasons.
-    private func isAllowedAfterClose(_ entry: Directive<Cost>) -> Bool {
+    private static func isAllowedAfterClose(_ entry: Directive<Cost>) -> Bool {
         switch entry.content {
         case .balance, .document, .note:
             return true

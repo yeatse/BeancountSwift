@@ -60,9 +60,6 @@ public struct ParsedLedger<T: PostingCost>: Sendable {
 /// 
 /// - SeeAlso: [Beancount Design Doc - Loader](http://furius.ca/beancount/doc/design_doc.html#loader)
 public struct Loader: Sendable {
-    let booking = Booking()
-    let parser = Parser()
-    
     private let prologue: [Plugin] = []
     private let epilogue: [Plugin] = [
         .init(name: PadPlugin.name, config: nil),
@@ -84,8 +81,7 @@ public struct Loader: Sendable {
     }
     
     func validate(ledger: ParsedLedger<Cost>) -> ParsedLedger<Cost> {
-        let validation = Validation()
-        let validationErrors = validation.validate(entries: ledger.directives, options: ledger.options)
+        let validationErrors = Validation.validate(entries: ledger.directives, options: ledger.options)
         var result = ledger
         result.errors += validationErrors
         return result
@@ -122,10 +118,10 @@ public struct Loader: Sendable {
     /// ```
     public func load(file: String, contentProvider: ContentProviding) throws -> ParsedLedger<Cost> {
         // parsing
-        let parsedResult = try parser.parse(file: file, contentProvider: contentProvider)
-        
+        let parsedResult = try Parser.parse(file: file, contentProvider: contentProvider)
+
         // booking
-        let bookedLedger = booking.book(ledger: parsedResult)
+        let bookedLedger = Booking.book(ledger: parsedResult)
         
         // transforming
         let transformedLedger = transform(ledger: bookedLedger)

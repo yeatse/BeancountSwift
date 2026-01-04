@@ -55,7 +55,7 @@ public struct ToleranceConfiguration: Sendable {
 /// Interpolate implements the core logic for completing incomplete transactions
 /// by filling in missing amounts and checking balance tolerances. This ensures
 /// that transactions balance according to double-entry accounting principles.
-struct Interpolate {
+enum Interpolate {
     /// Maps currencies to their tolerance values for balance checking.
     /// 
     /// ToleranceMapping provides currency-specific tolerances with a fallback
@@ -82,7 +82,7 @@ struct Interpolate {
     ///   - postings: The postings to analyze
     ///   - options: Configuration options
     /// - Returns: A tolerance mapping for balance checking
-    func inferTolerances<T: PostingCost>(postings: [Posting<T>], options: Options)
+    static func inferTolerances<T: PostingCost>(postings: [Posting<T>], options: Options)
     -> ToleranceMapping
     {
         return .init(mapping: [:], default: .zero)
@@ -96,7 +96,7 @@ struct Interpolate {
     /// 
     /// - Parameter postings: The booked postings to analyze
     /// - Returns: An inventory representing the residual imbalance
-    func computeResidual(postings: [Posting<Cost>]) -> Inventory {
+    static func computeResidual(postings: [Posting<Cost>]) -> Inventory {
         var inventory = Inventory()
         for posting in postings {
             if let meta = posting.meta, meta[Interpolate.automaticResidual, default: .bool(false)] == .bool(true) {

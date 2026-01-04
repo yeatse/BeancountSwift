@@ -12,7 +12,7 @@ import Foundation
 
 @Suite("Booking Full Tests")
 struct BookingFullTests {
-    let booking = Booking()
+    
     
     // MARK: - Helper Functions
     
@@ -53,7 +53,7 @@ struct BookingFullTests {
 
 @Suite("TestInterpolateCurrencyGroup")
 struct InterpolateCurrencyGroupTests {
-    let booking = Booking()
+    
 
     struct ExpectedGroup {
         let interpolated: Bool
@@ -97,12 +97,12 @@ struct InterpolateCurrencyGroupTests {
     // Core checker adapted from Python tests
     private func check(_ entry: Directive<CostSpec>, expected: [Currency: ExpectedGroup], balances: DefaultDictionary<Account, Inventory> = DefaultDictionary(default: Inventory()), options: Options, debug: Bool = false) throws {
         let txn = entry.transaction
-        let (groups, catErrors) = booking.categorizeByCurrency(transaction: txn, balances: balances)
+        let (groups, catErrors) = Booking.categorizeByCurrency(transaction: txn, balances: balances)
         #expect(catErrors.isEmpty)
-        let postingGroups = booking.replaceCurrencies(postings: txn.postings, referGroups: groups)
+        let postingGroups = Booking.replaceCurrencies(postings: txn.postings, referGroups: groups)
 
         var methods = DefaultDictionary<Account, BookingMethod>(default: .STRICT)
-        let tolerances = booking.interpolate.inferTolerances(postings: txn.postings, options: options)
+        let tolerances = Interpolate.inferTolerances(postings: txn.postings, options: options)
 
         for (currency, postings) in postingGroups {
             guard let exp = expected[currency] else {
@@ -111,10 +111,10 @@ struct InterpolateCurrencyGroupTests {
             }
 
             // Book reductions first to get BookedPosting
-            let (booked, bookingErrors) = booking.bookReductions(entry: entry, groupPostings: postings, balances: balances, methods: &methods)
+            let (booked, bookingErrors) = Booking.bookReductions(entry: entry, groupPostings: postings, balances: balances, methods: &methods)
             #expect(bookingErrors.isEmpty)
 
-            let (newPostings, interErrors, interpolated) = booking.interpolateGroup(postings: booked, currency: currency, tolerances: tolerances)
+            let (newPostings, interErrors, interpolated) = Booking.interpolateGroup(postings: booked, currency: currency, tolerances: tolerances)
 
             // Determine if interpolation occurred by checking automatic meta
             #expect(interpolated == exp.interpolated)
@@ -262,7 +262,7 @@ struct InterpolateCurrencyGroupTests {
 
 @Suite("TestAllInterpolationCombinations")
 struct AllInterpolationCombinationsTests {
-    let booking = Booking()
+    
     
     func genMissingCombinations(template: String, args: [String]) -> [String] {
         var results: [String] = []
@@ -346,7 +346,7 @@ struct AllInterpolationCombinationsTests {
 
 @Suite("TestCategorizeCurrencyGroup")  
 struct CategorizeCurrencyGroupTests {
-    let booking = Booking()
+    
     
     func indexes(of groups: [(Currency, [Booking.Refer])]) -> [Currency: Set<Int>] {
         var result: [Currency: Set<Int>] = [:]
@@ -371,7 +371,7 @@ struct CategorizeCurrencyGroupTests {
         
         let ledger = try provider.parseLedger()
         for entry in ledger.directives {
-            let (groups, errors) = booking.categorizeByCurrency(transaction: entry.transaction, balances: DefaultDictionary(default: Inventory()))
+            let (groups, errors) = Booking.categorizeByCurrency(transaction: entry.transaction, balances: DefaultDictionary(default: Inventory()))
             #expect(errors.isEmpty)
             #expect(indexes(of: groups) == ["USD": [0, 1]])
         }
@@ -390,17 +390,17 @@ struct CategorizeCurrencyGroupTests {
 
         let ledger = try provider.parseLedger()
         let transaction1 = ledger.directives[0].transaction
-        var (groups, errors) = booking.categorizeByCurrency(transaction: transaction1, balances: [:])
+        var (groups, errors) = Booking.categorizeByCurrency(transaction: transaction1, balances: [:])
         #expect(errors.isEmpty)
         #expect(indexes(of: groups) == ["USD": [0, 1]])
 
         let transaction2 = ledger.directives[1].transaction
-        (groups, errors) = booking.categorizeByCurrency(transaction: transaction2,
+        (groups, errors) = Booking.categorizeByCurrency(transaction: transaction2,
                                                        balances: ["Assets:Account": "1.00 USD"])
         #expect(errors.isEmpty)
         #expect(indexes(of: groups) == ["USD": [0, 1]])
 
-        (groups, errors) = booking.categorizeByCurrency(transaction: transaction2, balances: [:])
+        (groups, errors) = Booking.categorizeByCurrency(transaction: transaction2, balances: [:])
         #expect(!errors.isEmpty)
         #expect(String(describing: errors.first).contains("failedToCategorize"))
         #expect(indexes(of: groups) == [:])
@@ -419,17 +419,17 @@ struct CategorizeCurrencyGroupTests {
 
         let ledger = try provider.parseLedger()
         let transaction1 = ledger.directives[0].transaction
-        var (groups, errors) = booking.categorizeByCurrency(transaction: transaction1, balances: [:])
+        var (groups, errors) = Booking.categorizeByCurrency(transaction: transaction1, balances: [:])
         #expect(errors.isEmpty)
         #expect(indexes(of: groups) == ["CAD": [0, 1]])
 
         let transaction2 = ledger.directives[1].transaction
-        (groups, errors) = booking.categorizeByCurrency(transaction: transaction2,
+        (groups, errors) = Booking.categorizeByCurrency(transaction: transaction2,
                                                        balances: ["Assets:Account": "1.00 USD"])
         #expect(errors.isEmpty)
         #expect(indexes(of: groups) == ["CAD": [0, 1]])
 
-        (groups, errors) = booking.categorizeByCurrency(transaction: transaction2, balances: [:])
+        (groups, errors) = Booking.categorizeByCurrency(transaction: transaction2, balances: [:])
         #expect(!errors.isEmpty)
         #expect(String(describing: errors.first).contains("cannotResolve"))
         #expect(indexes(of: groups) == ["CAD": [0, 1]])
@@ -457,24 +457,24 @@ struct CategorizeCurrencyGroupTests {
         let ledger = try provider.parseLedger()
         
         // Test first transaction
-        var (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[0].transaction, balances: [:])
+        var (groups, errors) = Booking.categorizeByCurrency(transaction: ledger.directives[0].transaction, balances: [:])
         #expect(errors.isEmpty)
         #expect(indexes(of: groups) == ["CAD": [0, 1]])
         
         // Test second transaction
-        (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[1].transaction, 
+        (groups, errors) = Booking.categorizeByCurrency(transaction: ledger.directives[1].transaction, 
                                                        balances: ["Assets:Account": "1.00 USD"])
         #expect(errors.isEmpty)
         #expect(indexes(of: groups) == ["CAD": [0, 1]])
         
-        (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[1].transaction, balances: [:])
+        (groups, errors) = Booking.categorizeByCurrency(transaction: ledger.directives[1].transaction, balances: [:])
         #expect(!errors.isEmpty)
         #expect(String(describing: errors.first).contains("cannotResolve"))
         #expect(indexes(of: groups) == ["CAD": [0, 1]])
         
         // Test third and fourth transactions - should fail
         for i in 2...3 {
-            (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[i].transaction, balances: [:])
+            (groups, errors) = Booking.categorizeByCurrency(transaction: ledger.directives[i].transaction, balances: [:])
             #expect(errors.count == 1)
             #expect(String(describing: errors.first).contains("failedToCategorize"))
             #expect(indexes(of: groups) == [:])
@@ -495,17 +495,17 @@ struct CategorizeCurrencyGroupTests {
         let ledger = try provider.parseLedger()
         
         // Test first transaction
-        var (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[0].transaction, balances: [:])
+        var (groups, errors) = Booking.categorizeByCurrency(transaction: ledger.directives[0].transaction, balances: [:])
         #expect(errors.isEmpty)
         #expect(indexes(of: groups) == ["USD": [0, 1]])
         
         // Test second transaction
-        (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[1].transaction, 
+        (groups, errors) = Booking.categorizeByCurrency(transaction: ledger.directives[1].transaction, 
                                                        balances: ["Assets:Account": "1 HOOL {1.00 USD}"])
         #expect(errors.isEmpty)
         #expect(indexes(of: groups) == ["USD": [0, 1]])
         
-        (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[1].transaction, balances: [:])
+        (groups, errors) = Booking.categorizeByCurrency(transaction: ledger.directives[1].transaction, balances: [:])
         #expect(!errors.isEmpty)
         #expect(String(describing: errors.first).contains("cannotResolve"))
         #expect(indexes(of: groups) == ["USD": [0, 1]])
@@ -533,40 +533,40 @@ struct CategorizeCurrencyGroupTests {
         let ledger = try provider.parseLedger()
         
         // Test first transaction - Swift categorizes by both currencies
-        var (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[0].transaction, balances: [:])
+        var (groups, errors) = Booking.categorizeByCurrency(transaction: ledger.directives[0].transaction, balances: [:])
         #expect(errors.isEmpty)
         #expect(indexes(of: groups) == ["HOOL": [0], "USD": [1]])
         
         // Test second transaction with balance - resolves to USD
-        (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[1].transaction, 
+        (groups, errors) = Booking.categorizeByCurrency(transaction: ledger.directives[1].transaction, 
                                                        balances: ["Assets:Account": "1 HOOL {1.00 USD}"])
         #expect(errors.isEmpty)
         #expect(indexes(of: groups) == ["USD": [0, 1]])
         
         // Test second transaction without balance - still resolves to USD
-        (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[1].transaction, balances: [:])
+        (groups, errors) = Booking.categorizeByCurrency(transaction: ledger.directives[1].transaction, balances: [:])
         #expect(errors.isEmpty)
         #expect(indexes(of: groups) == ["USD": [0, 1]])
         
         // Test third transaction with balance - resolves to HOOL
-        (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[2].transaction, 
+        (groups, errors) = Booking.categorizeByCurrency(transaction: ledger.directives[2].transaction, 
                                                        balances: ["Assets:Account": "1 HOOL {1.00 USD}"])
         #expect(errors.isEmpty)
         #expect(indexes(of: groups) == ["HOOL": [0, 1]])
         
         // Test third transaction without balance - resolves to HOOL
-        (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[2].transaction, balances: [:])
+        (groups, errors) = Booking.categorizeByCurrency(transaction: ledger.directives[2].transaction, balances: [:])
         #expect(errors.isEmpty)
         #expect(indexes(of: groups) == ["HOOL": [0, 1]])
         
         // Test fourth transaction with balance - resolves to HOOL
-        (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[3].transaction, 
+        (groups, errors) = Booking.categorizeByCurrency(transaction: ledger.directives[3].transaction, 
                                                        balances: ["Assets:Account": "1 HOOL {1.00 USD}"])
         #expect(errors.isEmpty)
         #expect(indexes(of: groups) == ["HOOL": [0, 1]])
         
         // Test fourth transaction without balance - fails to categorize
-        (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[3].transaction, balances: [:])
+        (groups, errors) = Booking.categorizeByCurrency(transaction: ledger.directives[3].transaction, balances: [:])
         #expect(errors.count == 1)
         #expect(String(describing: errors.first).contains("failedToCategorize"))
         #expect(indexes(of: groups) == [:])
@@ -603,14 +603,14 @@ struct CategorizeCurrencyGroupTests {
         
         // Test transactions 0, 2, 4 (should succeed)
         for i in [0, 2, 4] {
-            let (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[i].transaction, balances: [:])
+            let (groups, errors) = Booking.categorizeByCurrency(transaction: ledger.directives[i].transaction, balances: [:])
             #expect(errors.isEmpty)
             #expect(indexes(of: groups) == ["USD": [0, 1]])
         }
         
         // Test transactions 1, 3, 5 (should have errors but still categorize)
         for i in [1, 3, 5] {
-            let (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[i].transaction, balances: [:])
+            let (groups, errors) = Booking.categorizeByCurrency(transaction: ledger.directives[i].transaction, balances: [:])
             #expect(errors.count == 1)
             #expect(String(describing: errors.first).contains("cannotResolve"))
             #expect(indexes(of: groups) == ["USD": [0, 1]])
@@ -639,24 +639,24 @@ struct CategorizeCurrencyGroupTests {
         let ledger = try provider.parseLedger()
         
         // Test first transaction
-        var (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[0].transaction, balances: [:])
+        var (groups, errors) = Booking.categorizeByCurrency(transaction: ledger.directives[0].transaction, balances: [:])
         #expect(errors.isEmpty)
         #expect(indexes(of: groups) == ["USD": [0, 1]])
         
         // Test second transaction
-        (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[1].transaction, balances: [:])
+        (groups, errors) = Booking.categorizeByCurrency(transaction: ledger.directives[1].transaction, balances: [:])
         #expect(!errors.isEmpty)
         #expect(String(describing: errors.first).contains("cannotResolve"))
         #expect(indexes(of: groups) == ["USD": [0, 1]])
         
         // Test third and fourth transactions
         for i in 2...3 {
-            (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[i].transaction, 
+            (groups, errors) = Booking.categorizeByCurrency(transaction: ledger.directives[i].transaction, 
                                                            balances: ["Assets:Account": "1 HOOL {1.00 USD}"])
             #expect(errors.isEmpty)
             #expect(indexes(of: groups) == ["USD": [0, 1]])
             
-            (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[i].transaction, balances: [:])
+            (groups, errors) = Booking.categorizeByCurrency(transaction: ledger.directives[i].transaction, balances: [:])
             #expect(!errors.isEmpty)
             #expect(String(describing: errors.first).contains("failedToCategorize"))
             #expect(indexes(of: groups) == [:])
@@ -672,7 +672,7 @@ struct CategorizeCurrencyGroupTests {
         """
         
         let ledger = try provider.parseLedger()
-        let (groups, errors) = booking.categorizeByCurrency(transaction: ledger.directives[0].transaction, balances: [:])
+        let (groups, errors) = Booking.categorizeByCurrency(transaction: ledger.directives[0].transaction, balances: [:])
         #expect(errors.isEmpty)
         #expect(indexes(of: groups) == ["USD": [0, 2], "CAD": [1, 2]])
     }
@@ -686,7 +686,7 @@ struct CategorizeCurrencyGroupTests {
         """
         
         let ledger = try provider.parseLedger()
-        let (_, errors) = booking.categorizeByCurrency(transaction: ledger.directives[0].transaction, balances: [:])
+        let (_, errors) = Booking.categorizeByCurrency(transaction: ledger.directives[0].transaction, balances: [:])
         #expect(!errors.isEmpty)
     }
     
@@ -697,13 +697,13 @@ struct CategorizeCurrencyGroupTests {
 
 @Suite("TestReplaceCurrenciesInGroup")
 struct ReplaceCurrenciesInGroupTests {
-    let booking = Booking()
+    
     
     func checkReplaceCurrencies(expected: [Currency: [(String, String, String?, String?)]], transaction: Transaction<CostSpec>) throws {
-        let (referGroups, errors) = booking.categorizeByCurrency(transaction: transaction, balances: [:])
+        let (referGroups, errors) = Booking.categorizeByCurrency(transaction: transaction, balances: [:])
         #expect(errors.isEmpty)
         
-        let postingGroups = booking.replaceCurrencies(postings: transaction.postings, referGroups: referGroups)
+        let postingGroups = Booking.replaceCurrencies(postings: transaction.postings, referGroups: referGroups)
         
         var checkGroups: [String: [(String, String, String?, String?)]] = [:]
         for (currency, postings) in postingGroups {
@@ -907,8 +907,8 @@ struct BookingApiTests {
             let ledger = try provider.parseLedger()
             #expect(ledger.directives.count == 1, "Should have exactly one directive")
             
-            let booking = Booking()
-            let bookedLedger = booking.book(ledger: ledger)
+            
+            let bookedLedger = Booking.book(ledger: ledger)
             
             #expect(bookedLedger.directives.count == 1, "Should have exactly one booked directive")
             #expect(bookedLedger.errors.isEmpty, "Should have no booking errors")
@@ -931,7 +931,7 @@ struct BookingApiTests {
 
 @Suite("TestBookAugmentations")
 struct BookAugmentationsTests {
-    let booking = Booking()
+    
 
     @Test func testAugmentFromEmptyNoCostPos() throws {
         let provider: ContentProvider = """
@@ -939,7 +939,7 @@ struct BookAugmentationsTests {
           Assets:Account           1 USD
         """
         let ledger = try provider.parseLedger()
-        let booked = booking.book(ledger: ledger)
+        let booked = Booking.book(ledger: ledger)
         #expect(booked.errors.isEmpty)
         #expect(booked.directives.count == 1)
 
@@ -956,7 +956,7 @@ struct BookAugmentationsTests {
           Assets:Account          -1 USD
         """
         let ledger = try provider.parseLedger()
-        let booked = booking.book(ledger: ledger)
+        let booked = Booking.book(ledger: ledger)
         #expect(booked.errors.isEmpty)
         #expect(booked.directives.count == 1)
 
@@ -973,7 +973,7 @@ struct BookAugmentationsTests {
           Assets:Account          1 HOOL {{100.00 USD}}
         """
         let ledger = try provider.parseLedger()
-        let booked = booking.book(ledger: ledger)
+        let booked = Booking.book(ledger: ledger)
         #expect(booked.errors.isEmpty)
         #expect(booked.directives.count == 1)
 
@@ -994,7 +994,7 @@ struct BookAugmentationsTests {
           Assets:Account          -1 HOOL {{100.00 USD}}
         """
         let ledger = try provider.parseLedger()
-        let booked = booking.book(ledger: ledger)
+        let booked = Booking.book(ledger: ledger)
         #expect(booked.errors.isEmpty)
         #expect(booked.directives.count == 1)
 
@@ -1021,7 +1021,7 @@ struct BookAugmentationsTests {
         // Directly exercise bookReductions on the single posting group
         let postings = entry.transaction.postings
         var methods = DefaultDictionary<Account, BookingMethod>(default: .STRICT)
-        let (bookedPostings, errors) = booking.bookReductions(
+        let (bookedPostings, errors) = Booking.bookReductions(
             entry: entry,
             groupPostings: postings,
             balances: DefaultDictionary<Account, Inventory>(default: Inventory()),
@@ -1054,7 +1054,7 @@ struct BookAugmentationsTests {
 
         let postings = entry.transaction.postings
         var methods = DefaultDictionary<Account, BookingMethod>(default: .STRICT)
-        let (bookedPostings, errors) = booking.bookReductions(
+        let (bookedPostings, errors) = Booking.bookReductions(
             entry: entry,
             groupPostings: postings,
             balances: DefaultDictionary<Account, Inventory>(default: Inventory()),

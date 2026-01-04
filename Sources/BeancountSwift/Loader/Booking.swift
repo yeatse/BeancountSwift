@@ -56,10 +56,10 @@ extension DirectiveContent<CostSpec> {
     }
 }
 
-struct Booking {
-    let interpolate = Interpolate()
+enum Booking {
     
-    func book(ledger: ParsedLedger<CostSpec>) -> ParsedLedger<Cost> {
+    
+    static func book(ledger: ParsedLedger<CostSpec>) -> ParsedLedger<Cost> {
         
         var bookingMethods = DefaultDictionary<Account, BookingMethod>(default: ledger.options.bookingMethod)
         for directive in ledger.directives {
@@ -90,7 +90,7 @@ struct Booking {
                 )
                 
                 // Get the list of tolerances.
-                let tolerances = interpolate.inferTolerances(postings: txn.postings, options: ledger.options)
+                let tolerances = Interpolate.inferTolerances(postings: txn.postings, options: ledger.options)
                 
                 // Resolve reductions to a particular lot in their inventory balance.
                 var replPostings = [Posting<Cost>]()
@@ -160,7 +160,7 @@ struct Booking {
         index: Int, unitsCurrency: Currency?, costCurrency: Currency?, priceCurrency: Currency?
     )
     
-    func getBucketCurrency(refer: Refer) -> Currency? {
+    static func getBucketCurrency(refer: Refer) -> Currency? {
         if let costCurrency = refer.costCurrency, costCurrency != .missing {
             return costCurrency
         } else if let priceCurrency = refer.priceCurrency, priceCurrency != .missing {
@@ -173,7 +173,7 @@ struct Booking {
         return nil
     }
     
-    func categorizeByCurrency(transaction: Transaction<CostSpec>, balances: DefaultDictionary<Account, Inventory>)
+    static func categorizeByCurrency(transaction: Transaction<CostSpec>, balances: DefaultDictionary<Account, Inventory>)
     -> (
         [(Currency, [Refer])], [Error]
     )
@@ -332,7 +332,7 @@ struct Booking {
         return (sortedGroups, errors)
     }
     
-    func replaceCurrencies(postings: [Posting<CostSpec>], referGroups: [(Currency, [Refer])]) -> [(
+    static func replaceCurrencies(postings: [Posting<CostSpec>], referGroups: [(Currency, [Refer])]) -> [(
         Currency, [Posting<CostSpec>]
     )] {
         var newGroups = [(Currency, [Posting<CostSpec>])]()
@@ -411,7 +411,7 @@ struct Booking {
         }
     }
     
-    func bookReductions(
+    static func bookReductions(
         entry: Directive<CostSpec>,
         groupPostings: [Posting<CostSpec>],
         balances: DefaultDictionary<Account, Inventory>,
@@ -502,7 +502,7 @@ struct Booking {
         case price
     }
     
-    func interpolateGroup(
+    static func interpolateGroup(
         postings: [BookedPosting],
         currency: Currency,
         tolerances: Interpolate.ToleranceMapping
@@ -562,7 +562,7 @@ struct Booking {
                     case .incomplete(_): nil
                 }
             }
-            let residual = interpolate.computeResidual(postings: postingsToCompute)
+            let residual = Interpolate.computeResidual(postings: postingsToCompute)
             
             let weight: Decimal
             if !residual.isEmpty {
