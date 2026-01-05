@@ -22,11 +22,11 @@ extension Balance {
     }
 }
 
-enum BalanceError: LocatableError {
+enum BalanceError: LocatableError, LocalizedError {
     case unknownAccount(account: Account, entry: Directive<Cost>)
     case invalidCurrency(currency: Currency, entry: Directive<Cost>)
     case balanceFailed(account: Account, expected: Amount, balance: Amount, entry: Directive<Cost>)
-    
+
     var location: LedgerLocation? {
         func getLocation(_ entry: Directive<Cost>) -> LedgerLocation? {
             if let filename = entry.meta.filename, let lineno = entry.meta.lineno {
@@ -39,6 +39,19 @@ enum BalanceError: LocatableError {
         case .unknownAccount(_, let entry): getLocation(entry)
         case .invalidCurrency(_, let entry): getLocation(entry)
         case .balanceFailed(_, _, _, let entry): getLocation(entry)
+        }
+    }
+
+    var errorDescription: String? {
+        switch self {
+        case .unknownAccount(let account, _):
+            return "Invalid reference to unknown account '\(account.id)'"
+        case .invalidCurrency(let currency, _):
+            return "Invalid currency '\(currency.id)' for Balance directive"
+        case .balanceFailed(let account, let expected, let balance, _):
+            let diff = balance - expected
+            let direction = diff.number > 0 ? "too much" : "too little"
+            return "Balance failed for '\(account.id)': expected \(expected) != accumulated \(balance) (\(abs(diff.number)) \(direction))"
         }
     }
 }

@@ -8,11 +8,11 @@
 import Foundation
 import Algorithms
 
-enum CategorizationError: LocatableError {
+enum CategorizationError: LocatableError, LocalizedError {
     case failedToCategorize(txn: Transaction<CostSpec>, index: Int)
     case extraAutoPostings(txn: Transaction<CostSpec>)
     case cannotResolve(txn: Transaction<CostSpec>, name: String)
-    
+
     var location: LedgerLocation? {
         func getLocation(_ txn: Transaction<CostSpec>) -> LedgerLocation? {
             if let meta = txn.postings.first?.meta, let filename = meta.filename, let lineno = meta.lineno {
@@ -25,6 +25,17 @@ enum CategorizationError: LocatableError {
         case .failedToCategorize(let txn, _): return getLocation(txn)
         case .extraAutoPostings(let txn): return getLocation(txn)
         case .cannotResolve(let txn, _): return getLocation(txn)
+        }
+    }
+
+    var errorDescription: String? {
+        switch self {
+        case .failedToCategorize(_, let index):
+            "Failed to categorize posting \(index + 1)"
+        case .extraAutoPostings:
+            "You may not have more than one auto-posting per currency"
+        case .cannotResolve(_, let name):
+            "Could not resolve \(name) currency"
         }
     }
 }
