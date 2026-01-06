@@ -186,19 +186,6 @@ extension CompoundAmount: Parsable {
 }
 
 extension Node {
-    func repeatedChildren(byFieldName: String, type: String) -> [Node] {
-        var result: [Node] = []
-        if let node = self.child(byFieldName: byFieldName) {
-            result.append(node)
-            var node = node
-            while let next = node.nextNamedSibling, next.nodeType == type {
-                result.append(next)
-                node = next
-            }
-        }
-        return result
-    }
-    
     func parseTagsAndLinks(in content: String) throws -> (tags: OrderedSet<Tag>, links: OrderedSet<Link>) {
         var tags: OrderedSet<Tag> = []
         var links: OrderedSet<Link> = []
@@ -349,8 +336,13 @@ extension Open: Parsable {
         let account = try node.child(byFieldName: "account").map {
             try Account(from: $0, content: content)
         }
-        let currencies = try node.repeatedChildren(byFieldName: "currencies", type: "currency").map {
-            try Currency(from: $0, content: content)
+        var currencies: [Currency] = []
+        if let node = node.child(byFieldName: "currencies") {
+            for i in 0..<node.namedChildCount {
+                if let child = node.namedChild(at: i), child.nodeType == "currency" {
+                    currencies.append(try Currency(from: child, content: content))
+                }
+            }
         }
         let booking = try node.child(byFieldName: "booking")
             .flatMap { try String(from: $0, content: content).trimmingQuotes() }

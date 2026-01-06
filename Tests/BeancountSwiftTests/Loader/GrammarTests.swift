@@ -26,7 +26,7 @@ struct GrammarTests {
     @Test func openAccount() throws {
         let p: ContentProvider =
                 """
-                  2014-01-01 open Assets:Invest ; Investing
+                  2014-01-01 open Assets:Invest CNY,JPY ; Investing
                 """
         let ledger = try p.parseLedger()
         let directive = ledger.directives[0]
@@ -36,6 +36,7 @@ struct GrammarTests {
             return
         }
         #expect(open.account == "Assets:Invest")
+        #expect(open.currencies == ["CNY", "JPY"])
     }
 
     @Test func postingComment() throws {
