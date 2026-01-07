@@ -114,9 +114,9 @@ public enum DirectiveContent<T: PostingCost>: Hashable, Sendable {
 /// ```
 public struct DirectiveValue<T: PostingCost, Content>: Hashable, Sendable where Content: Hashable & Sendable {
     /// The generic directive containing common properties.
-    public let directive: Directive<T>
+    public var directive: Directive<T>
     /// The specific typed content of the directive.
-    public let content: Content
+    public var content: Content
     
     /// Creates a directive-content pair.
     /// 
@@ -147,11 +147,11 @@ public struct DirectiveValue<T: PostingCost, Content>: Hashable, Sendable where 
 /// - SeeAlso: [Beancount Language Syntax - Open](https://beancount.github.io/docs/beancount_language_syntax.html#open)
 public struct Open: Hashable, Sendable {
     /// The account being opened.
-    public let account: Account
+    public var account: Account
     /// List of currencies this account can hold (empty means any currency).
-    public let currencies: [Currency]
+    public var currencies: [Currency]
     /// Optional booking method for this account's inventory management.
-    public let booking: BookingMethod?
+    public var booking: BookingMethod?
     
     /// Creates an open directive.
     /// 
@@ -179,7 +179,7 @@ public struct Open: Hashable, Sendable {
 /// - SeeAlso: [Beancount Language Syntax - Close](https://beancount.github.io/docs/beancount_language_syntax.html#close)
 public struct Close: Hashable, Sendable {
     /// The account being closed.
-    public let account: Account
+    public var account: Account
     
     /// Creates a close directive.
     /// 
@@ -203,7 +203,7 @@ public struct Close: Hashable, Sendable {
 /// - SeeAlso: [Beancount Language Syntax - Commodity](https://beancount.github.io/docs/beancount_language_syntax.html#commodity)
 public struct Commodity: Hashable, Sendable {
     /// The currency or commodity being declared.
-    public let currency: Currency
+    public var currency: Currency
     
     /// Creates a commodity directive.
     /// 
@@ -230,9 +230,9 @@ public struct Commodity: Hashable, Sendable {
 /// - SeeAlso: [Beancount Language Syntax - Pad](https://beancount.github.io/docs/beancount_language_syntax.html#pad)
 public struct Pad: Hashable, Sendable {
     /// The account whose balance should be padded.
-    public let account: Account
+    public var account: Account
     /// The source account to draw padding funds from.
-    public let sourceAccount: Account
+    public var sourceAccount: Account
     
     /// Creates a pad directive.
     /// 
@@ -264,13 +264,13 @@ public struct Pad: Hashable, Sendable {
 /// - SeeAlso: [Beancount Language Syntax - Balance](https://beancount.github.io/docs/beancount_language_syntax.html#balance)
 public struct Balance: Hashable, Sendable {
     /// The account whose balance is being checked.
-    public let account: Account
+    public var account: Account
     /// The expected balance amount.
-    public let amount: Amount
+    public var amount: Amount
     /// Optional tolerance for balance discrepancies.
-    public let tolerance: Decimal?
+    public var tolerance: Decimal?
     /// The difference amount if balance doesn't match (computed during processing).
-    public let diffAmount: Amount?
+    public var diffAmount: Amount?
     
     /// Creates a balance assertion directive.
     /// 
@@ -311,17 +311,17 @@ public struct Balance: Hashable, Sendable {
 /// - SeeAlso: [Beancount Design Doc - Transactions](https://beancount.github.io/docs/beancount_design_doc.html#transactions)
 public struct Transaction<T: PostingCost>: Hashable, Sendable {
     /// Transaction flag indicating status (*, !, etc.).
-    public let flag: Character?
+    public var flag: Character?
     /// The payee or counterparty in the transaction.
-    public let payee: String?
+    public var payee: String?
     /// Descriptive text explaining the transaction.
-    public let narration: String?
+    public var narration: String?
     /// Set of tags for categorization.
-    public let tags: OrderedSet<Tag>
+    public var tags: OrderedSet<Tag>
     /// Set of links connecting related transactions.
-    public let links: OrderedSet<Link>
+    public var links: OrderedSet<Link>
     /// List of postings that make up this transaction.
-    public let postings: [Posting<T>]
+    public var postings: [Posting<T>]
     
     /// Creates a transaction.
     /// 
@@ -369,9 +369,9 @@ extension Character {
 /// - SeeAlso: [Beancount Language Syntax - Note](https://beancount.github.io/docs/beancount_language_syntax.html#note)
 public struct Note: Hashable, Sendable {
     /// The account this note applies to.
-    public let account: Account
+    public var account: Account
     /// The note text content.
-    public let note: String
+    public var note: String
     
     /// Creates a note directive.
     /// 
@@ -402,9 +402,9 @@ public struct Note: Hashable, Sendable {
 /// - SeeAlso: [Beancount Language Syntax - Event](https://beancount.github.io/docs/beancount_language_syntax.html#event)
 public struct Event: Hashable, Sendable {
     /// The event type/category.
-    public let type: String
+    public var type: String
     /// The event description.
-    public let description: String
+    public var description: String
     
     /// Creates an event directive.
     /// 
@@ -434,9 +434,9 @@ public struct Event: Hashable, Sendable {
 /// - SeeAlso: [Beancount Query Language](https://beancount.github.io/docs/beancount_query_language.html)
 public struct Query: Hashable, Sendable {
     /// The query name identifier.
-    public let name: String
+    public var name: String
     /// The SQL-like query string.
-    public let queryString: String
+    public var queryString: String
     
     /// Creates a query directive.
     /// 
@@ -466,9 +466,9 @@ public struct Query: Hashable, Sendable {
 /// - SeeAlso: [Beancount Language Syntax - Price](https://beancount.github.io/docs/beancount_language_syntax.html#price)
 public struct Price: Hashable, Sendable {
     /// The currency or commodity being priced.
-    public let currency: Currency
+    public var currency: Currency
     /// The price amount in terms of another currency.
-    public let amount: Amount
+    public var amount: Amount
     
     /// Creates a price directive.
     /// 
@@ -500,13 +500,13 @@ public struct Price: Hashable, Sendable {
 /// - SeeAlso: [Beancount Language Syntax - Document](https://beancount.github.io/docs/beancount_language_syntax.html#document)
 public struct Document: Hashable, Sendable {
     /// The account this document relates to.
-    public let account: Account
+    public var account: Account
     /// The filename or path to the document.
-    public let filename: String
+    public var filename: String
     /// Optional tags for categorizing the document.
-    public let tags: OrderedSet<Tag>?
+    public var tags: OrderedSet<Tag>?
     /// Optional links for connecting related documents.
-    public let links: OrderedSet<Link>?
+    public var links: OrderedSet<Link>?
     
     /// Creates a document directive.
     /// 
@@ -544,9 +544,9 @@ public struct Document: Hashable, Sendable {
 /// - SeeAlso: [Beancount Language Syntax - Custom](https://beancount.github.io/docs/beancount_language_syntax.html#custom)
 public struct Custom: Hashable, Sendable {
     /// The custom directive type name.
-    public let type: String
+    public var type: String
     /// The associated data values for this custom directive.
-    public let values: [MetaDataValue]
+    public var values: [MetaDataValue]
     
     /// Creates a custom directive.
     /// 
