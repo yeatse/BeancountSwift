@@ -649,7 +649,7 @@ enum Booking {
                 if newPosting.meta == nil {
                     newPosting.meta = [:]
                 }
-                newPosting.meta![Interpolate.automaticMeta] = .bool(true)
+                newPosting.meta![Interpolate.automaticMeta] = .string(UUID().uuidString)
                 newPostings[index] = .complete(newPosting.resolvedCost())
             } else {
                 newPostings.remove(at: index)

@@ -9,6 +9,7 @@ import Foundation
 
 struct PadPlugin: BeancountPlugin {
     static let name = "pad"
+    static let automaticPad = "__automatic__"
     
     enum PadError: LocatableError {
         case padWithCost(pad: Directive<Cost>)
@@ -93,15 +94,22 @@ struct PadPlugin: BeancountPlugin {
                                                                         Posting(account: activePad.content.account,
                                                                                 units: diffPosition.units,
                                                                                 cost: diffPosition.cost,
-                                                                                meta: activePad.directive.meta),
+                                                                                meta: activePad.directive.meta.merging([
+                                                                                    PadPlugin.automaticPad: .string(UUID().uuidString)
+                                                                                ] , uniquingKeysWith: { $1 })),
                                                                         Posting(account: activePad.content.sourceAccount,
                                                                                 units: negDiffPosition.units,
                                                                                 cost: negDiffPosition.cost,
-                                                                                meta: activePad.directive.meta)
+                                                                                meta: activePad.directive.meta.merging([
+                                                                                    PadPlugin.automaticPad: .string(UUID().uuidString)
+                                                                                ], uniquingKeysWith: { $1 }))
                                                                       ])
-                                        let newEntry = Directive(meta: activePad.directive.meta,
-                                                                 date: activePad.directive.date,
-                                                                 content: .transaction(transaction))
+                                        let newEntry = Directive(
+                                            meta: activePad.directive.meta.merging([
+                                                PadPlugin.automaticPad: .string(UUID().uuidString)
+                                            ], uniquingKeysWith: { $1 }),
+                                            date: activePad.directive.date,
+                                            content: .transaction(transaction))
                                         if let lineno = activePad.directive.meta.lineno {
                                             newEntries[lineno, default: []].append(newEntry)
                                         }
