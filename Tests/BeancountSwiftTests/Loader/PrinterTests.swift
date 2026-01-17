@@ -145,8 +145,7 @@ struct TestEntryPrinter {
         """)
     }
 
-    @Test(.disabled("Escaped strings have double-escaping issue on round-trip"))
-    func testTransactionEscaped() throws {
+    @Test func testTransactionEscaped() throws {
         // Python: Transaction with escaped quotes in narration
         try assertRoundTrip("""
         2014-01-01 open Assets:Account1
@@ -187,8 +186,7 @@ struct TestEntryPrinter {
 
     // MARK: - Note Tests
 
-    @Test(.disabled("Note directive printer not implemented yet"))
-    func testNote() throws {
+    @Test func testNote() throws {
         try assertRoundTrip("""
         2014-06-01 open Assets:Account1
 
@@ -199,8 +197,7 @@ struct TestEntryPrinter {
 
     // MARK: - Document Tests
 
-    @Test(.disabled("Document directive printer not implemented yet"))
-    func testDocument() throws {
+    @Test func testDocument() throws {
         // Python test uses path handling for cross-platform compatibility
         try assertRoundTrip("""
         2014-06-01 open Assets:Account1
@@ -215,8 +212,7 @@ struct TestEntryPrinter {
 
     // MARK: - Query Tests
 
-    @Test(.disabled("Query directive printer not implemented yet"))
-    func testQuery() throws {
+    @Test func testQuery() throws {
         try assertRoundTrip("""
         2014-06-08 query "cash" "SELECT sum(position) WHERE currency = 'USD'"
 
@@ -251,8 +247,7 @@ struct TestEntryPrinter {
 
     // MARK: - Close Tests
 
-    @Test(.disabled("Close directive printer not implemented yet"))
-    func testClose() throws {
+    @Test func testClose() throws {
         try assertRoundTrip("""
         2014-01-01 open Assets:Account1
 
@@ -263,8 +258,7 @@ struct TestEntryPrinter {
 
     // MARK: - Price Tests
 
-    @Test(.disabled("Price directive printer not implemented yet"))
-    func testPrice() throws {
+    @Test func testPrice() throws {
         try assertRoundTrip("""
         2014-06-08 price BEAN 53.24 USD
         2014-06-08 price USD 1.09 CAD
@@ -274,8 +268,7 @@ struct TestEntryPrinter {
 
     // MARK: - Event Tests
 
-    @Test(.disabled("Event directive printer not implemented yet"))
-    func testEvent() throws {
+    @Test func testEvent() throws {
         try assertRoundTrip("""
         2014-06-08 event "location" "New York, NY, USA"
         2014-06-08 event "employer" "Four Square"
@@ -307,7 +300,7 @@ struct TestEntryPrinter {
 @Suite("Printer Spacing Tests")
 struct TestPrinterSpacing {
 
-    @Test(.disabled("Depends on Close and Price directive printers which are not implemented yet"))
+    @Test(.disabled("Interline spacing preservation not implemented"))
     func testInterlineSpacing() throws {
         // Python: Tests that blank lines are preserved between different directive types
         let input = """
@@ -455,8 +448,7 @@ struct TestPrinterAlignment {
 @Suite("Printer Miscellaneous Tests")
 struct TestPrinterMisc {
 
-    @Test(.disabled("Error handling for invalid accounts not tested"))
-    func testNoValidAccount() throws {
+    @Test func testNoValidAccount() throws {
         // Python: Tests printing entries with no valid account names
         // Expects printer to handle gracefully without errors
         let p: ContentProvider = """
@@ -476,8 +468,7 @@ struct TestPrinterMisc {
         #expect(!output.isEmpty)
     }
 
-    @Test(.disabled("Contains commodity directive which is not implemented yet"))
-    func testMetadataWithTransaction() throws {
+    @Test func testMetadataWithTransaction() throws {
         // Python: Tests metadata on directives and postings
         try assertRoundTrip("""
         2000-01-01 open Assets:US:Investments:Cash
@@ -618,8 +609,7 @@ struct AdditionalPrinterTests {
         #expect(ledger.errors.isEmpty)
     }
 
-    @Test(.disabled("Commodity directive printer not implemented yet"))
-    func testCommodity() throws {
+    @Test func testCommodity() throws {
         let p: ContentProvider = """
         2000-01-02 commodity VHT
           asset-class: "Stocks"
@@ -648,8 +638,7 @@ struct AdditionalPrinterTests {
         #expect(description.contains("number: \"12345\""))
     }
 
-    @Test(.disabled("Escaped strings have double-escaping issue on round-trip - .escaped needs fix"))
-    func testEscapedStringsRoundTrip() throws {
+    @Test func testEscapedStringsRoundTrip() throws {
         // Test that strings with escaped characters round-trip correctly
         // Currently failing due to double-escaping in .escaped method
         let p: ContentProvider = """

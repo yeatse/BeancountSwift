@@ -258,7 +258,7 @@ private extension OrderedDictionary where Key == String, Value == MetaDataValue 
     /// These keys are used internally by the parser and should not
     /// appear in formatted output.
     static let keysToIgnore: Set<String> = [
-        "filename", "range", "lineno"
+        "filename", "range", "lineno", Interpolate.automaticMeta,
     ]
     
     /// Converts metadata dictionary to formatted string.
@@ -283,18 +283,23 @@ extension Directive: CustomStringConvertible {
     /// Returns the directive formatted in Beancount syntax.
     /// 
     /// Formats the complete directive including date, metadata, and content
-    /// according to Beancount conventions. Currently supports transaction,
-    /// open, and custom directives.
+    /// according to Beancount conventions.
     /// 
     /// - Returns: The directive in Beancount format with trailing newline
     public var description: String {
         let text = switch content {
-            case .transaction(let txn): txn.print(date: date, meta: meta, comment: comment)
-            case .open(let open): open.print(date: date, meta: meta, comment: comment)
-            case .custom(let custom): custom.print(date: date, meta: meta, comment: comment)
-            case .pad(let pad): pad.print(date: date, meta: meta, comment: comment)
-            case .balance(let balance): balance.print(date: date, meta: meta, comment: comment)
-            default: ""
+        case .transaction(let txn): txn.print(date: date, meta: meta, comment: comment)
+        case .open(let open): open.print(date: date, meta: meta, comment: comment)
+        case .custom(let custom): custom.print(date: date, meta: meta, comment: comment)
+        case .pad(let pad): pad.print(date: date, meta: meta, comment: comment)
+        case .balance(let balance): balance.print(date: date, meta: meta, comment: comment)
+        case .close(let close): close.print(date: date, meta: meta, comment: comment)
+        case .commodity(let commodity): commodity.print(date: date, meta: meta, comment: comment)
+        case .note(let note): note.print(date: date, meta: meta, comment: comment)
+        case .event(let event): event.print(date: date, meta: meta, comment: comment)
+        case .query(let query): query.print(date: date, meta: meta, comment: comment)
+        case .price(let price): price.print(date: date, meta: meta, comment: comment)
+        case .document(let document): document.print(date: date, meta: meta, comment: comment)
         }
         return text.appending("\n")
     }
@@ -473,6 +478,209 @@ extension Balance: DirectivePrintable {
             resultLine.append(" ; Diff: \(diffAmount.description)")
         }
         
+        var result = resultLine.joined(separator: " ")
+        let metaline = meta.toString.lineAligned()
+        if !metaline.isEmpty {
+            result += "\n" + metaline
+        }
+        return result
+    }
+}
+
+extension Close: DirectivePrintable {
+    /// Formats the close directive in Beancount syntax.
+    ///
+    /// Produces a close directive with date and account.
+    ///
+    /// - Parameters:
+    ///   - date: Close directive date
+    ///   - meta: Close directive metadata
+    ///   - comment: Optional directive comment
+    /// - Returns: The formatted close directive string
+    func print(date: Date, meta: MetaData, comment: String?) -> String {
+        var resultLine = [date.isoDescription, "close", account.description]
+        if let comment, !comment.isEmpty {
+            resultLine.append(" ; \(comment)")
+        }
+        var result = resultLine.joined(separator: " ")
+        let metaline = meta.toString.lineAligned()
+        if !metaline.isEmpty {
+            result += "\n" + metaline
+        }
+        return result
+    }
+}
+
+extension Commodity: DirectivePrintable {
+    /// Formats the commodity directive in Beancount syntax.
+    ///
+    /// Produces a commodity declaration with date and currency.
+    ///
+    /// - Parameters:
+    ///   - date: Commodity directive date
+    ///   - meta: Commodity directive metadata
+    ///   - comment: Optional directive comment
+    /// - Returns: The formatted commodity directive string
+    func print(date: Date, meta: MetaData, comment: String?) -> String {
+        var resultLine = [date.isoDescription, "commodity", currency.description]
+        if let comment, !comment.isEmpty {
+            resultLine.append(" ; \(comment)")
+        }
+        var result = resultLine.joined(separator: " ")
+        let metaline = meta.toString.lineAligned()
+        if !metaline.isEmpty {
+            result += "\n" + metaline
+        }
+        return result
+    }
+}
+
+extension Note: DirectivePrintable {
+    /// Formats the note directive in Beancount syntax.
+    ///
+    /// Produces a note with date, account, and quoted note text.
+    ///
+    /// - Parameters:
+    ///   - date: Note directive date
+    ///   - meta: Note directive metadata
+    ///   - comment: Optional directive comment
+    /// - Returns: The formatted note directive string
+    func print(date: Date, meta: MetaData, comment: String?) -> String {
+        var resultLine = [
+            date.isoDescription,
+            "note",
+            account.description,
+            "\"\(note.escaped)\"",
+        ]
+        if let comment, !comment.isEmpty {
+            resultLine.append(" ; \(comment)")
+        }
+        var result = resultLine.joined(separator: " ")
+        let metaline = meta.toString.lineAligned()
+        if !metaline.isEmpty {
+            result += "\n" + metaline
+        }
+        return result
+    }
+}
+
+extension Event: DirectivePrintable {
+    /// Formats the event directive in Beancount syntax.
+    ///
+    /// Produces an event with date, type, and description.
+    ///
+    /// - Parameters:
+    ///   - date: Event directive date
+    ///   - meta: Event directive metadata
+    ///   - comment: Optional directive comment
+    /// - Returns: The formatted event directive string
+    func print(date: Date, meta: MetaData, comment: String?) -> String {
+        var resultLine = [
+            date.isoDescription,
+            "event",
+            "\"\(type.escaped)\"",
+            "\"\(description.escaped)\"",
+        ]
+        if let comment, !comment.isEmpty {
+            resultLine.append(" ; \(comment)")
+        }
+        var result = resultLine.joined(separator: " ")
+        let metaline = meta.toString.lineAligned()
+        if !metaline.isEmpty {
+            result += "\n" + metaline
+        }
+        return result
+    }
+}
+
+extension Query: DirectivePrintable {
+    /// Formats the query directive in Beancount syntax.
+    ///
+    /// Produces a query with date, name, and query string.
+    ///
+    /// - Parameters:
+    ///   - date: Query directive date
+    ///   - meta: Query directive metadata
+    ///   - comment: Optional directive comment
+    /// - Returns: The formatted query directive string
+    func print(date: Date, meta: MetaData, comment: String?) -> String {
+        var resultLine = [
+            date.isoDescription,
+            "query",
+            "\"\(name.escaped)\"",
+            "\"\(queryString.escaped)\"",
+        ]
+        if let comment, !comment.isEmpty {
+            resultLine.append(" ; \(comment)")
+        }
+        var result = resultLine.joined(separator: " ")
+        let metaline = meta.toString.lineAligned()
+        if !metaline.isEmpty {
+            result += "\n" + metaline
+        }
+        return result
+    }
+}
+
+extension Price: DirectivePrintable {
+    /// Formats the price directive in Beancount syntax.
+    ///
+    /// Produces a price with date, currency, and amount.
+    ///
+    /// - Parameters:
+    ///   - date: Price directive date
+    ///   - meta: Price directive metadata
+    ///   - comment: Optional directive comment
+    /// - Returns: The formatted price directive string
+    func print(date: Date, meta: MetaData, comment: String?) -> String {
+        var resultLine = [
+            date.isoDescription,
+            "price",
+            currency.description,
+            amount.description,
+        ]
+        if let comment, !comment.isEmpty {
+            resultLine.append(" ; \(comment)")
+        }
+        var result = resultLine.joined(separator: " ")
+        let metaline = meta.toString.lineAligned()
+        if !metaline.isEmpty {
+            result += "\n" + metaline
+        }
+        return result
+    }
+}
+
+extension Document: DirectivePrintable {
+    /// Formats the document directive in Beancount syntax.
+    ///
+    /// Produces a document with date, account, filename, and optional tags/links.
+    ///
+    /// - Parameters:
+    ///   - date: Document directive date
+    ///   - meta: Document directive metadata
+    ///   - comment: Optional directive comment
+    /// - Returns: The formatted document directive string
+    func print(date: Date, meta: MetaData, comment: String?) -> String {
+        var resultLine = [
+            date.isoDescription,
+            "document",
+            account.description,
+            "\"\(filename.escaped)\"",
+        ]
+        if let tags {
+            for tag in tags {
+                resultLine.append("#\(tag.id)")
+            }
+        }
+        if let links {
+            for link in links {
+                resultLine.append("^\(link.id)")
+            }
+        }
+        if let comment, !comment.isEmpty {
+            resultLine.append(" ; \(comment)")
+        }
         var result = resultLine.joined(separator: " ")
         let metaline = meta.toString.lineAligned()
         if !metaline.isEmpty {

@@ -321,7 +321,7 @@ public enum Parser {
                         try String(from: $0, content: content)
                     }
                     guard let include else { throw SyntaxError.badNode(child, content: content) }
-                    includes.append(include.trimmingQuotes())
+                    includes.append(include.unescaped())
                 case "plugin":
                     let plugin = try Plugin(from: child, content: content)
                     plugins.append(plugin)
