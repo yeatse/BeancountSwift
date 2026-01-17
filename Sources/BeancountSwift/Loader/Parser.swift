@@ -173,7 +173,7 @@ public enum Parser {
             let childFile = includes.popLast()!
             do {
                 let childContent = try contentProvider.provideContent(for: childFile)
-                let (childLedger, childIncludes) = try parseContent(content: childContent, in: file)
+                let (childLedger, childIncludes) = try parseContent(content: childContent, in: childFile)
                 ledger.directives += childLedger.directives
                 ledger.errors += childLedger.errors
                 for include in childIncludes {
