@@ -10,7 +10,7 @@ import SwiftTreeSitter
 import TreeSitterBeancount
 
 /// Errors that can occur during Beancount parsing.
-/// 
+///
 /// ParserError represents various parsing failures that can occur when
 /// processing Beancount files, providing detailed context for debugging.
 enum ParserError: LocatableError {
@@ -39,18 +39,18 @@ enum ParserError: LocatableError {
 
 extension DirectiveContent {
     /// Determines the sort order for directives on the same date.
-    /// 
+    ///
     /// Provides stable ordering for directives that occur on the same date,
     /// ensuring opens come before transactions, which come before closes, etc.
-    /// 
+    ///
     /// - Returns: Sort priority integer (lower values sort first)
     var sortOrder: Int {
         switch self {
-            case .open(_): -2
-            case .balance(_): -1
-            case .document(_): 1
-            case .close(_): 2
-            default: 0
+        case .open(_): -2
+        case .balance(_): -1
+        case .document(_): 1
+        case .close(_): 2
+        default: 0
         }
     }
 }
@@ -72,10 +72,10 @@ extension Directive: Comparable {
 
 extension Posting<CostSpec> {
     /// Indicates whether this posting has missing or invalid information.
-    /// 
+    ///
     /// Checks for missing amounts, invalid numbers, or incomplete cost specifications
     /// that would prevent the posting from being processed correctly.
-    /// 
+    ///
     /// - Returns: True if the posting is incomplete or invalid
     var isIncomplete: Bool {
         if units == .missing || units.number == .nan || units.currency == .missing {
@@ -89,7 +89,7 @@ extension Posting<CostSpec> {
         }
         if let cost,
            (cost.numberTotal == nil && cost.numberPerUnit == nil) ||
-           cost.numberPerUnit == .nan || cost.numberTotal == .nan || cost.currency == .missing
+            cost.numberPerUnit == .nan || cost.numberTotal == .nan || cost.currency == .missing
         {
             return true
         }
@@ -99,9 +99,9 @@ extension Posting<CostSpec> {
 
 extension Transaction<CostSpec> {
     /// Indicates whether this transaction has any incomplete postings.
-    /// 
+    ///
     /// A transaction is considered incomplete if any of its postings are incomplete.
-    /// 
+    ///
     /// - Returns: True if any posting in the transaction is incomplete
     var isIncomplete: Bool {
         postings.contains(where: \.isIncomplete)
@@ -110,10 +110,10 @@ extension Transaction<CostSpec> {
 
 extension Directive<CostSpec> {
     /// Indicates whether this directive is incomplete.
-    /// 
+    ///
     /// Only transaction directives can be incomplete (due to incomplete postings).
     /// All other directive types are considered complete by definition.
-    /// 
+    ///
     /// - Returns: True if this is an incomplete transaction directive
     var isIncomplete: Bool {
         if case .transaction(let txn) = content {
@@ -210,18 +210,18 @@ public enum Parser {
     }
     
     /// Parses multiple directives from a text snippet.
-    /// 
+    ///
     /// Processes text content containing multiple Beancount directives and returns
     /// all successfully parsed directives. Invalid or unparseable directives are
     /// silently skipped, making this method suitable for batch processing of
     /// potentially malformed input.
-    /// 
+    ///
     /// This method is useful for:
     /// - Processing clipboard content with multiple directives
     /// - Batch importing partially formatted data
     /// - Interactive editing where some directives may be incomplete
     /// - Testing and validation of directive collections
-    /// 
+    ///
     /// ## Example
     /// ```swift
     /// let content = """
@@ -231,15 +231,15 @@ public enum Parser {
     ///   Expenses:Food     50.00 USD
     /// 2024-01-03 balance Assets:Checking  1000.00 USD
     /// """
-    /// 
+    ///
     /// let parser = Parser()
     /// let directives = parser.parseSnippets(from: content)
     /// // Returns array with 3 successfully parsed directives
     /// ```
-    /// 
+    ///
     /// - Parameter content: The text content containing zero or more Beancount directives
     /// - Returns: An array of successfully parsed directives in document order
-    /// 
+    ///
     /// - Note: Unlike `parseSnippet(from:)` which expects exactly one directive,
     ///   this method handles multiple directives and gracefully ignores parsing failures.
     /// - Warning: Parsing errors are silently ignored. Use the main `parse(file:contentProvider:)`
@@ -260,12 +260,12 @@ public enum Parser {
         }
         return result
     }
-
+    
     /// Parses the content of a single file.
-    /// 
+    ///
     /// Processes the syntax tree to extract directives, options, plugins, and includes.
     /// Handles tag stack management and provides comprehensive error reporting.
-    /// 
+    ///
     /// - Parameters:
     ///   - content: The file content to parse
     ///   - file: The filename for error reporting
@@ -289,54 +289,54 @@ public enum Parser {
         func process(child: Node) {
             do {
                 switch child.nodeType {
-                    case "pushtag":
-                        let tag = try child.namedChild(at: 0).map {
-                            try Tag(from: $0, content: content)
-                        }
-                        guard let tag else { throw SyntaxError.badNode(child, content: content) }
-                        tags.append(tag)
-                    case "poptag":
-                        let tag = try child.namedChild(at: 0).map {
-                            try Tag(from: $0, content: content)
-                        }
-                        guard let tag else { throw SyntaxError.badNode(child, content: content) }
-                        if let idx = tags.firstIndex(of: tag) {
-                            tags.remove(at: idx)
-                        } else {
-                            throw ParserError.popAbsentTag(
-                                file: file,
-                                lineno: child.pointRange.lowerBound.row,
-                                tag: tag
-                            )
-                        }
-                    case "pushmeta":
-                        break
-                    case "popmeta":
-                        break
-                    case "option":
-                        let option = try Option(from: child, content: content)
-                        options.append(option)
-                    case "include":
-                        let include = try child.namedChild(at: 0).map {
-                            try String(from: $0, content: content)
-                        }
-                        guard let include else { throw SyntaxError.badNode(child, content: content) }
-                        includes.append(include)
-                    case "plugin":
-                        let plugin = try Plugin(from: child, content: content)
-                        plugins.append(plugin)
-                    case "transaction", "balance", "open", "close", "pad", "document", "note", "event", "price", "commodity", "query", "custom":
-                        var directive = try Directive<CostSpec>(from: child, content: content)
-                        if !tags.isEmpty {
-                            directive = directive.mergingTags(tags)
-                        }
-                        directives.append(directive.mergingMetaData(["filename": .string(file)]))
-                    case "ERROR":
-                        throw SyntaxError.badNode(child, content: content)
-                    case "section":
-                        processChildren(of: child)
-                    default:
-                        break
+                case "pushtag":
+                    let tag = try child.namedChild(at: 0).map {
+                        try Tag(from: $0, content: content)
+                    }
+                    guard let tag else { throw SyntaxError.badNode(child, content: content) }
+                    tags.append(tag)
+                case "poptag":
+                    let tag = try child.namedChild(at: 0).map {
+                        try Tag(from: $0, content: content)
+                    }
+                    guard let tag else { throw SyntaxError.badNode(child, content: content) }
+                    if let idx = tags.firstIndex(of: tag) {
+                        tags.remove(at: idx)
+                    } else {
+                        throw ParserError.popAbsentTag(
+                            file: file,
+                            lineno: child.pointRange.lowerBound.row,
+                            tag: tag
+                        )
+                    }
+                case "pushmeta":
+                    break
+                case "popmeta":
+                    break
+                case "option":
+                    let option = try Option(from: child, content: content)
+                    options.append(option)
+                case "include":
+                    let include = try child.namedChild(at: 0).map {
+                        try String(from: $0, content: content)
+                    }
+                    guard let include else { throw SyntaxError.badNode(child, content: content) }
+                    includes.append(include.trimmingQuotes())
+                case "plugin":
+                    let plugin = try Plugin(from: child, content: content)
+                    plugins.append(plugin)
+                case "transaction", "balance", "open", "close", "pad", "document", "note", "event", "price", "commodity", "query", "custom":
+                    var directive = try Directive<CostSpec>(from: child, content: content)
+                    if !tags.isEmpty {
+                        directive = directive.mergingTags(tags)
+                    }
+                    directives.append(directive.mergingMetaData(["filename": .string(file)]))
+                case "ERROR":
+                    throw SyntaxError.badNode(child, content: content)
+                case "section":
+                    processChildren(of: child)
+                default:
+                    break
                 }
             } catch SyntaxError.badNode(let lineno, let source) {
                 let err = ParserError.invalidSyntax(file: file, lineno: lineno, content: source)
