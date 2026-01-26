@@ -142,6 +142,100 @@ struct ParserTests {
         #expect(txn.postings[0].meta?.filename == "main")
         #expect(txn.postings[1].meta?.filename == "main")
     }
+
+    @Test func includeResolvesRelativeToParent() throws {
+        struct MapContentProvider: ContentProviding {
+            let files: [String: String]
+
+            enum TestError: Error {
+                case missing(String)
+            }
+
+            func provideContent(for name: String) throws -> String {
+                guard let content = files[name] else {
+                    throw TestError.missing(name)
+                }
+                return content
+            }
+        }
+
+        let provider = MapContentProvider(files: [
+            "main.beancount":
+                """
+                include "account/account.bean"
+                2024-01-01 open Assets:Cash USD
+                """,
+            "account/account.bean":
+                """
+                include "expenses.bean"
+                2024-01-02 open Expenses:Food USD
+                """,
+            "account/expenses.bean":
+                """
+                2024-01-03 open Expenses:Travel USD
+                """
+        ])
+
+        let ledger = try Parser.parse(file: "main.beancount", contentProvider: provider)
+        #expect(ledger.errors.isEmpty)
+        let expenseDirectives = ledger.directives.filter {
+            $0.meta.filename == "account/expenses.bean"
+        }
+        #expect(expenseDirectives.count == 1)
+    }
+
+    @Test func includeExpandsWithProvider() throws {
+        struct ExpandingContentProvider: ContentProviding {
+            let files: [String: String]
+            let expansions: [String: [String]]
+
+            enum TestError: Error {
+                case missing(String)
+            }
+
+            func provideContent(for name: String) throws -> String {
+                guard let content = files[name] else {
+                    throw TestError.missing(name)
+                }
+                return content
+            }
+
+            func expandInclude(_ include: String) -> [String] {
+                expansions[include] ?? [include]
+            }
+        }
+
+        let provider = ExpandingContentProvider(
+            files: [
+                "main.beancount":
+                    """
+                    include "account/accounts.bean"
+                    """,
+                "account/accounts.bean":
+                    """
+                    include "*.bean"
+                    """,
+                "account/a.bean":
+                    """
+                    2024-01-01 open Assets:Cash USD
+                    """,
+                "account/b.bean":
+                    """
+                    2024-01-02 open Expenses:Food USD
+                    """
+            ],
+            expansions: [
+                "account/*.bean": ["account/a.bean", "account/b.bean"]
+            ]
+        )
+
+        let ledger = try Parser.parse(file: "main.beancount", contentProvider: provider)
+        #expect(ledger.errors.isEmpty)
+        #expect(ledger.directives.count == 2)
+        let filenames = ledger.directives.compactMap { $0.meta.filename }
+        #expect(filenames.contains("account/a.bean"))
+        #expect(filenames.contains("account/b.bean"))
+    }
     
     @Test func parseSnippetTransaction() throws {
         

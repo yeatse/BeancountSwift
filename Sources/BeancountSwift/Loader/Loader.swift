@@ -17,6 +17,18 @@ public protocol ContentProviding {
     /// - Returns: The file content as a string
     /// - Throws: Any error that occurs during file reading
     func provideContent(for file: String) throws -> String
+
+    /// Expands an include directive into concrete file paths.
+    ///
+    /// - Parameter include: The include directive path or pattern
+    /// - Returns: An array of resolved file paths
+    func expandInclude(_ include: String) -> [String]
+}
+
+public extension ContentProviding {
+    func expandInclude(_ include: String) -> [String] {
+        [include]
+    }
 }
 
 /// Represents a parsed Beancount ledger with all its components.
@@ -54,7 +66,7 @@ public struct ParsedLedger<T: PostingCost>: Sendable {
 /// 
 /// ## Usage
 /// ```swift
-/// let ledger = try Loader.load(file: "accounts.beancount", contentProvider: FileContentProvider())
+/// let ledger = try Loader.load(file: "accounts.beancount", contentProvider: provider)
 /// ```
 /// 
 /// - SeeAlso: [Beancount Design Doc - Loader](http://furius.ca/beancount/doc/design_doc.html#loader)
@@ -102,7 +114,7 @@ public enum Loader {
     /// 
     /// ## Example
     /// ```swift
-    /// let ledger = try Loader.load(file: "main.beancount", contentProvider: FileContentProvider())
+    /// let ledger = try Loader.load(file: "main.beancount", contentProvider: provider)
     /// 
     /// // Process results
     /// for directive in ledger.directives {

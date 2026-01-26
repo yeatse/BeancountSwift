@@ -170,22 +170,26 @@ public enum Parser {
         
         var seenIncludes: Set<String> = [file]
         while !includes.isEmpty {
-            let childFile = includes.popLast()!
-            do {
-                let childContent = try contentProvider.provideContent(for: childFile)
-                let (childLedger, childIncludes) = try parseContent(content: childContent, in: childFile)
-                ledger.directives += childLedger.directives
-                ledger.errors += childLedger.errors
-                for include in childIncludes {
-                    if seenIncludes.contains(include) {
-                        throw ParserError.duplicatedInclude(include)
-                    } else {
-                        seenIncludes.insert(include)
-                        includes.append(include)
-                    }
+            let include = includes.popLast()!
+            let expandedFiles = contentProvider.expandInclude(include)
+            for expandedFile in expandedFiles {
+                if seenIncludes.contains(expandedFile) {
+                    ledger.errors.append(ParserError.duplicatedInclude(expandedFile))
+                    continue
                 }
-            } catch {
-                ledger.errors.append(error)
+                seenIncludes.insert(expandedFile)
+                do {
+                    let childContent = try contentProvider.provideContent(for: expandedFile)
+                    let (childLedger, childIncludes) = try parseContent(
+                        content: childContent,
+                        in: expandedFile
+                    )
+                    ledger.directives += childLedger.directives
+                    ledger.errors += childLedger.errors
+                    includes.append(contentsOf: childIncludes)
+                } catch {
+                    ledger.errors.append(error)
+                }
             }
         }
         ledger.directives.sort()
@@ -321,7 +325,8 @@ public enum Parser {
                         try String(from: $0, content: content)
                     }
                     guard let include else { throw SyntaxError.badNode(child, content: content) }
-                    includes.append(include.unescaped())
+                    let includePath = resolveInclude(include.unescaped(), relativeTo: file)
+                    includes.append(includePath)
                 case "plugin":
                     let plugin = try Plugin(from: child, content: content)
                     plugins.append(plugin)
@@ -364,5 +369,17 @@ public enum Parser {
             ),
             includes
         )
+    }
+
+    private static func resolveInclude(_ include: String, relativeTo file: String) -> String {
+        let includePath = include as NSString
+        if includePath.isAbsolutePath {
+            return include
+        }
+        let baseDir = (file as NSString).deletingLastPathComponent
+        if baseDir.isEmpty || baseDir == "." {
+            return include
+        }
+        return (baseDir as NSString).appendingPathComponent(include)
     }
 }
