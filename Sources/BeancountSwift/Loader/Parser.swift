@@ -13,7 +13,7 @@ import TreeSitterBeancount
 ///
 /// ParserError represents various parsing failures that can occur when
 /// processing Beancount files, providing detailed context for debugging.
-enum ParserError: LocatableError {
+enum ParserError: LocatableError, LocalizedError {
     /// The file content could not be parsed as valid syntax.
     case badContent(file: String, content: String)
     /// Invalid syntax encountered at a specific location.
@@ -33,6 +33,29 @@ enum ParserError: LocatableError {
             return LedgerLocation(filename: file, lineno: lineno)
         default:
             return nil
+        }
+    }
+
+    var errorDescription: String? {
+        switch self {
+        case .badContent(let file, _):
+            return "Failed to parse file \(file)"
+        case .invalidSyntax(_, let lineno, let content):
+            if let content {
+                let preview = String(content.prefix(30))
+                return "Invalid syntax at line \(lineno): \(preview)"
+            }
+            return "Invalid syntax at line \(lineno)"
+        case .duplicatedInclude(let include):
+            return "Duplicate include: \(include)"
+        case .popAbsentTag(_, let lineno, let tag):
+            return "Popped tag '\(tag.id)' at line \(lineno) without matching push"
+        case .unbalancedTags(_, let tags):
+            let tagList = tags.map(\.id).joined(separator: ", ")
+            if tagList.isEmpty {
+                return "Unbalanced tags at end of file"
+            }
+            return "Unbalanced tags at end of file: \(tagList)"
         }
     }
 }
