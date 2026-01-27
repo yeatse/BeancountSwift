@@ -23,6 +23,19 @@ struct GrammarTests {
         #expect(posting.cost == CostSpec(merge: true))
     }
     
+    @Test func parenNumericExpressionAmount() throws {
+        let p: ContentProvider =
+                """
+                  2024-01-01 * ""
+                    Assets:Savings (+1.0+4.0+5) CNY
+                    Liabilities:CreditCard
+                """
+        let ledger = try p.parseLedger()
+        let posting = ledger.directives[0].transaction.postings[0]
+        #expect(posting.units.number == 10)
+        #expect(posting.units.currency == "CNY")
+    }
+
     @Test func openAccount() throws {
         let p: ContentProvider =
                 """

@@ -702,7 +702,9 @@ extension Posting<CostSpec> {
     }
     
     func resolvedCost() -> Posting<Cost> {
-        guard let cost else { return resolved() }
+        guard let cost, cost.numberPerUnit != nil || cost.numberTotal != nil else {
+            return resolved()
+        }
         let numberPerUnit = cost.numberPerUnit
         let numberTotal = cost.numberTotal
         let unitCost: Decimal

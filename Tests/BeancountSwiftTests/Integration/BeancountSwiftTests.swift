@@ -69,7 +69,6 @@ struct BeancountSwiftTests {
 
             2020-03-31 note Assets:Etrade:IVV "Some"
             """
-        let ledger = try p.parseLedger()
-        print(ledger)
+        let _ = try p.parseLedger()
     }
 }

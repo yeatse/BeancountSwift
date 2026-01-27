@@ -62,6 +62,26 @@ struct BookingTests {
         #expect(bookedLedger.errors.count == 1)
         #expect(bookedLedger.errors.first is InterpolationError)
     }
+
+    @Test func emptyCostSpecWithPrice() throws {
+        let p: ContentProvider =
+            """
+              2024-11-20 * "沪深300ETF (510300)" "证券卖出"
+                Assets:Investments:EastMoney:CNS510300                 -100 CNS510300 {} @ 4.068 CNY
+                Expenses:Investments:EastMoney:Commissions                      +0.10 CNY
+                Assets:Investments:EastMoney:EastMoney-xxx                  +406.70 CNY
+                Income:Investments:EastMoney:PnL
+            """
+        let ledger = try p.parseLedger()
+        let bookedLedger = Booking.book(ledger: ledger)
+        #expect(bookedLedger.errors.isEmpty)
+        let posting = bookedLedger.directives[0].transaction.postings.first {
+            $0.account == "Assets:Investments:EastMoney:CNS510300"
+        }
+        #expect(posting != nil)
+        #expect(posting?.cost == nil)
+        #expect(posting?.price == "4.068 CNY")
+    }
     
     @Test func allCurrencyInterpolations() throws {
         let p: ContentProvider =

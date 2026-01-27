@@ -85,7 +85,7 @@ extension Decimal: Parsable {
                 }
                 self = decimal
             case "paren_num_expr":
-                guard let val = node.namedChild(at: 1) else {
+                guard let val = node.namedChild(at: 0) else {
                     throw SyntaxError.badNode(node, content: content)
                 }
                 self = try Decimal(from: val, content: content)
