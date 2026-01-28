@@ -135,7 +135,11 @@ extension CostSpec: CustomStringConvertible {
                 amountlist.append(numberPerUnit.formatted(withCurrency: currency))
             }
             if let numberTotal {
-                amountlist.append("#")
+                if numberPerUnit?.isNormal == true {
+                    amountlist.append("#")
+                } else {
+                    amountlist.removeLast()
+                }
                 amountlist.append(numberTotal.formatted(withCurrency: currency))
             }
             if let currency {

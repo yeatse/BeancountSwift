@@ -1047,7 +1047,7 @@ struct BookAugmentationsTests {
     @Test func testAugmentFromEmptyIncompleteCostWithCurrency() throws {
         let provider: ContentProvider = """
         2015-10-01 *
-          Assets:Account          1 HOOL {{USD}}
+          Assets:Account          1 HOOL {USD}
         """
         let ledger = try provider.parseLedger()
         let entry = ledger.directives[0]

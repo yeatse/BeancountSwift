@@ -80,7 +80,7 @@ extension Decimal: Parsable {
         switch node.nodeType {
             case "number":
                 let text = try String(from: node, content: content)
-                guard let decimal = Decimal(string: text) else {
+                guard let decimal = Decimal(string: text.replacingOccurrences(of: ",", with: "")) else {
                     throw SyntaxError.badNode(node, content: content)
                 }
                 self = decimal
@@ -515,9 +515,18 @@ extension CostSpec: Parsable {
             }
             costComp = costCompNode.nextNamedSibling
         }
+        let numberPer: Decimal?
+        let numberTotal: Decimal?
+        if node.nodeType == "total_cost" {
+            numberTotal = amount?.total ?? amount?.per
+            numberPer = 0
+        } else {
+            numberPer = amount?.per
+            numberTotal = amount?.total
+        }
         self.init(
-            numberPerUnit: amount?.per,
-            numberTotal: amount?.total,
+            numberPerUnit: numberPer,
+            numberTotal: numberTotal,
             currency: amount?.currency,
             date: date,
             label: label,
@@ -541,8 +550,18 @@ extension Posting<CostSpec>: Parsable {
         let costSpec = try node.child(byFieldName: "cost_spec").map {
             try CostSpec(from: $0, content: content)
         }
-        let priceAnnotation = try node.child(byFieldName: "price_annotation")?.namedChild(at: 0).map {
-            try Amount(from: $0, content: content)
+        let priceAnnotation = try node.child(byFieldName: "price_annotation").flatMap { node in
+            let price = try node.namedChild(at: 0).map {
+                try Amount(from: $0, content: content).absolute
+            }
+            guard let price, node.nodeType == "total_price_annotation" else {
+                return price
+            }
+            if let units = amount?.number.magnitude, units.isNormal {
+                return price / units
+            } else {
+                return nil
+            }
         }
         let comment = try node.child(byFieldName: "comment").map {
             try String(from: $0, content: content)

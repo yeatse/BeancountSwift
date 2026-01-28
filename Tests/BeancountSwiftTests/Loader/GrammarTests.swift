@@ -180,3 +180,235 @@ struct GrammarTests {
         #expect(description == "2014-07-09 balance Assets:Checking 1000.00 USD  ; Diff: -10.50 USD\n")
     }
 }
+
+struct TestTotalsAndSigns {
+    @Test func zeroAmount() throws {
+        let p: ContentProvider =
+            """
+              2013-05-18 * ""
+                Assets:Investments:MSFT      0 MSFT {200.00 USD}
+                Assets:Investments:Cash      0 USD
+            """
+        let ledger = try p.parseLedger()
+        #expect(ledger.errors.isEmpty)
+    }
+
+    @Test func zeroCost() throws {
+        let p: ContentProvider =
+            """
+              2013-05-18 * ""
+                Assets:Investments:MSFT      -10 MSFT {0.00 USD}
+                Assets:Investments:Cash     0.00 USD
+            """
+        let ledger = try p.parseLedger()
+        #expect(ledger.errors.isEmpty)
+    }
+
+    @Test func costNegative() throws {
+        let p: ContentProvider =
+            """
+              2013-05-18 * ""
+                Assets:Investments:MSFT      -10 MSFT {-200.00 USD}
+                Assets:Investments:Cash  2000.00 USD
+            """
+        let ledger = try p.parseLedger()
+        #expect(ledger.errors.isEmpty)
+    }
+
+    @Test func totalCost() throws {
+        let p: ContentProvider =
+            """
+              2013-05-18 * ""
+                Assets:Investments:MSFT      10 MSFT {{2,000 USD}}
+                Assets:Investments:Cash  -20000 USD
+
+              2013-05-18 * ""
+                Assets:Investments:MSFT      10 MSFT {{2000 USD, 2014-02-25}}
+                Assets:Investments:Cash  -20000 USD
+
+              2013-06-01 * ""
+                Assets:Investments:MSFT      -10 MSFT {{2,000 USD}}
+                Assets:Investments:Cash    20000 USD
+            """
+        let ledger = try p.parseLedger()
+        for directive in ledger.directives {
+            guard case .transaction(let txn) = directive.content else {
+                Issue.record("Expected transaction directive")
+                continue
+            }
+            let posting = txn.postings[0]
+            let cost = try #require(posting.cost)
+            let perUnit = try #require(cost.numberPerUnit)
+            let total = try #require(cost.numberTotal)
+            let currency = try #require(cost.currency)
+            #expect(perUnit == 0)
+            #expect(total == 2000)
+            #expect(currency == "USD")
+            #expect(posting.price == nil)
+        }
+    }
+
+    @Test func totalCostInvalid() throws {
+        let p: ContentProvider =
+            """
+              2013-05-18 * ""
+                Assets:Investments:MSFT      10 MSFT {{100 # 2,000 USD}}
+                Assets:Investments:Cash  -20000 USD
+            """
+        let ledger = try p.parseLedger()
+        guard case .transaction(let txn) = ledger.directives[0].content else {
+            Issue.record("Expected transaction directive")
+            return
+        }
+        let posting = txn.postings[0]
+        let cost = try #require(posting.cost)
+        let perUnit = try #require(cost.numberPerUnit)
+        let total = try #require(cost.numberTotal)
+        let currency = try #require(cost.currency)
+        #expect(perUnit == 0)
+        #expect(total == 2000)
+        #expect(currency == "USD")
+        #expect(posting.price == nil)
+    }
+
+    @Test func totalCostNegative() throws {
+        let p: ContentProvider =
+            """
+              2013-05-18 * ""
+                Assets:Investments:MSFT      -10 MSFT {{-200.00 USD}}
+                Assets:Investments:Cash   200.00 USD
+            """
+        let ledger = try p.parseLedger()
+        #expect(ledger.errors.isEmpty)
+    }
+
+    @Test func priceNegative() throws {
+        let p: ContentProvider =
+            """
+              2013-05-18 * ""
+                Assets:Investments:MSFT      -10 MSFT @ -200.00 USD
+                Assets:Investments:Cash  2000.00 USD
+            """
+        let ledger = try p.parseLedger()
+        guard case .transaction(let txn) = ledger.directives[0].content else {
+            Issue.record("Expected transaction directive")
+            return
+        }
+        #expect(txn.postings[0].price == "200 USD")
+    }
+
+    @Test func totalPricePositive() throws {
+        let p: ContentProvider =
+            """
+              2013-05-18 * ""
+                Assets:Investments:MSFT        10 MSFT @@ 2000.00 USD
+                Assets:Investments:Cash  -2000.00 USD
+            """
+        let ledger = try p.parseLedger()
+        guard case .transaction(let txn) = ledger.directives[0].content else {
+            Issue.record("Expected transaction directive")
+            return
+        }
+        let posting = txn.postings[0]
+        let price = try #require(posting.price)
+        #expect(price == "200 USD")
+        #expect(posting.cost == nil)
+    }
+
+    @Test func totalPriceNegative() throws {
+        let p: ContentProvider =
+            """
+              2013-05-18 * ""
+                Assets:Investments:MSFT       -10 MSFT @@ 2000.00 USD
+                Assets:Investments:Cash  20000.00 USD
+            """
+        let ledger = try p.parseLedger()
+        guard case .transaction(let txn) = ledger.directives[0].content else {
+            Issue.record("Expected transaction directive")
+            return
+        }
+        let posting = txn.postings[0]
+        let price = try #require(posting.price)
+        #expect(price == "200 USD")
+        #expect(posting.cost == nil)
+    }
+
+    @Test func totalPriceInverted() throws {
+        let p: ContentProvider =
+            """
+              2013-05-18 * ""
+                Assets:Investments:MSFT         10 MSFT @@ -2000.00 USD
+                Assets:Investments:Cash   20000.00 USD
+            """
+        let ledger = try p.parseLedger()
+        guard case .transaction(let txn) = ledger.directives[0].content else {
+            Issue.record("Expected transaction directive")
+            return
+        }
+        #expect(txn.postings[0].price == "200 USD")
+    }
+
+    @Test func totalPriceWithMissing() throws {
+        let p: ContentProvider =
+            """
+              2013-05-18 * ""
+                Assets:Investments:MSFT            MSFT @@ 2000.00 USD
+                Assets:Investments:Cash   20000.00 USD
+            """
+        let ledger = try p.parseLedger()
+        guard case .transaction(let txn) = ledger.directives[0].content else {
+            Issue.record("Expected transaction directive")
+            return
+        }
+        #expect(txn.postings[0].price == nil)
+    }
+}
+
+struct TestBalance {
+    @Test func totalPrice() throws {
+        let p: ContentProvider =
+            """
+              2013-05-18 * ""
+                Assets:Investments:MSFT      10 MSFT @@ 2000 USD
+                Assets:Investments:Cash  -20000 USD
+            """
+        let ledger = try p.parseLedger()
+        guard case .transaction(let txn) = ledger.directives[0].content else {
+            Issue.record("Expected transaction directive")
+            return
+        }
+        let posting = txn.postings[0]
+        let price = try #require(posting.price)
+        #expect(price == "200 USD")
+        #expect(posting.cost == nil)
+    }
+
+    @Test func totalCost() throws {
+        let p: ContentProvider =
+            """
+              2013-05-18 * ""
+                Assets:Investments:MSFT      10 MSFT {{2,000 USD}}
+                Assets:Investments:Cash  -20000 USD
+
+              2013-05-18 * ""
+                Assets:Investments:MSFT      10 MSFT {{2000 USD, 2014-02-25}}
+                Assets:Investments:Cash  -20000 USD
+            """
+        let ledger = try p.parseLedger()
+        for directive in ledger.directives {
+            guard case .transaction(let txn) = directive.content else {
+                Issue.record("Expected transaction directive")
+                continue
+            }
+            let posting = txn.postings[0]
+            let cost = try #require(posting.cost)
+            let perUnit = try #require(cost.numberPerUnit)
+            let total = try #require(cost.numberTotal)
+            let currency = try #require(cost.currency)
+            #expect(perUnit == 0)
+            #expect(total == 2000)
+            #expect(currency == "USD")
+            #expect(posting.price == nil)
+        }
+    }
+}
