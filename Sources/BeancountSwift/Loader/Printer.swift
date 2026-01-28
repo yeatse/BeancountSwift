@@ -6,11 +6,11 @@
 //
 
 /// Provides string formatting and printing capabilities for Beancount data structures.
-/// 
+///
 /// This module implements CustomStringConvertible for all major Beancount types,
 /// enabling them to be converted back to their original Beancount text format.
 /// This is essential for round-trip processing, debugging, and generating output files.
-/// 
+///
 /// The printing functionality corresponds to the format_entry functions in the
 /// original Beancount Python library, maintaining compatibility with the standard format.
 
@@ -19,9 +19,9 @@ import OrderedCollections
 
 extension Option: CustomStringConvertible {
     /// Returns the option formatted as Beancount option directive syntax.
-    /// 
+    ///
     /// Formats as: `option "key" "value"`
-    /// 
+    ///
     /// - Returns: The option in Beancount syntax format
     public var description: String {
         "option \"\(key)\" \"\(value)\""
@@ -30,19 +30,19 @@ extension Option: CustomStringConvertible {
 
 extension Account: CustomStringConvertible {
     /// Returns the account ID.
-    /// 
+    ///
     /// - Returns: The account identifier string
     public var description: String { id }
 }
 
 extension Currency: CustomStringConvertible {
     /// Returns the currency ID.
-    /// 
+    ///
     /// - Returns: The currency identifier string
     public var description: String { id }
 }
 
-private extension Decimal {
+extension Decimal {
     /// Formats a decimal number with currency-specific formatting.
     ///
     /// Uses AttributedString-based currency formatting to determine appropriate decimal
@@ -54,7 +54,7 @@ private extension Decimal {
     ///   - rounded: Whether to use standard currency rounding (default: false).
     ///              When false, preserves maximum precision between default and flexible formats.
     /// - Returns: The formatted decimal string without currency symbol
-    func formatted(withCurrency currency: Currency?, rounded: Bool = false) -> String {
+    fileprivate func formatted(withCurrency currency: Currency?, rounded: Bool = false) -> String {
         guard let currency else {
             return formatted(.number.grouping(.never))
         }
@@ -62,10 +62,15 @@ private extension Decimal {
         var result = ""
         let attributed: AttributedString
         if rounded {
-            attributed = formatted(.currency(code: currency.id).presentation(.narrow).grouping(.never).attributed)
+            attributed = formatted(
+                .currency(code: currency.id).presentation(.narrow).grouping(.never).attributed)
         } else {
-            let attr1 = formatted(.currency(code: currency.id).presentation(.narrow).grouping(.never).attributed)
-            let attr2 = formatted(.currency(code: currency.id).presentation(.narrow).grouping(.never).precision(.fractionLength(0...)).attributed)
+            let attr1 = formatted(
+                .currency(code: currency.id).presentation(.narrow).grouping(.never).attributed)
+            let attr2 = formatted(
+                .currency(code: currency.id).presentation(.narrow).grouping(.never).precision(
+                    .fractionLength(0...)
+                ).attributed)
             attributed = attr1.characters.count >= attr2.characters.count ? attr1 : attr2
         }
         for run in attributed.runs {
@@ -95,10 +100,10 @@ extension Amount: CustomStringConvertible {
 
 extension Cost: CustomStringConvertible {
     /// Returns the cost formatted in Beancount syntax.
-    /// 
+    ///
     /// Formats cost components (amount, date, label) separated by commas.
     /// Omits components that are not set or have default values.
-    /// 
+    ///
     /// - Returns: The cost in Beancount format
     public var description: String {
         var strlist: [String] = []
@@ -117,10 +122,10 @@ extension Cost: CustomStringConvertible {
 
 extension CostSpec: CustomStringConvertible {
     /// Returns the cost specification formatted in Beancount syntax.
-    /// 
+    ///
     /// Formats cost specification components including per-unit costs,
     /// total costs, dates, labels, and merge flags.
-    /// 
+    ///
     /// - Returns: The cost specification in Beancount format
     public var description: String {
         var strlist: [String] = []
@@ -153,10 +158,10 @@ extension CostSpec: CustomStringConvertible {
 
 extension Position: CustomStringConvertible {
     /// Returns the position formatted in Beancount syntax.
-    /// 
+    ///
     /// Formats as: `amount {cost}` where cost is included if present.
     /// Uses double braces for cost specification formatting.
-    /// 
+    ///
     /// - Returns: The position in Beancount format
     public var description: String {
         var posStr = units.description
@@ -167,12 +172,23 @@ extension Position: CustomStringConvertible {
     }
 }
 
+extension Inventory: CustomStringConvertible {
+    /// Returns the inventory formatted in Beancount syntax.
+    ///
+    /// Formats as a comma-separated list of positions.
+    ///
+    /// - Returns: The inventory in Beancount format
+    public var description: String {
+        positions.map(\.description).joined(separator: ", ")
+    }
+}
+
 extension Posting: CustomStringConvertible {
     /// Computes the generic weight for any posting type.
-    /// 
+    ///
     /// Handles both Cost and CostSpec posting types by casting and
     /// computing their respective weights.
-    /// 
+    ///
     /// - Returns: The weight amount for the posting
     private var genericWeight: Amount {
         if let p = self as? Posting<Cost> {
@@ -183,13 +199,13 @@ extension Posting: CustomStringConvertible {
             fatalError()
         }
     }
-    
+
     /// Returns the posting formatted in Beancount syntax.
-    /// 
+    ///
     /// Formats the complete posting including flag, account, units, cost,
     /// price, weight comment, and metadata. Follows standard Beancount
     /// posting format with proper indentation and alignment.
-    /// 
+    ///
     /// - Returns: The posting in Beancount format
     public var description: String {
         let flagStr: String
@@ -198,10 +214,10 @@ extension Posting: CustomStringConvertible {
         } else {
             flagStr = ""
         }
-        
+
         var weightStr: String = ""
         var positionStr: String = ""
-        
+
         if units != .missing {
             positionStr = units.description
             if let cost {
@@ -214,9 +230,10 @@ extension Posting: CustomStringConvertible {
             }
         }
         if let price {
-            positionStr += " @ \(price.number.formatted(.number.grouping(.never))) \(price.currency.description)"
+            positionStr +=
+                " @ \(price.number.formatted(.number.grouping(.never))) \(price.currency.description)"
         }
-        
+
         var result = "\(flagStr)\(account.description) \(positionStr)"
         if let comment {
             result += "  ; \(comment)"
@@ -232,42 +249,42 @@ extension Posting: CustomStringConvertible {
 
 extension MetaDataValue: CustomStringConvertible {
     /// Returns the metadata value formatted for Beancount output.
-    /// 
+    ///
     /// Formats each metadata value type according to Beancount conventions,
     /// including proper quoting for strings and appropriate formatting for dates.
-    /// 
+    ///
     /// - Returns: The metadata value in Beancount format
     public var description: String {
         switch self {
-            case .string(let string): "\"\(string.escaped)\""
-            case .account(let account): account.description
-            case .currency(let currency): currency.description
-            case .date(let date): date.isoDescription
-            case .tag(let tag): tag.id
-            case .number(let decimal): decimal.formatted(.number.grouping(.never))
-            case .bool(let bool): bool ? "TRUE" : "FALSE"
-            case .amount(let amount): amount.description
-            case .range: ""
+        case .string(let string): "\"\(string.escaped)\""
+        case .account(let account): account.description
+        case .currency(let currency): currency.description
+        case .date(let date): date.isoDescription
+        case .tag(let tag): tag.id
+        case .number(let decimal): decimal.formatted(.number.grouping(.never))
+        case .bool(let bool): bool ? "TRUE" : "FALSE"
+        case .amount(let amount): amount.description
+        case .range: ""
         }
     }
 }
 
-private extension OrderedDictionary where Key == String, Value == MetaDataValue {
+extension OrderedDictionary where Key == String, Value == MetaDataValue {
     /// System metadata keys to ignore when formatting.
-    /// 
+    ///
     /// These keys are used internally by the parser and should not
     /// appear in formatted output.
-    static let keysToIgnore: Set<String> = [
+    fileprivate static let keysToIgnore: Set<String> = [
         "filename", "range", "lineno", Interpolate.automaticMeta,
     ]
-    
+
     /// Converts metadata dictionary to formatted string.
-    /// 
+    ///
     /// Formats user metadata (excluding system keys) as key-value pairs,
     /// one per line, suitable for inclusion in Beancount output.
-    /// 
+    ///
     /// - Returns: The formatted metadata string
-    var toString: String {
+    fileprivate var toString: String {
         var lines: [String] = []
         for (key, value) in self {
             guard !Self.keysToIgnore.contains(key) && !key.hasPrefix("__") else {
@@ -281,37 +298,39 @@ private extension OrderedDictionary where Key == String, Value == MetaDataValue 
 
 extension Directive: CustomStringConvertible {
     /// Returns the directive formatted in Beancount syntax.
-    /// 
+    ///
     /// Formats the complete directive including date, metadata, and content
     /// according to Beancount conventions.
-    /// 
+    ///
     /// - Returns: The directive in Beancount format with trailing newline
     public var description: String {
-        let text = switch content {
-        case .transaction(let txn): txn.print(date: date, meta: meta, comment: comment)
-        case .open(let open): open.print(date: date, meta: meta, comment: comment)
-        case .custom(let custom): custom.print(date: date, meta: meta, comment: comment)
-        case .pad(let pad): pad.print(date: date, meta: meta, comment: comment)
-        case .balance(let balance): balance.print(date: date, meta: meta, comment: comment)
-        case .close(let close): close.print(date: date, meta: meta, comment: comment)
-        case .commodity(let commodity): commodity.print(date: date, meta: meta, comment: comment)
-        case .note(let note): note.print(date: date, meta: meta, comment: comment)
-        case .event(let event): event.print(date: date, meta: meta, comment: comment)
-        case .query(let query): query.print(date: date, meta: meta, comment: comment)
-        case .price(let price): price.print(date: date, meta: meta, comment: comment)
-        case .document(let document): document.print(date: date, meta: meta, comment: comment)
-        }
+        let text =
+            switch content {
+            case .transaction(let txn): txn.print(date: date, meta: meta, comment: comment)
+            case .open(let open): open.print(date: date, meta: meta, comment: comment)
+            case .custom(let custom): custom.print(date: date, meta: meta, comment: comment)
+            case .pad(let pad): pad.print(date: date, meta: meta, comment: comment)
+            case .balance(let balance): balance.print(date: date, meta: meta, comment: comment)
+            case .close(let close): close.print(date: date, meta: meta, comment: comment)
+            case .commodity(let commodity):
+                commodity.print(date: date, meta: meta, comment: comment)
+            case .note(let note): note.print(date: date, meta: meta, comment: comment)
+            case .event(let event): event.print(date: date, meta: meta, comment: comment)
+            case .query(let query): query.print(date: date, meta: meta, comment: comment)
+            case .price(let price): price.print(date: date, meta: meta, comment: comment)
+            case .document(let document): document.print(date: date, meta: meta, comment: comment)
+            }
         return text.appending("\n")
     }
 }
 
 /// Protocol for directive types that can be formatted as Beancount text.
-/// 
+///
 /// DirectivePrintable defines the interface for directive content types
 /// to format themselves as Beancount syntax strings.
 private protocol DirectivePrintable {
     /// Formats the directive content with common directive properties.
-    /// 
+    ///
     /// - Parameters:
     ///   - date: The directive date
     ///   - meta: The directive metadata
@@ -322,10 +341,10 @@ private protocol DirectivePrintable {
 
 extension Transaction: DirectivePrintable {
     /// Formats the transaction in standard Beancount syntax.
-    /// 
+    ///
     /// Produces a complete transaction with header line containing date, flag,
     /// payee, narration, tags, and links, followed by metadata and postings.
-    /// 
+    ///
     /// - Parameters:
     ///   - date: Transaction date
     ///   - meta: Transaction metadata
@@ -345,7 +364,7 @@ extension Transaction: DirectivePrintable {
         } else if payee != nil {
             strings.append("\"\"")
         }
-        
+
         for tag in self.tags {
             strings.append("#\(tag.id)")
         }
@@ -369,9 +388,9 @@ extension Transaction: DirectivePrintable {
 
 extension Open: DirectivePrintable {
     /// Formats the open directive in Beancount syntax.
-    /// 
+    ///
     /// Produces an open directive with date, account, currencies, and booking method.
-    /// 
+    ///
     /// - Parameters:
     ///   - date: Open directive date
     ///   - meta: Open directive metadata
@@ -380,7 +399,7 @@ extension Open: DirectivePrintable {
     func print(date: Date, meta: MetaData, comment: String?) -> String {
         let currencies = self.currencies.map(\.description).joined(separator: ",")
         let booking = self.booking.map { "\"\($0.rawValue)\"" } ?? ""
-        
+
         var resultLine = [date.isoDescription, "open", account.description]
         if !currencies.isEmpty {
             resultLine.append(currencies)
@@ -435,7 +454,9 @@ extension Pad: DirectivePrintable {
     ///   - comment: Optional directive comment
     /// - Returns: The formatted pad directive string
     func print(date: Date, meta: MetaData, comment: String?) -> String {
-        var resultLine = [date.isoDescription, "pad", account.description, sourceAccount.description]
+        var resultLine = [
+            date.isoDescription, "pad", account.description, sourceAccount.description,
+        ]
         if let comment, !comment.isEmpty {
             resultLine.append(" ; \(comment)")
         }
@@ -477,7 +498,7 @@ extension Balance: DirectivePrintable {
         } else if let diffAmount {
             resultLine.append(" ; Diff: \(diffAmount.description)")
         }
-        
+
         var result = resultLine.joined(separator: " ")
         let metaline = meta.toString.lineAligned()
         if !metaline.isEmpty {
