@@ -25,7 +25,7 @@ public protocol ContentProviding {
     func expandInclude(_ include: String) -> [String]
 }
 
-extension ContentProviding {
+public extension ContentProviding {
     func expandInclude(_ include: String) -> [String] {
         [include]
     }
