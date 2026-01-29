@@ -56,6 +56,7 @@ public struct ToleranceConfiguration: Sendable {
 /// by filling in missing amounts and checking balance tolerances. This ensures
 /// that transactions balance according to double-entry accounting principles.
 enum Interpolate {
+    private static let maxToleranceDigits = 5
     /// Maps currencies to their tolerance values for balance checking.
     ///
     /// ToleranceMapping provides currency-specific tolerances with a fallback
@@ -85,7 +86,8 @@ enum Interpolate {
     static func inferTolerances<T: PostingCost>(postings: [Posting<T>], options: Options)
         -> ToleranceMapping
     {
-        return .init(mapping: [:], default: 0.01)
+        let defaultTolerances = options.tolerances.defaultTolerances
+        return .init(mapping: defaultTolerances, default: 0.01)
     }
 
     /// Computes the residual amounts needed to balance a transaction.
@@ -107,5 +109,47 @@ enum Interpolate {
             inventory.addAmount(posting.weight)
         }
         return inventory
+    }
+
+    /// Quantize a number using a currency-specific tolerance.
+    ///
+    /// Mirrors Beancount's quantize_with_tolerance behavior: if the tolerance was
+    /// user specified (i.e., "neat" digits), round the number to the tolerance's
+    /// quantum; otherwise, return the number unchanged.
+    ///
+    /// - Parameters:
+    ///   - tolerances: Mapping of currency to tolerance values.
+    ///   - currency: Currency whose tolerance should be applied.
+    ///   - number: The number to quantize.
+    /// - Returns: The quantized number if applicable, otherwise the original number.
+    static func quantizeWithTolerance(
+        tolerances: ToleranceMapping,
+        currency: Currency,
+        number: Decimal
+    ) -> Decimal {
+        guard let tolerance = tolerances.mapping[currency], tolerance != .zero else {
+            return number
+        }
+
+        var quantum = tolerance * 2
+        quantum = normalizeDecimal(quantum)
+
+        if isToleranceUserSpecified(quantum) {
+            let scale = -quantum.exponent
+            return number.rounded(scale, .bankers)
+        }
+        return number
+    }
+
+    private static func isToleranceUserSpecified(_ tolerance: Decimal) -> Bool {
+        let str = NSDecimalNumber(decimal: tolerance).stringValue
+        let digits = str.filter { $0.isNumber }
+        let trimmed = digits.drop(while: { $0 == "0" })
+        return trimmed.count < maxToleranceDigits
+    }
+
+    private static func normalizeDecimal(_ value: Decimal) -> Decimal {
+        let str = NSDecimalNumber(decimal: value).stringValue
+        return Decimal(string: str) ?? value
     }
 }

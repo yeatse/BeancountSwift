@@ -753,9 +753,11 @@ enum Booking {
                 } else {
                     unitsNumber = weight
                 }
+                let quantizedUnits = Interpolate.quantizeWithTolerance(
+                    tolerances: tolerances, currency: units.currency, number: unitsNumber)
                 if weight != .zero {
                     var pos = incompletePosting
-                    pos.units = Amount(number: unitsNumber, currency: units.currency)
+                    pos.units = Amount(number: quantizedUnits, currency: units.currency)
                     pos.cost = incompletePosting.cost
                     newPosting = pos
                 } else {

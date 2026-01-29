@@ -616,12 +616,12 @@ struct InterpolateCurrencyGroupTests {
         }
         #expect(transactions.count == 2)
 
-        for entry in transactions {
+        for (index, entry) in transactions.enumerated() {
             try check(
                 entry,
                 expected: [
                     "CAD": .init(
-                        interpolated: true,
+                        interpolated: index == 0,
                         expected: """
                               2010-05-28 *
                                 Assets:Account1     100.00 CAD
