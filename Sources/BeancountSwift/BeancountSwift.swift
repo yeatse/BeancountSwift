@@ -22,7 +22,7 @@ public struct Beancount: Sendable {
     /// The loader handles file I/O, includes processing, plugin execution, and parsing
     /// of Beancount ledger files into structured data.
     public let loader = Loader.self
-    
+
     /// Low-level parser for Beancount syntax using tree-sitter parsing.
     ///
     /// Provides direct access to the syntax tree and parsing capabilities for

@@ -9,7 +9,7 @@ import Foundation
 
 struct AutoInsertOpenPlugin: BeancountPlugin {
     static let name = "auto_insert_open"
-    
+
     func process(entries: [Directive<Cost>], options: Options, config: String?) throws -> (
         entries: [Directive<Cost>], errors: [Error]
     ) {
@@ -24,11 +24,12 @@ struct AutoInsertOpenPlugin: BeancountPlugin {
             if openedAccounts.contains(account) {
                 continue
             }
-            newEntries.append(.init(
-                meta: ["<auto_accounts>": .number(.init(index))],
-                date: range.lowerBound,
-                content: .open(.init(account: account, currencies: [], booking: nil))
-            ))
+            newEntries.append(
+                .init(
+                    meta: ["<auto_accounts>": .number(.init(index))],
+                    date: range.lowerBound,
+                    content: .open(.init(account: account, currencies: [], booking: nil))
+                ))
         }
         if newEntries.isEmpty {
             return (entries, [])

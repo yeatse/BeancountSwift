@@ -110,7 +110,7 @@ extension Cost: CustomStringConvertible {
         if number != .nan {
             strlist.append(Amount(number: number, currency: currency).description)
         }
-        if date != .distantPast {
+        if let date, date != .distantPast {
             strlist.append(date.isoDescription)
         }
         if let label {

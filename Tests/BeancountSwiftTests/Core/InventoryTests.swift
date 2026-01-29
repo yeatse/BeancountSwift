@@ -5,8 +5,8 @@
 //  Created by Yeatse on 2024/1/5.
 //
 
-import Testing
 import Foundation
+import Testing
 
 @testable import BeancountSwift
 
@@ -14,46 +14,46 @@ struct InventoryTests {
     @Test func fromString() {
         var inv: Inventory = "10 USD"
         #expect(
-            inv ==
-            Inventory(positions: [
-                Position(units: Amount(number: 10, currency: "USD"))
-            ]))
+            inv
+                == Inventory(positions: [
+                    Position(units: Amount(number: 10, currency: "USD"))
+                ]))
 
         inv = "   10.00   USD "
         #expect(
-            inv ==
-            Inventory(positions: [
-                Position(units: Amount(number: 10, currency: "USD"))
-            ]))
+            inv
+                == Inventory(positions: [
+                    Position(units: Amount(number: 10, currency: "USD"))
+                ]))
 
         inv = "1 USD, 2 CAD"
         #expect(
-            inv ==
-            Inventory(positions: [
-                Position(units: Amount(number: 1, currency: "USD")),
-                Position(units: Amount(number: 2, currency: "CAD")),
-            ]))
+            inv
+                == Inventory(positions: [
+                    Position(units: Amount(number: 1, currency: "USD")),
+                    Position(units: Amount(number: 2, currency: "CAD")),
+                ]))
 
         inv = "2.2 HOOL {532.43 USD}, 3.413 EUR"
         #expect(
-            inv ==
-            Inventory(positions: [
-                Position(
-                    units: Amount(number: Decimal(string: "2.2")!, currency: "HOOL"),
-                    cost: Cost(
-                        number: Decimal(string: "532.43")!, currency: "USD", date: .distantPast)),
-                Position(units: Amount(number: Decimal(string: "3.413")!, currency: "EUR")),
-            ]))
+            inv
+                == Inventory(positions: [
+                    Position(
+                        units: Amount(number: Decimal(string: "2.2")!, currency: "HOOL"),
+                        cost: Cost(
+                            number: Decimal(string: "532.43")!, currency: "USD")),
+                    Position(units: Amount(number: Decimal(string: "3.413")!, currency: "EUR")),
+                ]))
 
         inv = "1.1 HOOL {500.00 # 11.00 USD}, 100 CAD"
         #expect(
-            inv ==
-            Inventory(positions: [
-                Position(
-                    units: Amount(number: Decimal(string: "1.1")!, currency: "HOOL"),
-                    cost: Cost(number: 510, currency: "USD", date: .distantPast)),
-                Position(units: Amount(number: 100, currency: "CAD")),
-            ]))
+            inv
+                == Inventory(positions: [
+                    Position(
+                        units: Amount(number: Decimal(string: "1.1")!, currency: "HOOL"),
+                        cost: Cost(number: 510, currency: "USD")),
+                    Position(units: Amount(number: 100, currency: "CAD")),
+                ]))
     }
 
     func checkAmount(inventory: Inventory, number: Decimal, currency: Currency) {
@@ -234,8 +234,7 @@ struct InventoryTests {
             "2.2 HOOL {532.43 USD}, 2.3 HOOL {564.00 USD, 2015-07-14}, 3.41 CAD, 101.20 USD"
         let ccymap = inv.segregateUnits(by: ["HOOL", "USD", "EUR"])
         #expect(
-            ccymap ==
-            [
+            ccymap == [
                 nil: "3.41 CAD",
                 "USD": "101.20 USD",
                 "EUR": Inventory(),
@@ -248,8 +247,7 @@ struct InventoryTests {
             "2.2 HOOL {532.43 USD}, 2.3 HOOL {564.00 USD, 2015-07-14}, 3.41 CAD, 101.20 USD"
         let ccymap = inv.split()
         #expect(
-            ccymap ==
-            [
+            ccymap == [
                 "CAD": "3.41 CAD",
                 "USD": "101.20 USD",
                 "HOOL": "2.2 HOOL {532.43 USD}, 2.3 HOOL {564.00 USD, 2015-07-14}",
@@ -298,7 +296,7 @@ struct InventoryTests {
         #expect(inv.average == "9 HOOL {520 USD}")
 
         inv = "2 HOOL {500 USD}"
-        inv.addAmount("-2 HOOL", cost: Cost(number: 500, currency: "USD", date: .distantPast))
+        inv.addAmount("-2 HOOL", cost: Cost(number: 500, currency: "USD"))
         #expect(inv.average == "")
 
         inv = "2 HOOL {500 USD}"
@@ -393,13 +391,13 @@ struct InventoryTests {
 
     @Test func addAmountWithLots() {
         var inv = Inventory()
-        inv.addAmount("50 HOOL", cost: .init(number: 700, currency: "USD", date: .distantPast))
+        inv.addAmount("50 HOOL", cost: .init(number: 700, currency: "USD"))
         checkAmount(inventory: inv, number: 50, currency: "HOOL")
 
-        inv.addAmount("-40 HOOL", cost: .init(number: 700, currency: "USD", date: .distantPast))
+        inv.addAmount("-40 HOOL", cost: .init(number: 700, currency: "USD"))
         checkAmount(inventory: inv, number: 10, currency: "HOOL")
 
-        inv.addAmount("-12 HOOL", cost: .init(number: 700, currency: "USD", date: .distantPast))
+        inv.addAmount("-12 HOOL", cost: .init(number: 700, currency: "USD"))
         #expect(inv.positions.first!.isNegativeAtCost)
 
         inv = Inventory()
@@ -420,7 +418,7 @@ struct InventoryTests {
         #expect(position == nil)
 
         (position, _) = inv.addAmount(
-            "-11 USD", cost: .init(number: "1.10", currency: "CAD", date: .distantPast))
+            "-11 USD", cost: .init(number: "1.10", currency: "CAD"))
         #expect(position == nil)
 
         (position, _) = inv.addAmount(
@@ -430,7 +428,7 @@ struct InventoryTests {
         let invlist = Array(inv.positions)
         #expect(invlist[1].isNegativeAtCost)
         #expect(invlist[2].isNegativeAtCost)
-        inv.addAmount("-11 USD", cost: .init(number: "1.10", currency: "CAD", date: .distantPast))
+        inv.addAmount("-11 USD", cost: .init(number: "1.10", currency: "CAD"))
         inv.addAmount("-11 USD", cost: .init(number: "1.10", currency: "CAD", date: "2012-01-01"))
         #expect(inv.positions.count == 3)
 
@@ -438,7 +436,7 @@ struct InventoryTests {
         (position, _) = inv.addAmount("-11 USD")
         #expect(position == "10 USD")
         (position, _) = inv.addAmount(
-            "-11 USD", cost: .init(number: "1.10", currency: "CAD", date: .distantPast))
+            "-11 USD", cost: .init(number: "1.10", currency: "CAD"))
         #expect(position == "10 USD {1.10 CAD}")
         (position, _) = inv.addAmount(
             "-11 USD", cost: .init(number: "1.10", currency: "CAD", date: "2012-01-01"))

@@ -6,8 +6,8 @@
 //
 
 import Foundation
-import SwiftTreeSitter
 import OrderedCollections
+import SwiftTreeSitter
 
 protocol Parsable {
     init(from node: SwiftTreeSitter.Node, content: String) throws
@@ -23,7 +23,7 @@ protocol AcceptingMetaStack {
 
 enum SyntaxError: Error {
     case badNode(lineno: UInt32, source: String?)
-    
+
     static func badNode(_ node: SwiftTreeSitter.Node, content: String) -> SyntaxError {
         .badNode(
             lineno: node.pointRange.lowerBound.row,
@@ -40,7 +40,7 @@ extension String: Parsable {
         }
         return result.replacingOccurrences(of: #"\""#, with: "\"")
     }
-    
+
     init(from node: Node, content: String) throws {
         guard let range = Range(node.range, in: content) else {
             throw SyntaxError.badNode(node, content: content)
@@ -78,47 +78,49 @@ extension Bool: Parsable {
 extension Decimal: Parsable {
     init(from node: Node, content: String) throws {
         switch node.nodeType {
-            case "number":
-                let text = try String(from: node, content: content)
-                guard let decimal = Decimal(string: text.replacingOccurrences(of: ",", with: "")) else {
-                    throw SyntaxError.badNode(node, content: content)
-                }
+        case "number":
+            let text = try String(from: node, content: content)
+            guard let decimal = Decimal(string: text.replacingOccurrences(of: ",", with: "")) else {
+                throw SyntaxError.badNode(node, content: content)
+            }
+            self = decimal
+        case "paren_num_expr":
+            guard let val = node.namedChild(at: 0) else {
+                throw SyntaxError.badNode(node, content: content)
+            }
+            self = try Decimal(from: val, content: content)
+        case "unary_num_expr":
+            guard let sign = node.child(at: 0), let val = node.child(at: 1) else {
+                throw SyntaxError.badNode(node, content: content)
+            }
+            let decimal = try Decimal(from: val, content: content)
+            if sign.nodeType == "+" {
                 self = decimal
-            case "paren_num_expr":
-                guard let val = node.namedChild(at: 0) else {
-                    throw SyntaxError.badNode(node, content: content)
-                }
-                self = try Decimal(from: val, content: content)
-            case "unary_num_expr":
-                guard let sign = node.child(at: 0), let val = node.child(at: 1) else {
-                    throw SyntaxError.badNode(node, content: content)
-                }
-                let decimal = try Decimal(from: val, content: content)
-                if sign.nodeType == "+" {
-                    self = decimal
-                } else {
-                    self = -decimal
-                }
-            case "binary_num_expr":
-                guard let left = node.child(at: 0), let oper = node.child(at: 1), let right = node.child(at: 2) else {
-                    throw SyntaxError.badNode(node, content: content)
-                }
-                let leftVal = try Decimal(from: left, content: content)
-                let rightVal = try Decimal(from: right, content: content)
-                switch oper.nodeType {
-                    case "+":
-                        self = leftVal + rightVal
-                    case "-":
-                        self = leftVal - rightVal
-                    case "*":
-                        self = leftVal * rightVal
-                    case "/":
-                        self = leftVal / rightVal
-                    default:
-                        throw SyntaxError.badNode(node, content: content)
-                }
+            } else {
+                self = -decimal
+            }
+        case "binary_num_expr":
+            guard let left = node.child(at: 0), let oper = node.child(at: 1),
+                let right = node.child(at: 2)
+            else {
+                throw SyntaxError.badNode(node, content: content)
+            }
+            let leftVal = try Decimal(from: left, content: content)
+            let rightVal = try Decimal(from: right, content: content)
+            switch oper.nodeType {
+            case "+":
+                self = leftVal + rightVal
+            case "-":
+                self = leftVal - rightVal
+            case "*":
+                self = leftVal * rightVal
+            case "/":
+                self = leftVal / rightVal
             default:
                 throw SyntaxError.badNode(node, content: content)
+            }
+        default:
+            throw SyntaxError.badNode(node, content: content)
         }
     }
 }
@@ -155,9 +157,15 @@ struct AmountTolerance {
 
 extension AmountTolerance: Parsable {
     init(from node: Node, content: String) throws {
-        let number = try node.child(byFieldName: "number").map { try Decimal(from: $0, content: content) }
-        let tolerance = try node.child(byFieldName: "tolerance").map { try Decimal(from: $0, content: content) }
-        let currency = try node.child(byFieldName: "currency").map { try Currency(from: $0, content: content) }
+        let number = try node.child(byFieldName: "number").map {
+            try Decimal(from: $0, content: content)
+        }
+        let tolerance = try node.child(byFieldName: "tolerance").map {
+            try Decimal(from: $0, content: content)
+        }
+        let currency = try node.child(byFieldName: "currency").map {
+            try Currency(from: $0, content: content)
+        }
         guard let number, let tolerance, let currency else {
             throw SyntaxError.badNode(node, content: content)
         }
@@ -188,14 +196,19 @@ extension CompoundAmount: Parsable {
 }
 
 extension Node {
-    func parseTagsAndLinks(in content: String) throws -> (tags: OrderedSet<Tag>, links: OrderedSet<Link>) {
+    func parseTagsAndLinks(in content: String) throws -> (
+        tags: OrderedSet<Tag>, links: OrderedSet<Link>
+    ) {
         var tags: OrderedSet<Tag> = []
         var links: OrderedSet<Link> = []
         enumerateChildren { child in
             if child.isNamed {
-                if child.nodeType == "link", let link = try? String(from: child, content: content), link.hasPrefix("^") {
+                if child.nodeType == "link", let link = try? String(from: child, content: content),
+                    link.hasPrefix("^")
+                {
                     links.append(Link(id: String(link.dropFirst())))
-                } else if child.nodeType == "tag", let tag = try? Tag(from: child, content: content) {
+                } else if child.nodeType == "tag", let tag = try? Tag(from: child, content: content)
+                {
                     tags.append(tag)
                 }
             }
@@ -215,7 +228,7 @@ extension Tag: Parsable {
 extension MetaDataValue: Parsable {
     init(from node: Node, content: String) throws {
         self =
-        switch node.nodeType {
+            switch node.nodeType {
             case "string": .string(try String(from: node, content: content).unescaped())
             case "account": .account(try Account(from: node, content: content))
             case "date": .date(try Date(from: node, content: content))
@@ -224,9 +237,9 @@ extension MetaDataValue: Parsable {
             case "bool": .bool(try Bool(from: node, content: content))
             case "amount": .amount(try Amount(from: node, content: content))
             case "number", "paren_num_expr", "unary_num_expr", "binary_num_expr":
-                    .number(try Decimal(from: node, content: content))
+                .number(try Decimal(from: node, content: content))
             default: throw SyntaxError.badNode(node, content: content)
-        }
+            }
     }
 }
 
@@ -235,8 +248,12 @@ extension OrderedDictionary {
         var result: Self = [:]
         var child = node.namedChild(at: 0)
         while let keyValue = child {
-            let key = try keyValue.child(byFieldName: "key").map { try String(from: $0, content: content).dropLast() }
-            let value = try keyValue.child(byFieldName: "value").map { try MetaDataValue(from: $0, content: content) }
+            let key = try keyValue.child(byFieldName: "key").map {
+                try String(from: $0, content: content).dropLast()
+            }
+            let value = try keyValue.child(byFieldName: "value").map {
+                try MetaDataValue(from: $0, content: content)
+            }
             guard let key else { throw SyntaxError.badNode(keyValue, content: content) }
             if let value {
                 result[String(key)] = value
@@ -264,9 +281,9 @@ extension Directive<CostSpec>: Parsable {
                 .dropFirst()
                 .trimmingCharacters(in: .whitespacesAndNewlines)
         }
-        
+
         let content: DirectiveContent<CostSpec> =
-        switch node.nodeType {
+            switch node.nodeType {
             case "balance": .balance(try Balance(from: node, content: content))
             case "close": .close(try Close(from: node, content: content))
             case "commodity": .commodity(try Commodity(from: node, content: content))
@@ -280,7 +297,7 @@ extension Directive<CostSpec>: Parsable {
             case "query": .query(try Query(from: node, content: content))
             case "transaction": .transaction(try Transaction(from: node, content: content))
             default: throw SyntaxError.badNode(node, content: content)
-        }
+            }
         self.init(meta: meta, date: date, comment: comment, content: content)
     }
 }
@@ -289,23 +306,23 @@ extension Directive: AcceptingTagStack, AcceptingMetaStack {
     func mergingTags(_ tags: [Tag]) -> Self {
         var result = self
         switch result.content {
-            case .transaction(let transaction):
-                result.content = .transaction(transaction.mergingTags(tags))
-            case .document(let document):
-                result.content = .document(document.mergingTags(tags))
-            default:
-                break
+        case .transaction(let transaction):
+            result.content = .transaction(transaction.mergingTags(tags))
+        case .document(let document):
+            result.content = .document(document.mergingTags(tags))
+        default:
+            break
         }
         return result
     }
-    
+
     func mergingMetaData(_ meta: [String: MetaDataValue]) -> Directive {
         var result = self
         switch result.content {
-            case .transaction(let transaction):
-                result.content = .transaction(transaction.mergingMetaData(meta))
-            default:
-                break
+        case .transaction(let transaction):
+            result.content = .transaction(transaction.mergingMetaData(meta))
+        default:
+            break
         }
         result.meta = result.meta.merging(meta, uniquingKeysWith: { old, new in old })
         return result
@@ -319,16 +336,17 @@ extension Balance: Parsable {
         }
         let amountNode = node.child(byFieldName: "amount")
         guard let account, let amountNode else { throw SyntaxError.badNode(node, content: content) }
-        
+
         if amountNode.nodeType == "amount" {
             let amount = try Amount(from: amountNode, content: content)
             self.init(account: account, amount: amount, tolerance: nil, diffAmount: nil)
         } else {
             let amount = try AmountTolerance(from: amountNode, content: content)
-            self.init(account: account,
-                      amount: Amount(number: amount.base, currency: amount.currency),
-                      tolerance: amount.tolerance,
-                      diffAmount: nil)
+            self.init(
+                account: account,
+                amount: Amount(number: amount.base, currency: amount.currency),
+                tolerance: amount.tolerance,
+                diffAmount: nil)
         }
     }
 }
@@ -448,11 +466,12 @@ extension Transaction<CostSpec>: Parsable {
         if let tagsLinks = node.child(byFieldName: "tags_and_links") {
             (tags, links) = try tagsLinks.parseTagsAndLinks(in: content)
         }
-        
+
         var postings: [Posting<CostSpec>] = []
         if let postingNodes = node.child(byFieldName: "postings") {
             for i in 0..<postingNodes.namedChildCount {
-                guard let posting = postingNodes.namedChild(at: i), posting.nodeType == "posting" else {
+                guard let posting = postingNodes.namedChild(at: i), posting.nodeType == "posting"
+                else {
                     continue
                 }
                 postings.append(try Posting(from: posting, content: content))
@@ -480,7 +499,7 @@ extension Transaction: AcceptingTagStack, AcceptingMetaStack {
             postings: postings
         )
     }
-    
+
     func mergingMetaData(_ meta: [String: MetaDataValue]) -> Transaction {
         return .init(
             flag: flag,
@@ -502,16 +521,16 @@ extension CostSpec: Parsable {
         var costComp = node.child(byFieldName: "cost_comp_list")
         while let costCompNode = costComp {
             switch costCompNode.nodeType {
-                case "merge":
-                    merge = try String(from: costCompNode, content: content) == "*"
-                case "date":
-                    date = try Date(from: costCompNode, content: content)
-                case "string":
-                    label = try String(from: costCompNode, content: content).unescaped()
-                case "compound_amount":
-                    amount = try CompoundAmount(from: costCompNode, content: content)
-                default:
-                    throw SyntaxError.badNode(costCompNode, content: content)
+            case "merge":
+                merge = try String(from: costCompNode, content: content) == "*"
+            case "date":
+                date = try Date(from: costCompNode, content: content)
+            case "string":
+                label = try String(from: costCompNode, content: content).unescaped()
+            case "compound_amount":
+                amount = try CompoundAmount(from: costCompNode, content: content)
+            default:
+                throw SyntaxError.badNode(costCompNode, content: content)
             }
             costComp = costCompNode.nextNamedSibling
         }
@@ -610,7 +629,9 @@ extension Pad: Parsable {
         let fromAccount = try node.child(byFieldName: "from_account").map {
             try Account(from: $0, content: content)
         }
-        guard let account, let fromAccount else { throw SyntaxError.badNode(node, content: content) }
+        guard let account, let fromAccount else {
+            throw SyntaxError.badNode(node, content: content)
+        }
         self.init(account: account, sourceAccount: fromAccount)
     }
 }

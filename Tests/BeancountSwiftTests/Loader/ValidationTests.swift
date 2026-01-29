@@ -5,8 +5,9 @@
 //  Created by yeatse on 2026/1/4.
 //
 
-import Testing
 import Foundation
+import Testing
+
 @testable import BeancountSwift
 
 struct ValidationTests {
@@ -27,13 +28,15 @@ struct ValidationTests {
             2014-02-21 open Assets:US:Bank:Checking3
             """
         let ledger = try p.loadLedger()
-        
-        let errors = Validation.validateOpenClose(entries: ledger.directives, options: ledger.options)
+
+        let errors = Validation.validateOpenClose(
+            entries: ledger.directives, options: ledger.options)
 
         #expect(errors.count == 2)
         let accounts = errors.compactMap { error -> String? in
             if case let validationError as ValidationError = error,
-               case .duplicateOpen(let account, _) = validationError {
+                case .duplicateOpen(let account, _) = validationError
+            {
                 return account.id
             }
             return nil
@@ -60,13 +63,15 @@ struct ValidationTests {
             2014-03-22 close Assets:US:Bank:Checking3
             """
         let ledger = try p.loadLedger()
-        
-        let errors = Validation.validateOpenClose(entries: ledger.directives, options: ledger.options)
+
+        let errors = Validation.validateOpenClose(
+            entries: ledger.directives, options: ledger.options)
 
         #expect(errors.count == 2)
         let accounts = errors.compactMap { error -> String? in
             if case let validationError as ValidationError = error,
-               case .duplicateClose(let account, _) = validationError {
+                case .duplicateClose(let account, _) = validationError
+            {
                 return account.id
             }
             return nil
@@ -80,12 +85,14 @@ struct ValidationTests {
             2014-03-01 close Assets:US:Bank:Checking1
             """
         let ledger = try p.loadLedger()
-        
-        let errors = Validation.validateOpenClose(entries: ledger.directives, options: ledger.options)
+
+        let errors = Validation.validateOpenClose(
+            entries: ledger.directives, options: ledger.options)
 
         #expect(errors.count == 1)
         if case let validationError as ValidationError = errors[0],
-           case .unopenedAccount(let account, _) = validationError {
+            case .unopenedAccount(let account, _) = validationError
+        {
             #expect(account.id == "Assets:US:Bank:Checking1")
         } else {
             Issue.record("Expected unopenedAccount error")
@@ -99,14 +106,16 @@ struct ValidationTests {
             2014-02-01 close Assets:US:Bank:Checking1
             """
         let ledger = try p.loadLedger()
-        
-        let errors = Validation.validateOpenClose(entries: ledger.directives, options: ledger.options)
+
+        let errors = Validation.validateOpenClose(
+            entries: ledger.directives, options: ledger.options)
 
         #expect(errors.count == 1)
         // After sorting, close (02-01) comes before open (03-01)
         // so we get "unopened account" error instead of "close before open"
         if case let validationError as ValidationError = errors[0],
-           case .unopenedAccount(let account, _) = validationError {
+            case .unopenedAccount(let account, _) = validationError
+        {
             #expect(account.id == "Assets:US:Bank:Checking1")
         } else {
             Issue.record("Expected unopenedAccount error")
@@ -142,12 +151,14 @@ struct ValidationTests {
             2014-03-06 balance Assets:US:Bank:Checking2 100 USD
             """
         let ledger = try p.loadLedger()
-        
-        let errors = Validation.validateDuplicateBalances(entries: ledger.directives, options: ledger.options)
+
+        let errors = Validation.validateDuplicateBalances(
+            entries: ledger.directives, options: ledger.options)
 
         #expect(errors.count == 1)
         if let error = errors.first as? ValidationError,
-           case .duplicateBalanceWithDifferentAmounts(let entry) = error {
+            case .duplicateBalanceWithDifferentAmounts(let entry) = error
+        {
             #expect(entry.date == "2014-03-01")
         } else {
             Issue.record("Expected duplicateBalanceWithDifferentAmounts error")
@@ -167,13 +178,15 @@ struct ValidationTests {
             2014-01-06 commodity HOOL
             """
         let ledger = try p.loadLedger()
-        
-        let errors = Validation.validateDuplicateCommodities(entries: ledger.directives, options: ledger.options)
+
+        let errors = Validation.validateDuplicateCommodities(
+            entries: ledger.directives, options: ledger.options)
 
         #expect(errors.count == 2)
         let dates = errors.compactMap { error -> Date? in
             if case let validationError as ValidationError = error,
-               case .duplicateCommodity(_, let entry) = validationError {
+                case .duplicateCommodity(_, let entry) = validationError
+            {
                 return entry.date
             }
             return nil
@@ -217,8 +230,9 @@ struct ValidationTests {
             2014-10-03 document Assets:Temporary "/path/to/allowed-doc.pdf"
             """
         let ledger = try p.loadLedger()
-        
-        let errors = Validation.validateActiveAccounts(entries: ledger.directives, options: ledger.options)
+
+        let errors = Validation.validateActiveAccounts(
+            entries: ledger.directives, options: ledger.options)
 
         // Should have errors for: invalid before transaction, invalid note, pad, unknown account, invalid after
         #expect(errors.count == 5)
@@ -226,10 +240,12 @@ struct ValidationTests {
         // Check that note and document after close are NOT in errors
         let errorDates = errors.compactMap { error -> Date? in
             if case let validationError as ValidationError = error,
-               case .inactiveAccount(_, let entry) = validationError {
+                case .inactiveAccount(_, let entry) = validationError
+            {
                 return entry.date
             } else if case let validationError as ValidationError = error,
-                      case .unknownAccount(_, let entry) = validationError {
+                case .unknownAccount(_, let entry) = validationError
+            {
                 return entry.date
             }
             return nil
@@ -248,13 +264,15 @@ struct ValidationTests {
               Assets:US:Bank:Savings     -100 USD
             """
         let ledger = try p.loadLedger()
-        
-        let errors = Validation.validateActiveAccounts(entries: ledger.directives, options: ledger.options)
+
+        let errors = Validation.validateActiveAccounts(
+            entries: ledger.directives, options: ledger.options)
 
         #expect(errors.count == 2)
         let allUnknownAccount = errors.allSatisfy { error in
             if case let validationError as ValidationError = error,
-               case .unknownAccount = validationError {
+                case .unknownAccount = validationError
+            {
                 return true
             }
             return false
@@ -270,8 +288,9 @@ struct ValidationTests {
             2014-02-05 balance Assets:US:Bank:Checking 0.00 USD
             """
         let ledger = try p.loadLedger()
-        
-        let errors = Validation.validateActiveAccounts(entries: ledger.directives, options: ledger.options)
+
+        let errors = Validation.validateActiveAccounts(
+            entries: ledger.directives, options: ledger.options)
 
         // Balance directives should be allowed after close
         #expect(errors.isEmpty)
@@ -303,13 +322,15 @@ struct ValidationTests {
               Equity:Opening-Balances  -500 USD
             """
         let ledger = try p.loadLedger()
-        
-        let errors = Validation.validateCurrencyConstraints(entries: ledger.directives, options: ledger.options)
+
+        let errors = Validation.validateCurrencyConstraints(
+            entries: ledger.directives, options: ledger.options)
 
         #expect(errors.count == 2)
         let invalidCurrencies = errors.compactMap { error -> Currency? in
             if case let validationError as ValidationError = error,
-               case .invalidCurrency(let currency, _, _) = validationError {
+                case .invalidCurrency(let currency, _, _) = validationError
+            {
                 return currency
             }
             return nil
@@ -319,7 +340,9 @@ struct ValidationTests {
 
     // MARK: - Document Paths Tests
 
-    @Test("Document paths validation", .disabled("Document directive parsing not yet fully implemented"))
+    @Test(
+        "Document paths validation",
+        .disabled("Document directive parsing not yet fully implemented"))
     func validateDocumentsPaths() throws {
         let p: ContentProvider =
             """
@@ -331,12 +354,13 @@ struct ValidationTests {
             """
         let ledger = try p.loadLedger()
 
-        
-        let errors = Validation.validateDocumentsPaths(entries: ledger.directives, options: ledger.options)
+        let errors = Validation.validateDocumentsPaths(
+            entries: ledger.directives, options: ledger.options)
 
         #expect(errors.count == 1)
         if case let validationError as ValidationError = errors[0],
-           case .invalidRelativePath(let entry) = validationError {
+            case .invalidRelativePath(let entry) = validationError
+        {
             #expect(entry.date == "2014-01-03")
         } else {
             Issue.record("Expected invalidRelativePath error")
@@ -356,8 +380,9 @@ struct ValidationTests {
               Expenses:Food      100 USD
             """
         let ledger = try p.loadLedger()
-        
-        let errors = Validation.validateCheckTransactionBalances(entries: ledger.directives, options: ledger.options)
+
+        let errors = Validation.validateCheckTransactionBalances(
+            entries: ledger.directives, options: ledger.options)
 
         #expect(errors.isEmpty)
     }
@@ -373,12 +398,14 @@ struct ValidationTests {
               Expenses:Food       99 USD
             """
         let ledger = try p.loadLedger()
-        
-        let errors = Validation.validateCheckTransactionBalances(entries: ledger.directives, options: ledger.options)
+
+        let errors = Validation.validateCheckTransactionBalances(
+            entries: ledger.directives, options: ledger.options)
 
         #expect(errors.count == 1)
         if case let validationError as ValidationError = errors[0],
-           case .transactionDoesNotBalance = validationError {
+            case .transactionDoesNotBalance = validationError
+        {
             // Success
         } else {
             Issue.record("Expected transactionDoesNotBalance error")
@@ -409,7 +436,7 @@ struct ValidationTests {
               Expenses:Food      -1 CAD
             """
         let ledger = try p.loadLedger()
-        
+
         let errors = Validation.validate(entries: ledger.directives, options: ledger.options)
 
         // Should have error for duplicate commodity and invalid currency
@@ -417,7 +444,8 @@ struct ValidationTests {
 
         let hasDuplicateCommodity = errors.contains { error in
             if case let validationError as ValidationError = error,
-               case .duplicateCommodity = validationError {
+                case .duplicateCommodity = validationError
+            {
                 return true
             }
             return false
@@ -426,7 +454,8 @@ struct ValidationTests {
 
         let hasInvalidCurrency = errors.contains { error in
             if case let validationError as ValidationError = error,
-               case .invalidCurrency = validationError {
+                case .invalidCurrency = validationError
+            {
                 return true
             }
             return false
@@ -447,7 +476,8 @@ struct ValidationTests {
         #expect(error1.localizedDescription.contains("Duplicate open directive"))
         #expect(error1.localizedDescription.contains("Assets:Checking"))
 
-        let error2 = ValidationError.invalidCurrency(currency: currency, account: account, entry: directive)
+        let error2 = ValidationError.invalidCurrency(
+            currency: currency, account: account, entry: directive)
         #expect(error2.localizedDescription.contains("Invalid currency"))
         #expect(error2.localizedDescription.contains("USD"))
         #expect(error2.localizedDescription.contains("Assets:Checking"))
@@ -457,7 +487,7 @@ struct ValidationTests {
         let account = Account(id: "Assets:Checking")
         let metaWithLocation: MetaData = [
             "filename": .string("/path/to/file.beancount"),
-            "lineno": .number(42)
+            "lineno": .number(42),
         ]
         let directive = Directive<Cost>(
             meta: metaWithLocation,

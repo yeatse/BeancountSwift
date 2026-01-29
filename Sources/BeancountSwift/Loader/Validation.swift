@@ -20,7 +20,7 @@ enum ValidationError: LocatableError, LocalizedError {
     case invalidCurrency(currency: Currency, account: Account, entry: Directive<Cost>)
     case invalidRelativePath(entry: Directive<Cost>)
     case transactionDoesNotBalance(residual: Inventory, entry: Directive<Cost>)
-    
+
     var location: LedgerLocation? {
         func getLocation(_ entry: Directive<Cost>) -> LedgerLocation? {
             if let filename = entry.meta.filename, let lineno = entry.meta.lineno {
@@ -29,7 +29,7 @@ enum ValidationError: LocatableError, LocalizedError {
                 return nil
             }
         }
-        
+
         return switch self {
         case .duplicateOpen(_, let entry): getLocation(entry)
         case .duplicateClose(_, let entry): getLocation(entry)
@@ -44,7 +44,7 @@ enum ValidationError: LocatableError, LocalizedError {
         case .transactionDoesNotBalance(_, let entry): getLocation(entry)
         }
     }
-    
+
     var errorDescription: String? {
         return switch self {
         case .duplicateOpen(let account, _):
@@ -88,7 +88,7 @@ enum ValidationError: LocatableError, LocalizedError {
 /// let errors = Validation.validate(entries: directives, options: options)
 /// ```
 public enum Validation {
-    
+
     /// Check constraints on open and close directives themselves.
     ///
     /// This method checks three kinds of constraints:
@@ -110,38 +110,43 @@ public enum Validation {
         var errors: [Error] = []
         var openMap: [Account: Directive<Cost>] = [:]
         var closeMap: [Account: Directive<Cost>] = [:]
-        
+
         for entry in entries {
             switch entry.content {
             case .open(let open):
                 if openMap[open.account] != nil {
-                    errors.append(ValidationError.duplicateOpen(account: open.account, entry: entry))
+                    errors.append(
+                        ValidationError.duplicateOpen(account: open.account, entry: entry))
                 } else {
                     openMap[open.account] = entry
                 }
-                
+
             case .close(let close):
                 if closeMap[close.account] != nil {
-                    errors.append(ValidationError.duplicateClose(account: close.account, entry: entry))
+                    errors.append(
+                        ValidationError.duplicateClose(account: close.account, entry: entry))
                 } else {
                     if let openEntry = openMap[close.account] {
                         if entry.date < openEntry.date {
-                            errors.append(ValidationError.closeBeforeOpen(account: close.account, entry: entry))
+                            errors.append(
+                                ValidationError.closeBeforeOpen(
+                                    account: close.account, entry: entry))
                         }
                     } else {
-                        errors.append(ValidationError.unopenedAccount(account: close.account, entry: entry))
+                        errors.append(
+                            ValidationError.unopenedAccount(account: close.account, entry: entry))
                     }
                     closeMap[close.account] = entry
                 }
-                
+
             default:
                 break
             }
         }
-        
+
         return errors
     }
-    
+
     /// Check that balance entries occur only once per day.
     ///
     /// Because we do not support time, and the declaration order of entries is
@@ -153,9 +158,11 @@ public enum Validation {
     ///   - entries: A list of directives.
     ///   - options: An options map.
     /// - Returns: A list of new errors, if any were found.
-    public static func validateDuplicateBalances(entries: [Directive<Cost>], options: Options) -> [Error] {
+    public static func validateDuplicateBalances(entries: [Directive<Cost>], options: Options)
+        -> [Error]
+    {
         var errors: [Error] = []
-        
+
         // Mapping of (account, currency, date) to Balance entry.
         struct BalanceKey: Hashable {
             let account: Account
@@ -163,51 +170,57 @@ public enum Validation {
             let date: Date
         }
         var balanceEntries: [BalanceKey: Directive<Cost>] = [:]
-        
+
         for entry in entries {
             guard case .balance(let balance) = entry.content else {
                 continue
             }
-            
-            let key = BalanceKey(account: balance.account, currency: balance.amount.currency, date: entry.date)
+
+            let key = BalanceKey(
+                account: balance.account, currency: balance.amount.currency, date: entry.date)
             if let previousEntry = balanceEntries[key] {
                 if case .balance(let previousBalance) = previousEntry.content,
-                   balance.amount != previousBalance.amount {
-                    errors.append(ValidationError.duplicateBalanceWithDifferentAmounts(entry: entry))
+                    balance.amount != previousBalance.amount
+                {
+                    errors.append(
+                        ValidationError.duplicateBalanceWithDifferentAmounts(entry: entry))
                 }
             } else {
                 balanceEntries[key] = entry
             }
         }
-        
+
         return errors
     }
-    
+
     /// Check that commodity entries are unique for each commodity.
     ///
     /// - Parameters:
     ///   - entries: A list of directives.
     ///   - options: An options map.
     /// - Returns: A list of new errors, if any were found.
-    public static func validateDuplicateCommodities(entries: [Directive<Cost>], options: Options) -> [Error] {
+    public static func validateDuplicateCommodities(entries: [Directive<Cost>], options: Options)
+        -> [Error]
+    {
         var errors: [Error] = []
         var commodityEntries: [Currency: Directive<Cost>] = [:]
-        
+
         for entry in entries {
             guard case .commodity(let commodity) = entry.content else {
                 continue
             }
-            
+
             if commodityEntries[commodity.currency] != nil {
-                errors.append(ValidationError.duplicateCommodity(currency: commodity.currency, entry: entry))
+                errors.append(
+                    ValidationError.duplicateCommodity(currency: commodity.currency, entry: entry))
             } else {
                 commodityEntries[commodity.currency] = entry
             }
         }
-        
+
         return errors
     }
-    
+
     /// Check that all references to accounts occurs on active accounts.
     ///
     /// We basically check that references to accounts from all directives other
@@ -225,20 +238,22 @@ public enum Validation {
     ///   - entries: A list of directives.
     ///   - options: An options map.
     /// - Returns: A list of new errors, if any were found.
-    public static func validateActiveAccounts(entries: [Directive<Cost>], options: Options) -> [Error] {
+    public static func validateActiveAccounts(entries: [Directive<Cost>], options: Options)
+        -> [Error]
+    {
         var errorPairs: [(Account, Directive<Cost>)] = []
         var activeSet: Set<Account> = []
         var openedAccounts: Set<Account> = []
-        
+
         for entry in entries {
             switch entry.content {
             case .open(let open):
                 activeSet.insert(open.account)
                 openedAccounts.insert(open.account)
-                
+
             case .close(let close):
                 activeSet.remove(close.account)
-                
+
             default:
                 for account in entry.usedAccounts() {
                     if !activeSet.contains(account) {
@@ -247,7 +262,7 @@ public enum Validation {
                         if isAllowedAfterClose(entry) && openedAccounts.contains(account) {
                             continue
                         }
-                        
+
                         // Register an error to be logged later, with an appropriate
                         // message.
                         errorPairs.append((account, entry))
@@ -255,7 +270,7 @@ public enum Validation {
                 }
             }
         }
-        
+
         // Refine the error message to disambiguate between the case of an account
         // that has never been seen and one that was simply not active at the time.
         var errors: [Error] = []
@@ -266,10 +281,10 @@ public enum Validation {
                 errors.append(ValidationError.unknownAccount(account: account, entry: entry))
             }
         }
-        
+
         return errors
     }
-    
+
     /// Check the currency constraints from account open declarations.
     ///
     /// Open directives admit an optional list of currencies that specify the only
@@ -281,7 +296,9 @@ public enum Validation {
     ///   - entries: A list of directives.
     ///   - options: An options map.
     /// - Returns: A list of new errors, if any were found.
-    public static func validateCurrencyConstraints(entries: [Directive<Cost>], options: Options) -> [Error] {
+    public static func validateCurrencyConstraints(entries: [Directive<Cost>], options: Options)
+        -> [Error]
+    {
         // Get all the open entries with currency constraints.
         var openMap: [Account: Open] = [:]
         for entry in entries {
@@ -289,39 +306,40 @@ public enum Validation {
                 openMap[open.account] = open
             }
         }
-        
+
         var errors: [Error] = []
         for entry in entries {
             guard case .transaction(let transaction) = entry.content else {
                 continue
             }
-            
+
             for posting in transaction.postings {
                 // Look up the corresponding account's valid currencies; skip the
                 // check if there are none specified.
                 guard let open = openMap[posting.account] else {
                     continue
                 }
-                
+
                 let validCurrencies = open.currencies
                 if validCurrencies.isEmpty {
                     continue
                 }
-                
+
                 // Perform the check.
                 if !validCurrencies.contains(posting.units.currency) {
-                    errors.append(ValidationError.invalidCurrency(
-                        currency: posting.units.currency,
-                        account: posting.account,
-                        entry: entry
-                    ))
+                    errors.append(
+                        ValidationError.invalidCurrency(
+                            currency: posting.units.currency,
+                            account: posting.account,
+                            entry: entry
+                        ))
                 }
             }
         }
-        
+
         return errors
     }
-    
+
     /// Check that all filenames in resolved Document entries are absolute filenames.
     ///
     /// The processing of document entries is assumed to result in absolute paths.
@@ -332,9 +350,11 @@ public enum Validation {
     ///   - entries: A list of directives.
     ///   - options: An options map.
     /// - Returns: A list of new errors, if any were found.
-    public static func validateDocumentsPaths(entries: [Directive<Cost>], options: Options) -> [Error] {
+    public static func validateDocumentsPaths(entries: [Directive<Cost>], options: Options)
+        -> [Error]
+    {
         var errors: [Error] = []
-        
+
         for entry in entries {
             if case .document(let document) = entry.content {
                 if !document.filename.hasPrefix("/") && !document.filename.hasPrefix("~") {
@@ -342,10 +362,10 @@ public enum Validation {
                 }
             }
         }
-        
+
         return errors
     }
-    
+
     /// Check again that all transaction postings balance, as users may have
     /// transformed transactions.
     ///
@@ -353,14 +373,16 @@ public enum Validation {
     ///   - entries: A list of directives.
     ///   - options: An options map.
     /// - Returns: A list of new errors, if any were found.
-    static func validateCheckTransactionBalances(entries: [Directive<Cost>], options: Options) -> [Error] {
+    static func validateCheckTransactionBalances(entries: [Directive<Cost>], options: Options)
+        -> [Error]
+    {
         var errors: [Error] = []
-        
+
         for entry in entries {
             guard case .transaction(let transaction) = entry.content else {
                 continue
             }
-            
+
             // IMPORTANT: This validation is _crucial_ and cannot be skipped.
             // This is where we actually detect and warn on unbalancing
             // transactions. This _must_ come after the user routines, because
@@ -369,19 +391,21 @@ public enum Validation {
             // users to input unbalancing transactions as long as the final
             // transactions objects that appear on the stream (after processing
             // the plugins) are balanced.
-            
+
             // Detect complete sets of postings that have residual balance
             let residual = Interpolate.computeResidual(postings: transaction.postings)
-            let tolerances = Interpolate.inferTolerances(postings: transaction.postings, options: options)
-            
+            let tolerances = Interpolate.inferTolerances(
+                postings: transaction.postings, options: options)
+
             if !residual.isSmall(tolerances: tolerances) {
-                errors.append(ValidationError.transactionDoesNotBalance(residual: residual, entry: entry))
+                errors.append(
+                    ValidationError.transactionDoesNotBalance(residual: residual, entry: entry))
             }
         }
-        
+
         return errors
     }
-    
+
     /// Perform all the standard checks on parsed contents.
     ///
     /// Runs a comprehensive set of validation checks on the directives,
@@ -411,7 +435,7 @@ public enum Validation {
         for validation in basicValidations {
             errors.append(contentsOf: validation(entries, options))
         }
-        
+
         // Run extra validations if provided
         if let extraValidations = extraValidations {
             for validationFunction in extraValidations {
@@ -419,12 +443,12 @@ public enum Validation {
                 errors.append(contentsOf: newErrors)
             }
         }
-        
+
         return errors
     }
-    
+
     // MARK: - Private Helper Methods
-    
+
     /// Directive types that should be allowed after the account is closed.
     ///
     /// - Balance directives may be useful to ensure the closed account is empty.

@@ -5,11 +5,11 @@
 //  Created by Yeatse on 2023/12/21.
 //
 import Foundation
-import SwiftTreeSitter
 import OrderedCollections
+import SwiftTreeSitter
 
 /// A currency or commodity identifier in Beancount.
-/// 
+///
 /// Currencies represent units of value in the accounting system. They can be
 /// traditional currencies (USD, EUR), commodities (gold, oil), or financial
 /// instruments (stocks, bonds). Currency names must follow Beancount naming
@@ -29,9 +29,9 @@ import OrderedCollections
 public struct Currency: Identifiable, Hashable, Sendable {
     /// The currency or commodity identifier (e.g., "USD", "AAPL", "/GOLD").
     public var id: String
-    
+
     /// Creates a currency with the specified identifier.
-    /// 
+    ///
     /// - Parameter id: The currency identifier following Beancount naming conventions
     public init(id: String) {
         self.id = id
@@ -40,9 +40,9 @@ public struct Currency: Identifiable, Hashable, Sendable {
 
 extension Currency: ExpressibleByStringLiteral {
     /// Creates a currency from a string literal.
-    /// 
+    ///
     /// - Parameter value: The currency identifier as a string
-    /// 
+    ///
     /// ## Example
     /// ```swift
     /// let usd: Currency = "USD"
@@ -55,7 +55,7 @@ extension Currency: ExpressibleByStringLiteral {
 
 extension Currency: Comparable {
     /// Compares two currencies alphabetically by their identifiers.
-    /// 
+    ///
     /// - Parameters:
     ///   - lhs: The left-hand currency
     ///   - rhs: The right-hand currency
@@ -72,14 +72,14 @@ extension Currency {
 }
 
 /// Protocol for cost information that can be attached to postings.
-/// 
+///
 /// This protocol defines the interface for cost specifications that can be
 /// associated with postings in transactions. Implementations include `Cost`
 /// for concrete cost values and `CostSpec` for cost specifications.
 public protocol PostingCost: Hashable, CustomStringConvertible, Sendable {}
 
 /// Represents the acquisition cost of a position.
-/// 
+///
 /// A Cost stores the concrete price, currency, date, and optional label for
 /// when a position was acquired. This is essential for tracking capital gains
 /// and implementing lot-based inventory management in Beancount.
@@ -101,24 +101,24 @@ public protocol PostingCost: Hashable, CustomStringConvertible, Sendable {}
 public struct Cost: PostingCost {
     /// The unit cost as a decimal number.
     public var number: Decimal
-    
+
     /// The currency in which the cost is denominated.
     public var currency: Currency
-    
+
     /// The date when this cost was established (acquisition date).
-    public var date: Date
-    
+    public var date: Date?
+
     /// Optional label for identifying specific lots or transactions.
     public var label: String?
 }
 
 extension Cost: Comparable {
     /// Compares two costs in order: number, currency, date, then label.
-    /// 
+    ///
     /// Costs are ordered first by numeric value, then by currency alphabetically,
     /// then by date chronologically, and finally by label alphabetically.
     /// Costs with nil labels are considered less than costs with labels.
-    /// 
+    ///
     /// - Parameters:
     ///   - lhs: The left-hand cost
     ///   - rhs: The right-hand cost
@@ -129,7 +129,7 @@ extension Cost: Comparable {
         } else if lhs.currency != rhs.currency {
             return lhs.currency < rhs.currency
         } else if lhs.date != rhs.date {
-            return lhs.date < rhs.date
+            return (lhs.date ?? .distantPast) < (rhs.date ?? .distantPast)
         } else if let ll = lhs.label, let rl = rhs.label {
             return ll < rl
         } else if lhs.label == nil {
@@ -141,11 +141,11 @@ extension Cost: Comparable {
 }
 
 /// A specification for matching and resolving costs during transaction processing.
-/// 
+///
 /// CostSpec is used when parsing Beancount transactions to specify which existing
 /// lots should be matched. Unlike Cost which stores concrete values, CostSpec
 /// contains partial information that gets resolved during the booking process.
-/// 
+///
 /// This corresponds to the `CostSpec` namedtuple in the original Beancount Python
 /// library, used for cost specification and lot matching in the booking system.
 ///
@@ -153,10 +153,10 @@ extension Cost: Comparable {
 /// ```swift
 /// // Match lots with specific unit price
 /// let spec1 = CostSpec(numberPerUnit: 150.00, currency: Currency(id: "USD"))
-/// 
+///
 /// // Match lots by total cost
 /// let spec2 = CostSpec(numberTotal: 1500.00, currency: Currency(id: "USD"))
-/// 
+///
 /// // Match lots by date and label
 /// let spec3 = CostSpec(date: someDate, label: "ref-001")
 /// ```
@@ -165,24 +165,24 @@ extension Cost: Comparable {
 public struct CostSpec: PostingCost {
     /// The cost per unit for lot matching.
     public var numberPerUnit: Decimal?
-    
+
     /// The total cost for lot matching.
     public var numberTotal: Decimal?
-    
+
     /// The currency for cost matching.
     public var currency: Currency?
-    
+
     /// The acquisition date for lot matching.
     public var date: Date?
-    
+
     /// The label for lot identification.
     public var label: String?
-    
+
     /// Whether to merge matching lots.
     public var merge: Bool?
-    
+
     /// Creates a cost specification with the given parameters.
-    /// 
+    ///
     /// - Parameters:
     ///   - numberPerUnit: Cost per unit for matching
     ///   - numberTotal: Total cost for matching
@@ -190,7 +190,10 @@ public struct CostSpec: PostingCost {
     ///   - date: Date for matching
     ///   - label: Label for matching
     ///   - merge: Whether to merge matching lots
-    public init(numberPerUnit: Decimal? = nil, numberTotal: Decimal? = nil, currency: Currency? = nil, date: Date? = nil, label: String? = nil, merge: Bool? = nil) {
+    public init(
+        numberPerUnit: Decimal? = nil, numberTotal: Decimal? = nil, currency: Currency? = nil,
+        date: Date? = nil, label: String? = nil, merge: Bool? = nil
+    ) {
         self.numberPerUnit = numberPerUnit
         self.numberTotal = numberTotal
         self.currency = currency
@@ -201,14 +204,14 @@ public struct CostSpec: PostingCost {
 }
 
 /// Type alias for metadata attached to directives and postings.
-/// 
+///
 /// Metadata is stored as an ordered dictionary mapping string keys to
 /// metadata values, preserving the order in which metadata was specified
 /// in the source file.
 public typealias MetaData = OrderedDictionary<String, MetaDataValue>
 
 /// A posting represents one leg of a double-entry accounting transaction.
-/// 
+///
 /// Each posting specifies an account, amount, and optional cost/price information.
 /// Multiple postings together form a balanced transaction where debits equal credits.
 /// Postings can have flags for special handling and metadata for additional information.
@@ -229,28 +232,28 @@ public typealias MetaData = OrderedDictionary<String, MetaDataValue>
 public struct Posting<T: PostingCost>: Hashable, Sendable {
     /// The account affected by this posting.
     public var account: Account
-    
+
     /// The units of the position, or the amount transferred.
     /// Can be inferred from other postings if left unspecified during parsing.
     public var units: Amount
-    
+
     /// Optional cost information for tracking acquisition prices.
     public var cost: T?
-    
+
     /// Optional price for conversion rate information.
     public var price: Amount?
-    
+
     /// Optional flag character for special posting treatment.
     public var flag: Character?
-    
+
     /// Optional metadata attached to this posting.
     public var meta: MetaData?
-    
+
     /// Optional comment text for this posting.
     public var comment: String?
-    
+
     /// Creates a posting with the specified parameters.
-    /// 
+    ///
     /// - Parameters:
     ///   - account: The account affected by this posting
     ///   - units: The amount transferred
@@ -259,7 +262,10 @@ public struct Posting<T: PostingCost>: Hashable, Sendable {
     ///   - flag: Optional flag character
     ///   - meta: Optional metadata
     ///   - comment: Optional comment text
-    public init(account: Account, units: Amount, cost: T? = nil, price: Amount? = nil, flag: Character? = nil, meta: MetaData? = nil, comment: String? = nil) {
+    public init(
+        account: Account, units: Amount, cost: T? = nil, price: Amount? = nil,
+        flag: Character? = nil, meta: MetaData? = nil, comment: String? = nil
+    ) {
         self.account = account
         self.units = units
         self.cost = cost
@@ -271,7 +277,7 @@ public struct Posting<T: PostingCost>: Hashable, Sendable {
 }
 
 /// A tag for categorizing and organizing transactions.
-/// 
+///
 /// Tags are labels that can be attached to transactions for categorization,
 /// filtering, and reporting purposes. They must follow specific naming conventions
 /// and are commonly used for budgeting, project tracking, and custom reporting.
@@ -284,9 +290,9 @@ public struct Posting<T: PostingCost>: Hashable, Sendable {
 public struct Tag: Hashable, Identifiable, Sendable {
     /// The tag identifier following Beancount naming conventions.
     public var id: String
-    
+
     /// Creates a tag with the specified identifier.
-    /// 
+    ///
     /// - Parameter id: The tag identifier
     public init(id: String) {
         self.id = id
@@ -295,7 +301,7 @@ public struct Tag: Hashable, Identifiable, Sendable {
 
 extension Tag: Comparable {
     /// Compares two tags alphabetically by their identifiers.
-    /// 
+    ///
     /// - Parameters:
     ///   - lhs: The left-hand tag
     ///   - rhs: The right-hand tag
@@ -307,10 +313,10 @@ extension Tag: Comparable {
 
 extension Tag {
     /// Validates whether the tag identifier conforms to Beancount naming conventions.
-    /// 
+    ///
     /// Valid tag names contain only alphanumeric characters, hyphens, underscores,
     /// forward slashes, and periods.
-    /// 
+    ///
     /// - Returns: True if the tag identifier is valid
     public var isValid: Bool {
         let match = #"^[A-Za-z0-9\-_/.]+$"#
@@ -321,14 +327,14 @@ extension Tag {
 #if DEBUG
 extension Tag: ExpressibleByStringLiteral {
     /// Creates a tag from a string literal in DEBUG builds only.
-    /// 
+    ///
     /// - Parameter value: The tag identifier as a string
-    /// 
+    ///
     /// ## Example
     /// ```swift
     /// let tag: Tag = "vacation"
     /// ```
-    /// 
+    ///
     /// - Warning: Only available in DEBUG builds.
     public init(stringLiteral value: StringLiteralType) {
         self.id = value
@@ -337,7 +343,7 @@ extension Tag: ExpressibleByStringLiteral {
 #endif
 
 /// A link for connecting related transactions across the ledger.
-/// 
+///
 /// Links provide a way to group related transactions that may occur at different
 /// times or involve different accounts. They are commonly used for tracking
 /// multi-step processes like transfers, reimbursements, or complex trades.
@@ -350,9 +356,9 @@ extension Tag: ExpressibleByStringLiteral {
 public struct Link: Hashable, Identifiable, Sendable {
     /// The link identifier following Beancount naming conventions.
     public var id: String
-    
+
     /// Creates a link with the specified identifier.
-    /// 
+    ///
     /// - Parameter id: The link identifier
     public init(id: String) {
         self.id = id
@@ -361,7 +367,7 @@ public struct Link: Hashable, Identifiable, Sendable {
 
 extension Link: Comparable {
     /// Compares two links alphabetically by their identifiers.
-    /// 
+    ///
     /// - Parameters:
     ///   - lhs: The left-hand link
     ///   - rhs: The right-hand link
@@ -373,10 +379,10 @@ extension Link: Comparable {
 
 extension Link {
     /// Validates whether the link identifier conforms to Beancount naming conventions.
-    /// 
+    ///
     /// Valid link names contain only alphanumeric characters, hyphens, underscores,
     /// forward slashes, and periods.
-    /// 
+    ///
     /// - Returns: True if the link identifier is valid
     public var isValid: Bool {
         let match = #"^[A-Za-z0-9\-_/.]+$"#
@@ -387,14 +393,14 @@ extension Link {
 #if DEBUG
 extension Link: ExpressibleByStringLiteral {
     /// Creates a link from a string literal in DEBUG builds only.
-    /// 
+    ///
     /// - Parameter value: The link identifier as a string
-    /// 
+    ///
     /// ## Example
     /// ```swift
     /// let link: Link = "transfer-001"
     /// ```
-    /// 
+    ///
     /// - Warning: Only available in DEBUG builds.
     public init(stringLiteral value: StringLiteralType) {
         self.id = value
@@ -403,11 +409,11 @@ extension Link: ExpressibleByStringLiteral {
 #endif
 
 /// Represents possible values that can be stored in metadata.
-/// 
+///
 /// Metadata values can be various types including strings, numbers, dates,
 /// and Beancount-specific types like accounts and currencies. This enum
 /// provides type-safe storage for all supported metadata value types.
-/// 
+///
 /// ## Usage
 /// ```swift
 /// let meta: MetaData = [
@@ -439,10 +445,10 @@ public enum MetaDataValue: Hashable, Sendable {
 
 extension OrderedDictionary where Key == String, Value == MetaDataValue {
     /// Extracts the line number from metadata.
-    /// 
+    ///
     /// Looks for a "lineno" key with a numeric value, or falls back to
     /// extracting the line number from the source range if available.
-    /// 
+    ///
     /// - Returns: The line number if available, nil otherwise
     public var lineno: UInt32? {
         if case .number(let val) = self["lineno"] {
@@ -450,11 +456,11 @@ extension OrderedDictionary where Key == String, Value == MetaDataValue {
         }
         return range?.points.lowerBound.row
     }
-    
+
     /// Extracts the filename from metadata.
-    /// 
+    ///
     /// Looks for a "filename" key with a string value.
-    /// 
+    ///
     /// - Returns: The filename if available, nil otherwise
     public var filename: String? {
         if case .string(let val) = self["filename"] {
@@ -463,12 +469,12 @@ extension OrderedDictionary where Key == String, Value == MetaDataValue {
             return nil
         }
     }
-    
+
     /// Extracts the source range from metadata.
-    /// 
+    ///
     /// Looks for a "range" key with a range value, used for
     /// tracking source locations during parsing.
-    /// 
+    ///
     /// - Returns: The source range if available, nil otherwise
     public var range: TSRange? {
         if case .range(let val) = self["range"] {
@@ -477,12 +483,12 @@ extension OrderedDictionary where Key == String, Value == MetaDataValue {
             return nil
         }
     }
-    
+
     /// Returns metadata with system keys removed.
-    /// 
+    ///
     /// Filters out system-generated keys like "lineno", "filename", and "range"
     /// that are used internally by the parser, leaving only user-defined metadata.
-    /// 
+    ///
     /// - Returns: A new metadata dictionary with system keys removed
     public var removingSystemKeys: MetaData {
         return self.filter { key, value in

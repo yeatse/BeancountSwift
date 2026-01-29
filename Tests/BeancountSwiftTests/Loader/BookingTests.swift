@@ -10,8 +10,7 @@ import Testing
 @testable import BeancountSwift
 
 struct BookingTests {
-    
-    
+
     @Test func zeroAmount() throws {
         let p: ContentProvider =
             """
@@ -82,121 +81,134 @@ struct BookingTests {
         #expect(posting?.cost == nil)
         #expect(posting?.price == "4.068 CNY")
     }
-    
+
     @Test func allCurrencyInterpolations() throws {
         let p: ContentProvider =
-"""
-2015-10-01 open Assets:Account
-2015-10-01 open Assets:Other
+            """
+            2015-10-01 open Assets:Account
+            2015-10-01 open Assets:Other
 
-2015-10-02 *
-    Assets:Account  100.00 USD
-    Assets:Other
+            2015-10-02 *
+                Assets:Account  100.00 USD
+                Assets:Other
 
-2015-10-02 *
-    Assets:Account  100.00 USD @ 1.20 CAD
-    Assets:Other
+            2015-10-02 *
+                Assets:Account  100.00 USD @ 1.20 CAD
+                Assets:Other
 
-2015-10-02 *
-    Assets:Account  10 HOOL {{100.00 USD}} @ 120.00 USD
-    Assets:Other
-"""
+            2015-10-02 *
+                Assets:Account  10 HOOL {{100.00 USD}} @ 120.00 USD
+                Assets:Other
+            """
         let ledger = try p.loadLedger()
         #expect(ledger.errors.isEmpty)
     }
-    
+
     func indexes(of groups: [(Currency, [Booking.Refer])]) -> [Currency: Set<Int>] {
         var result: [Currency: Set<Int>] = [:]
         for (currency, refers) in groups {
-            result[currency] = refers.reduce([], { p, refers in
-                p.union([refers.index])
-            })
+            result[currency] = refers.reduce(
+                [],
+                { p, refers in
+                    p.union([refers.index])
+                })
         }
         return result
     }
-    
+
     @Test func categorizeUnitsUnambiguous() throws {
         let p: ContentProvider =
-        """
-            2015-10-02 *
-              Assets:Account  100.00 USD
-              Assets:Other   -100.00 USD
-        
-            2015-10-02 *
-              Assets:Account         USD
-              Assets:Other   -100.00 USD
-        """
+            """
+                2015-10-02 *
+                  Assets:Account  100.00 USD
+                  Assets:Other   -100.00 USD
+
+                2015-10-02 *
+                  Assets:Account         USD
+                  Assets:Other   -100.00 USD
+            """
         let _ = try p.parseLedger()
         // TOOD: not supported yet
     }
-    
+
     @Test func categorizeUnitsAmbiguous() throws {
         let p: ContentProvider =
-        """
-        ;; Uses the other legs to disambiguate.
-        2015-10-02 *
-          Assets:Account  100.00
-          Assets:Other   -100.00 USD
+            """
+            ;; Uses the other legs to disambiguate.
+            2015-10-02 *
+              Assets:Account  100.00
+              Assets:Other   -100.00 USD
 
-        ;; Uses the inventory contents to disambiguate.
-        2015-10-02 *
-          Assets:Account  100.00
-          Assets:Other
-        """
+            ;; Uses the inventory contents to disambiguate.
+            2015-10-02 *
+              Assets:Account  100.00
+              Assets:Other
+            """
         let ledger = try p.parseLedger()
-        var (groups, errors) = Booking.categorizeByCurrency(transaction: ledger.directives[0].transaction,
-                                                            balances: [:])
+        var (groups, errors) = Booking.categorizeByCurrency(
+            transaction: ledger.directives[0].transaction,
+            balances: [:])
         #expect(errors.isEmpty)
-        #expect(indexes(of: groups) == [
-            "USD": [0, 1]
-        ])
-        
-        (groups, errors) = Booking.categorizeByCurrency(transaction: ledger.directives[1].transaction,
-                                                        balances: ["Assets:Account": "1.00 USD"])
+        #expect(
+            indexes(of: groups) == [
+                "USD": [0, 1]
+            ])
+
+        (groups, errors) = Booking.categorizeByCurrency(
+            transaction: ledger.directives[1].transaction,
+            balances: ["Assets:Account": "1.00 USD"])
         #expect(errors.isEmpty)
-        #expect(indexes(of: groups) == [
-            "USD": [0, 1]
-        ])
-        
-        (groups, errors) = Booking.categorizeByCurrency(transaction: ledger.directives[1].transaction,
-                                                        balances: [:])
+        #expect(
+            indexes(of: groups) == [
+                "USD": [0, 1]
+            ])
+
+        (groups, errors) = Booking.categorizeByCurrency(
+            transaction: ledger.directives[1].transaction,
+            balances: [:])
         #expect(!errors.isEmpty)
         #expect(String(describing: errors.first).contains("failedToCategorize"))
         #expect(indexes(of: groups) == [:])
     }
-    
+
     @Test func categorizeUnitsPriceUnambiguous() throws {
         let p: ContentProvider =
-        """
-        2015-10-02 *
-          Assets:Account  100.00 USD @ 1.20 CAD
-          Assets:Other   -120.00 CAD
+            """
+            2015-10-02 *
+              Assets:Account  100.00 USD @ 1.20 CAD
+              Assets:Other   -120.00 CAD
 
-        2015-10-02 *
-          Assets:Account  100.00     @ 1.20 CAD
-          Assets:Other   -120.00 CAD
-        """
+            2015-10-02 *
+              Assets:Account  100.00     @ 1.20 CAD
+              Assets:Other   -120.00 CAD
+            """
         let ledger = try p.parseLedger()
-        var (groups, errors) = Booking.categorizeByCurrency(transaction: ledger.directives[0].transaction,
-                                                            balances: [:])
+        var (groups, errors) = Booking.categorizeByCurrency(
+            transaction: ledger.directives[0].transaction,
+            balances: [:])
         #expect(errors.isEmpty)
-        #expect(indexes(of: groups) == [
-            "CAD": [0, 1]
-        ])
-        
-        (groups, errors) = Booking.categorizeByCurrency(transaction: ledger.directives[1].transaction,
-                                                        balances: ["Assets:Account": "1.00 USD"])
+        #expect(
+            indexes(of: groups) == [
+                "CAD": [0, 1]
+            ])
+
+        (groups, errors) = Booking.categorizeByCurrency(
+            transaction: ledger.directives[1].transaction,
+            balances: ["Assets:Account": "1.00 USD"])
         #expect(errors.isEmpty)
-        #expect(indexes(of: groups) == [
-            "CAD": [0, 1]
-        ])
-        
-        (groups, errors) = Booking.categorizeByCurrency(transaction: ledger.directives[1].transaction,
-                                                        balances: [:])
+        #expect(
+            indexes(of: groups) == [
+                "CAD": [0, 1]
+            ])
+
+        (groups, errors) = Booking.categorizeByCurrency(
+            transaction: ledger.directives[1].transaction,
+            balances: [:])
         #expect(!errors.isEmpty)
         #expect(String(describing: errors.first).contains("cannotResolve"))
-        #expect(indexes(of: groups) == [
-            "CAD": [0, 1]
-        ])
+        #expect(
+            indexes(of: groups) == [
+                "CAD": [0, 1]
+            ])
     }
 }

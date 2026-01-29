@@ -2,6 +2,7 @@
 //  DefaultDictionaryTests.swift
 //
 import Testing
+
 @testable import BeancountSwift
 
 struct DefaultDictionaryTests {
@@ -125,7 +126,7 @@ struct DefaultDictionaryTests {
         var dd = DefaultDictionary<String, Box>(default: shared)
         dd["a"].value = 10
         // Different key gets the SAME instance
-        #expect(dd["a"] === dd["b"]) // identity check
+        #expect(dd["a"] === dd["b"])  // identity check
         #expect(dd["b"].value == 10)
     }
 
@@ -133,7 +134,7 @@ struct DefaultDictionaryTests {
         // Using the closure overload can create a fresh instance per missing key.
         var dd = DefaultDictionary<String, Box>(default: Box())
         dd["a"].value = 7
-        #expect(!(dd["a"] === dd["b"])) // different instances
+        #expect(!(dd["a"] === dd["b"]))  // different instances
         #expect(dd["b"].value == 0)
     }
 }
