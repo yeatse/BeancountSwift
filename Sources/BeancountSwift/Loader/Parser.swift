@@ -24,7 +24,7 @@ enum ParserError: LocatableError, LocalizedError {
     case popAbsentTag(file: String, lineno: UInt32, tag: Tag)
     /// Tags were pushed but not popped at end of file.
     case unbalancedTags(file: String, tags: [Tag])
-    
+
     var location: LedgerLocation? {
         switch self {
         case .invalidSyntax(let file, let lineno, _):
@@ -111,8 +111,7 @@ extension Posting<CostSpec> {
             return true
         }
         if let cost,
-           (cost.numberTotal == nil && cost.numberPerUnit == nil) ||
-            cost.numberPerUnit == .nan || cost.numberTotal == .nan || cost.currency == .missing
+            (cost.numberTotal == nil && cost.numberPerUnit == nil) || cost.currency == .missing
         {
             return true
         }
@@ -173,7 +172,7 @@ public enum Parser {
         try! parser.setLanguage(language)
         return parser
     }
-    
+
     /// Parses a Beancount file and all its includes into a complete ledger.
     ///
     /// Processes the main file and recursively handles all include directives,
@@ -185,12 +184,14 @@ public enum Parser {
     ///   - contentProvider: Provider for file content access
     /// - Returns: A complete parsed ledger with cost specifications
     /// - Throws: Parser errors for syntax issues, missing files, or circular includes
-    public static func parse(file: String, contentProvider: ContentProviding) throws -> ParsedLedger<
-        CostSpec
-    > {
+    public static func parse(file: String, contentProvider: ContentProviding) throws
+        -> ParsedLedger<
+            CostSpec
+        >
+    {
         let content = try contentProvider.provideContent(for: file)
         var (ledger, includes) = try parseContent(content: content, in: file)
-        
+
         var seenIncludes: Set<String> = [file]
         while !includes.isEmpty {
             let include = includes.popLast()!
@@ -218,7 +219,7 @@ public enum Parser {
         ledger.directives.sort()
         return ledger
     }
-    
+
     /// Parses a single directive from a text snippet.
     ///
     /// Attempts to parse a single Beancount directive from the provided text.
@@ -229,13 +230,18 @@ public enum Parser {
     public static func parseSnippet(from content: String) -> Directive<CostSpec>? {
         let treeSitter = makeTreeSitter()
         guard let tree = treeSitter.parse(content) else { return nil }
-        let directives: Set<String> = ["transaction", "balance", "open", "close", "pad", "document", "note", "event", "price", "commodity", "query", "custom"]
-        if let node = tree.rootNode?.namedChild(at: 0), let nodeType = node.nodeType, directives.contains(nodeType) {
+        let directives: Set<String> = [
+            "transaction", "balance", "open", "close", "pad", "document", "note", "event", "price",
+            "commodity", "query", "custom",
+        ]
+        if let node = tree.rootNode?.namedChild(at: 0), let nodeType = node.nodeType,
+            directives.contains(nodeType)
+        {
             return try? Directive(from: node, content: content)
         }
         return nil
     }
-    
+
     /// Parses multiple directives from a text snippet.
     ///
     /// Processes text content containing multiple Beancount directives and returns
@@ -275,19 +281,22 @@ public enum Parser {
         var result: [Directive<CostSpec>] = []
         let treeSitter = makeTreeSitter()
         guard let rootNode = treeSitter.parse(content)?.rootNode else { return result }
-        let directives: Set<String> = ["transaction", "balance", "open", "close", "pad", "document", "note", "event", "price", "commodity", "query", "custom"]
+        let directives: Set<String> = [
+            "transaction", "balance", "open", "close", "pad", "document", "note", "event", "price",
+            "commodity", "query", "custom",
+        ]
         for i in 0..<rootNode.namedChildCount {
             if let child = rootNode.namedChild(at: i),
-               let nodeType = child.nodeType,
-               directives.contains(nodeType),
-               let directive = try? Directive(from: child, content: content)
+                let nodeType = child.nodeType,
+                directives.contains(nodeType),
+                let directive = try? Directive(from: child, content: content)
             {
                 result.append(directive)
             }
         }
         return result
     }
-    
+
     /// Parses the content of a single file.
     ///
     /// Processes the syntax tree to extract directives, options, plugins, and includes.
@@ -305,13 +314,13 @@ public enum Parser {
         guard let tree = treeSitter.parse(content) else {
             throw ParserError.badContent(file: file, content: content)
         }
-        
+
         var options: [Option] = []
         var plugins: [Plugin] = []
         var directives: [Directive<CostSpec>] = []
         var errors: [Error] = []
         var includes: [String] = []
-        
+
         var tags: [Tag] = []
         func process(child: Node) {
             do {
@@ -353,7 +362,8 @@ public enum Parser {
                 case "plugin":
                     let plugin = try Plugin(from: child, content: content)
                     plugins.append(plugin)
-                case "transaction", "balance", "open", "close", "pad", "document", "note", "event", "price", "commodity", "query", "custom":
+                case "transaction", "balance", "open", "close", "pad", "document", "note", "event",
+                    "price", "commodity", "query", "custom":
                     var directive = try Directive<CostSpec>(from: child, content: content)
                     if !tags.isEmpty {
                         directive = directive.mergingTags(tags)

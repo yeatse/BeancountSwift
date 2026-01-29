@@ -13,7 +13,7 @@ public struct LedgerLocation {
     public var filename: String
     /// The line number within the source file.
     public var lineno: UInt32
-    
+
     /// Creates a source location for a file and line number.
     public init(filename: String, lineno: UInt32) {
         self.filename = filename

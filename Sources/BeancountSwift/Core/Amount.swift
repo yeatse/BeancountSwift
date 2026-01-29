@@ -8,7 +8,7 @@
 import Foundation
 
 /// An amount represents a number of a particular unit of something.
-/// 
+///
 /// An Amount is essentially a typed number with a currency, similar to how a unit
 /// system works. It consists of a decimal number and a currency identifier.
 /// All arithmetic operations preserve currency consistency.
@@ -27,16 +27,16 @@ import Foundation
 public struct Amount: Equatable, Hashable, Sendable {
     /// The numeric value of the amount as a Decimal for precision.
     public var number: Decimal
-    
+
     /// The currency or commodity identifier for this amount.
     public var currency: Currency
-    
+
     /// A special constant representing a missing or undefined amount.
     /// Uses NaN for the number and a special missing currency.
     public static let missing = Amount(number: .nan, currency: .missing)
-    
+
     /// Creates a new amount with the specified number and currency.
-    /// 
+    ///
     /// - Parameters:
     ///   - number: The numeric value as a Decimal
     ///   - currency: The currency identifier
@@ -48,10 +48,10 @@ public struct Amount: Equatable, Hashable, Sendable {
 
 extension Amount: Comparable {
     /// Compares two amounts, first by currency, then by numeric value.
-    /// 
+    ///
     /// Amounts are ordered first by currency alphabetically, then by numeric value
     /// for amounts of the same currency.
-    /// 
+    ///
     /// - Parameters:
     ///   - lhs: The left-hand amount
     ///   - rhs: The right-hand amount
@@ -63,17 +63,17 @@ extension Amount: Comparable {
             return lhs.number < rhs.number
         }
     }
-    
+
     /// Negates an amount, returning a new amount with the opposite sign.
-    /// 
+    ///
     /// - Parameter amount: The amount to negate
     /// - Returns: A new amount with negated number and same currency
     public static prefix func - (amount: Amount) -> Amount {
         Amount(number: -amount.number, currency: amount.currency)
     }
-    
+
     /// Returns the absolute value of the amount.
-    /// 
+    ///
     /// If the amount is negative, returns a new amount with the positive number.
     /// Otherwise returns the original amount unchanged.
     public var absolute: Amount {
@@ -83,12 +83,12 @@ extension Amount: Comparable {
             Amount(number: -number, currency: currency)
         }
     }
-    
+
     /// Adds two amounts with the same currency.
-    /// 
+    ///
     /// - Warning: Both amounts must have the same currency. The result
     ///   will use the currency from the left operand.
-    /// 
+    ///
     /// - Parameters:
     ///   - lhs: The left-hand amount
     ///   - rhs: The right-hand amount
@@ -96,22 +96,22 @@ extension Amount: Comparable {
     public static func + (lhs: Amount, rhs: Amount) -> Amount {
         Amount(number: lhs.number + rhs.number, currency: lhs.currency)
     }
-    
+
     /// Subtracts two amounts with the same currency.
-    /// 
+    ///
     /// - Warning: Both amounts must have the same currency. The result
     ///   will use the currency from the left operand.
-    /// 
+    ///
     /// - Parameters:
     ///   - lhs: The left-hand amount
-    ///   - rhs: The right-hand amount  
+    ///   - rhs: The right-hand amount
     /// - Returns: A new amount with the difference of the numbers
     public static func - (lhs: Amount, rhs: Amount) -> Amount {
         Amount(number: lhs.number - rhs.number, currency: lhs.currency)
     }
-    
+
     /// Multiplies an amount by a scalar decimal value.
-    /// 
+    ///
     /// - Parameters:
     ///   - lhs: The amount to multiply
     ///   - rhs: The scalar multiplier
@@ -119,9 +119,9 @@ extension Amount: Comparable {
     public static func * (lhs: Amount, rhs: Decimal) -> Amount {
         Amount(number: lhs.number * rhs, currency: lhs.currency)
     }
-    
+
     /// Divides an amount by a scalar decimal value.
-    /// 
+    ///
     /// - Parameters:
     ///   - lhs: The amount to divide
     ///   - rhs: The scalar divisor
@@ -129,11 +129,11 @@ extension Amount: Comparable {
     public static func / (lhs: Amount, rhs: Decimal) -> Amount {
         Amount(number: lhs.number / rhs, currency: lhs.currency)
     }
-    
+
     /// Adds the right amount to the left amount in place.
-    /// 
+    ///
     /// - Warning: Both amounts must have the same currency.
-    /// 
+    ///
     /// - Parameters:
     ///   - left: The amount to modify
     ///   - right: The amount to add
@@ -145,22 +145,22 @@ extension Amount: Comparable {
 #if DEBUG
 extension Amount: ExpressibleByStringLiteral {
     /// Creates an amount from a string literal in DEBUG builds only.
-    /// 
+    ///
     /// Parses strings in the format "123.45 USD" where the number can be positive
     /// or negative and the currency follows Beancount naming conventions.
-    /// 
+    ///
     /// This initializer is only available in DEBUG builds to prevent runtime
     /// parsing in production code. Use explicit initialization in production.
-    /// 
+    ///
     /// - Parameter value: A string containing number and currency separated by space
-    /// 
+    ///
     /// ## Examples
     /// ```swift
     /// let amount1: Amount = "100.50 USD"
-    /// let amount2: Amount = "-25.00 EUR" 
+    /// let amount2: Amount = "-25.00 EUR"
     /// let amount3: Amount = "1000 /STOCK/AAPL"  // Commodity with path syntax
     /// ```
-    /// 
+    ///
     /// - Warning: This will crash with `fatalError()` if the string format is invalid.
     public init(stringLiteral value: StringLiteralType) {
         guard

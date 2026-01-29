@@ -5,9 +5,10 @@
 //  Created by Yeatse on 2024/1/5.
 //
 
-@testable import BeancountSwift
-import Testing
 import Foundation
+import Testing
+
+@testable import BeancountSwift
 
 struct ContentProvider: ContentProviding {
     let source: String
@@ -15,11 +16,11 @@ struct ContentProvider: ContentProviding {
     func provideContent(for name: String) throws -> String {
         return source
     }
-    
+
     func parseLedger() throws -> ParsedLedger<CostSpec> {
         return try Parser.parse(file: "test.bean", contentProvider: self)
     }
-    
+
     func loadLedger() throws -> ParsedLedger<Cost> {
         return try Loader.load(file: "test.bean", contentProvider: self)
     }
@@ -40,8 +41,9 @@ extension Decimal: @retroactive ExpressibleByStringLiteral {
 extension CurrencyPair: ExpressibleByStringLiteral {
     public init(stringLiteral value: StringLiteralType) {
         let comps = value.split(separator: "/")
-        self.init(base: .init(id: String(comps[0])),
-                  quote: .init(id: String(comps[1])))
+        self.init(
+            base: .init(id: String(comps[0])),
+            quote: .init(id: String(comps[1])))
     }
 }
 
@@ -55,31 +57,33 @@ extension DailyPrice: ExpressibleByArrayLiteral {
 
 extension Posting {
     func removingMeta() -> Self {
-        return .init(account: account,
-                     units: units,
-                     cost: cost,
-                     price: price,
-                     flag: flag,
-                     comment: comment)
+        return .init(
+            account: account,
+            units: units,
+            cost: cost,
+            price: price,
+            flag: flag,
+            comment: comment)
     }
 }
 
 extension Transaction {
     func removingMeta() -> Self {
-        return .init(flag: flag,
-                     payee: payee,
-                     narration: narration,
-                     tags: tags,
-                     links: links,
-                     postings: postings.map({ $0.removingMeta() }))
+        return .init(
+            flag: flag,
+            payee: payee,
+            narration: narration,
+            tags: tags,
+            links: links,
+            postings: postings.map({ $0.removingMeta() }))
     }
 }
 
 extension DirectiveContent {
     func removingMeta() -> Self {
         return switch self {
-            case .transaction(let transaction): .transaction(transaction.removingMeta())
-            default: self
+        case .transaction(let transaction): .transaction(transaction.removingMeta())
+        default: self
         }
     }
 }
@@ -88,7 +92,7 @@ extension Directive {
     func removingMeta() -> Self {
         return .init(meta: [:], date: date, comment: comment, content: content.removingMeta())
     }
-    
+
     var transaction: Transaction<T> {
         guard case .transaction(let txn) = content else {
             fatalError()
@@ -97,7 +101,8 @@ extension Directive {
     }
 }
 
-func assertEqualEntries<T>(_ lhs: some RandomAccessCollection<Directive<T>>, _ rhs: [Directive<T>]) {
+func assertEqualEntries<T>(_ lhs: some RandomAccessCollection<Directive<T>>, _ rhs: [Directive<T>])
+{
     #expect(lhs.map({ $0.removingMeta() }) == rhs.map({ $0.removingMeta() }))
 }
 

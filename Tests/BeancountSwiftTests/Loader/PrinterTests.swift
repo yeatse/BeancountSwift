@@ -6,9 +6,10 @@
 //  Based on beancount/parser/printer_test.py
 //
 
-import Testing
-@testable import BeancountSwift
 import Foundation
+import Testing
+
+@testable import BeancountSwift
 
 // MARK: - TestPrinter
 
@@ -47,7 +48,9 @@ struct TestEntryPrinter {
 
     /// Round-trip test helper - parse, print, reparse, verify identical
     /// Corresponds to Python's assertRoundTrip method
-    private func assertRoundTrip(_ source: String, sourceLocation: SourceLocation = #_sourceLocation) throws {
+    private func assertRoundTrip(
+        _ source: String, sourceLocation: SourceLocation = #_sourceLocation
+    ) throws {
         // Parse the source
         let p = ContentProvider(source: source)
         let ledger1 = try p.parseLedger()
@@ -59,14 +62,20 @@ struct TestEntryPrinter {
         // Parse the output
         let p2 = ContentProvider(source: output1)
         let ledger2 = try p2.parseLedger()
-        #expect(ledger2.errors.isEmpty, "Expected no parse errors on round-trip", sourceLocation: sourceLocation)
+        #expect(
+            ledger2.errors.isEmpty, "Expected no parse errors on round-trip",
+            sourceLocation: sourceLocation)
 
         // Compare directive counts
-        #expect(ledger1.directives.count == ledger2.directives.count, "Directive count mismatch", sourceLocation: sourceLocation)
+        #expect(
+            ledger1.directives.count == ledger2.directives.count, "Directive count mismatch",
+            sourceLocation: sourceLocation)
 
         // Print again and verify output is identical
         let output2 = ledger2.directives.map { $0.description }.joined()
-        #expect(output1 == output2, "Round-trip output should be identical", sourceLocation: sourceLocation)
+        #expect(
+            output1 == output2, "Round-trip output should be identical",
+            sourceLocation: sourceLocation)
     }
 
     @Test(.disabled("assertRoundTripViaRealFile not implemented - file-based round-trip testing"))
@@ -85,195 +94,208 @@ struct TestEntryPrinter {
 
     @Test func testTransaction() throws {
         // Comprehensive transaction test from Python (without problematic cases)
-        try assertRoundTrip("""
-        2014-01-01 open Assets:Account1
-        2014-01-01 open Assets:Account2
-        2014-01-01 open Assets:Account3
-        2014-01-01 open Assets:Account4
-        2014-01-01 open Assets:Cash
+        try assertRoundTrip(
+            """
+            2014-01-01 open Assets:Account1
+            2014-01-01 open Assets:Account2
+            2014-01-01 open Assets:Account3
+            2014-01-01 open Assets:Account4
+            2014-01-01 open Assets:Cash
 
-        2014-06-08 *
-          Assets:Account1  111.00 BEAN
-          Assets:Cash     -111.00 BEAN
+            2014-06-08 *
+              Assets:Account1  111.00 BEAN
+              Assets:Cash     -111.00 BEAN
 
-        2014-06-08 * "Narration"
-          Assets:Account1  111.00 BEAN
-          Assets:Cash     -111.00 BEAN
+            2014-06-08 * "Narration"
+              Assets:Account1  111.00 BEAN
+              Assets:Cash     -111.00 BEAN
 
-        2014-06-08 * "Payee" "Narration"
-          Assets:Account1  111.00 BEAN
-          Assets:Cash     -111.00 BEAN
+            2014-06-08 * "Payee" "Narration"
+              Assets:Account1  111.00 BEAN
+              Assets:Cash     -111.00 BEAN
 
-        2014-06-08 * "Payee" "Narration" ^link1 ^link2 #tag1 #tag2
-          Assets:Account1  111.00 BEAN
-          Assets:Cash     -111.00 BEAN
+            2014-06-08 * "Payee" "Narration" ^link1 ^link2 #tag1 #tag2
+              Assets:Account1  111.00 BEAN
+              Assets:Cash     -111.00 BEAN
 
-        2014-06-08 * "Narration"
-          Assets:Account1  111.00 BEAN {53.24 USD}
-          Assets:Cash     -5909.64 USD
+            2014-06-08 * "Narration"
+              Assets:Account1  111.00 BEAN {53.24 USD}
+              Assets:Cash     -5909.64 USD
 
-        2014-06-08 !
-          Assets:Account1  111.00 BEAN {53.24 USD} @ 55.02 USD
-          Assets:Account2  111.00 BEAN {53.24 USD}
-          Assets:Account3  111.00 BEAN @ 55.02 USD
-          Assets:Account4  111.00 BEAN
-          Assets:Cash     -111.00 BEAN
-          Assets:Cash    -17926.5 USD
+            2014-06-08 !
+              Assets:Account1  111.00 BEAN {53.24 USD} @ 55.02 USD
+              Assets:Account2  111.00 BEAN {53.24 USD}
+              Assets:Account3  111.00 BEAN @ 55.02 USD
+              Assets:Account4  111.00 BEAN
+              Assets:Cash     -111.00 BEAN
+              Assets:Cash    -17926.5 USD
 
-        2014-06-08 *
-          Assets:Account1   111.00 BEAN
-          ! Assets:Account2 111.00 BEAN
-          * Assets:Account3 111.00 BEAN
-          Assets:Account4  -333.00 BEAN
+            2014-06-08 *
+              Assets:Account1   111.00 BEAN
+              ! Assets:Account2 111.00 BEAN
+              * Assets:Account3 111.00 BEAN
+              Assets:Account4  -333.00 BEAN
 
-        2014-06-20 custom "budget" Assets:Account2 "balance < 200.00 USD" 200.00 10.00 USD
+            2014-06-20 custom "budget" Assets:Account2 "balance < 200.00 USD" 200.00 10.00 USD
 
-        """)
+            """)
     }
 
     @Test(.disabled("Weight comments added for @ price without cost - printer behavior differs"))
     func testTransactionConversion() throws {
         // Python: Conversion entry with @ price
-        try assertRoundTrip("""
-        2014-01-01 open Assets:Account1
-        2014-01-01 open Assets:Account2
+        try assertRoundTrip(
+            """
+            2014-01-01 open Assets:Account1
+            2014-01-01 open Assets:Account2
 
-        2014-06-09 * "An entry like a conversion entry"
-          Assets:Account1  1 USD @ 0 OTHER
-          Assets:Account2  1 CAD @ 0 OTHER
+            2014-06-09 * "An entry like a conversion entry"
+              Assets:Account1  1 USD @ 0 OTHER
+              Assets:Account2  1 CAD @ 0 OTHER
 
-        """)
+            """)
     }
 
     @Test func testTransactionEscaped() throws {
         // Python: Transaction with escaped quotes in narration
-        try assertRoundTrip("""
-        2014-01-01 open Assets:Account1
-        2014-01-01 open Assets:Cash
+        try assertRoundTrip(
+            """
+            2014-01-01 open Assets:Account1
+            2014-01-01 open Assets:Cash
 
-        2014-06-10 * "Entry with escaped \\"quotes\\""
-          Assets:Account1  111.00 BEAN
-          Assets:Cash     -111.00 BEAN
+            2014-06-10 * "Entry with escaped \\"quotes\\""
+              Assets:Account1  111.00 BEAN
+              Assets:Cash     -111.00 BEAN
 
-        """)
+            """)
     }
 
     // MARK: - Balance Tests
 
     @Test func testBalance() throws {
-        try assertRoundTrip("""
-        2014-06-01 open Assets:Account1
+        try assertRoundTrip(
+            """
+            2014-06-01 open Assets:Account1
 
-        2014-06-08 balance Assets:Account1 0.00 USD
+            2014-06-08 balance Assets:Account1 0.00 USD
 
-        """)
+            """)
     }
 
     @Test func testBalanceTolerance() throws {
-        try assertRoundTrip("""
-        2014-06-01 open Assets:Account1
-        2014-06-01 open Assets:Cash
+        try assertRoundTrip(
+            """
+            2014-06-01 open Assets:Account1
+            2014-06-01 open Assets:Cash
 
-        2014-06-02 * "Deposit"
-          Assets:Account1  199.95 USD
-          Assets:Cash     -199.95 USD
+            2014-06-02 * "Deposit"
+              Assets:Account1  199.95 USD
+              Assets:Cash     -199.95 USD
 
-        2014-06-04 balance Assets:Account1 200.00 ~ 0.05 USD
-        2014-06-05 balance Assets:Account1 199.95 ~ 0 USD
+            2014-06-04 balance Assets:Account1 200.00 ~ 0.05 USD
+            2014-06-05 balance Assets:Account1 199.95 ~ 0 USD
 
-        """)
+            """)
     }
 
     // MARK: - Note Tests
 
     @Test func testNote() throws {
-        try assertRoundTrip("""
-        2014-06-01 open Assets:Account1
+        try assertRoundTrip(
+            """
+            2014-06-01 open Assets:Account1
 
-        2014-06-08 note Assets:Account1 "Note"
+            2014-06-08 note Assets:Account1 "Note"
 
-        """)
+            """)
     }
 
     // MARK: - Document Tests
 
     @Test func testDocument() throws {
         // Python test uses path handling for cross-platform compatibility
-        try assertRoundTrip("""
-        2014-06-01 open Assets:Account1
+        try assertRoundTrip(
+            """
+            2014-06-01 open Assets:Account1
 
-        2014-06-08 document Assets:Account1 "/path/to/document.pdf"
-        2014-06-08 document Assets:Account1 "/path/to/document.pdf" #tag1 #tag2 ^link1 ^link2
-        2014-06-08 document Assets:Account1 "/path/to/document.pdf" #tag1
-        2014-06-08 document Assets:Account1 "/path/to/document.pdf" ^link1
+            2014-06-08 document Assets:Account1 "/path/to/document.pdf"
+            2014-06-08 document Assets:Account1 "/path/to/document.pdf" #tag1 #tag2 ^link1 ^link2
+            2014-06-08 document Assets:Account1 "/path/to/document.pdf" #tag1
+            2014-06-08 document Assets:Account1 "/path/to/document.pdf" ^link1
 
-        """)
+            """)
     }
 
     // MARK: - Query Tests
 
     @Test func testQuery() throws {
-        try assertRoundTrip("""
-        2014-06-08 query "cash" "SELECT sum(position) WHERE currency = 'USD'"
+        try assertRoundTrip(
+            """
+            2014-06-08 query "cash" "SELECT sum(position) WHERE currency = 'USD'"
 
-        """)
+            """)
     }
 
     // MARK: - Pad Tests
 
     @Test func testPad() throws {
-        try assertRoundTrip("""
-        2014-01-01 open Assets:Account1
-        2014-01-01 open Assets:Account2
+        try assertRoundTrip(
+            """
+            2014-01-01 open Assets:Account1
+            2014-01-01 open Assets:Account2
 
-        2014-06-08 pad Assets:Account1 Assets:Account2
+            2014-06-08 pad Assets:Account1 Assets:Account2
 
-        2014-10-01 balance Assets:Account1 1 USD
+            2014-10-01 balance Assets:Account1 1 USD
 
-        """)
+            """)
     }
 
     // MARK: - Open Tests
 
     @Test func testOpen() throws {
-        try assertRoundTrip("""
-        2014-06-08 open Assets:Account1
-        2014-06-08 open Assets:Account2 USD
-        2014-06-08 open Assets:Account3 USD,CAD,EUR
-        2014-06-08 open Assets:Account4 HOOL "NONE"
+        try assertRoundTrip(
+            """
+            2014-06-08 open Assets:Account1
+            2014-06-08 open Assets:Account2 USD
+            2014-06-08 open Assets:Account3 USD,CAD,EUR
+            2014-06-08 open Assets:Account4 HOOL "NONE"
 
-        """)
+            """)
     }
 
     // MARK: - Close Tests
 
     @Test func testClose() throws {
-        try assertRoundTrip("""
-        2014-01-01 open Assets:Account1
+        try assertRoundTrip(
+            """
+            2014-01-01 open Assets:Account1
 
-        2014-06-08 close Assets:Account1
+            2014-06-08 close Assets:Account1
 
-        """)
+            """)
     }
 
     // MARK: - Price Tests
 
     @Test func testPrice() throws {
-        try assertRoundTrip("""
-        2014-06-08 price BEAN 53.24 USD
-        2014-06-08 price USD 1.09 CAD
+        try assertRoundTrip(
+            """
+            2014-06-08 price BEAN 53.24 USD
+            2014-06-08 price USD 1.09 CAD
 
-        """)
+            """)
     }
 
     // MARK: - Event Tests
 
     @Test func testEvent() throws {
-        try assertRoundTrip("""
-        2014-06-08 event "location" "New York, NY, USA"
-        2014-06-08 event "employer" "Four Square"
+        try assertRoundTrip(
+            """
+            2014-06-08 event "location" "New York, NY, USA"
+            2014-06-08 event "employer" "Four Square"
 
-        """)
+            """)
     }
 
     // MARK: - Metadata Tests
@@ -281,9 +303,9 @@ struct TestEntryPrinter {
     @Test func testMetadata() throws {
         // Tests metadata escaping - from Python test_metadata in TestEntryPrinter
         let p: ContentProvider = """
-        2014-01-01 open Assets:Account1
-          something: "a\\"\\\\c"
-        """
+            2014-01-01 open Assets:Account1
+              something: "a\\"\\\\c"
+            """
         let ledger = try p.parseLedger()
         let directive = ledger.directives[0]
 
@@ -304,29 +326,29 @@ struct TestPrinterSpacing {
     func testInterlineSpacing() throws {
         // Python: Tests that blank lines are preserved between different directive types
         let input = """
-        2014-01-01 open Assets:Account1
-        2014-01-01 open Assets:Account2
-        2014-01-01 open Assets:Cash
+            2014-01-01 open Assets:Account1
+            2014-01-01 open Assets:Account2
+            2014-01-01 open Assets:Cash
 
-        2014-06-08 *
-          Assets:Account1  111.00 BEAN
-          Assets:Cash
+            2014-06-08 *
+              Assets:Account1  111.00 BEAN
+              Assets:Cash
 
-        2014-06-08 * "Narration"
-          Assets:Account1  111.00 BEAN
-          Assets:Cash
+            2014-06-08 * "Narration"
+              Assets:Account1  111.00 BEAN
+              Assets:Cash
 
-        2014-06-08 * "Payee" "Narration"
-          Assets:Account2  111.00 BEAN
-          Assets:Cash
+            2014-06-08 * "Payee" "Narration"
+              Assets:Account2  111.00 BEAN
+              Assets:Cash
 
-        2014-10-01 close Assets:Account2
+            2014-10-01 close Assets:Account2
 
-        2014-10-11 price BEAN 10 USD
-        2014-10-12 price BEAN 11 USD
-        2014-10-13 price BEAN 11 USD
+            2014-10-11 price BEAN 10 USD
+            2014-10-12 price BEAN 11 USD
+            2014-10-13 price BEAN 11 USD
 
-        """
+            """
 
         let p = ContentProvider(source: input)
         let ledger = try p.parseLedger()
@@ -344,28 +366,29 @@ struct TestPrinterSpacing {
 @Suite("Display Context Tests")
 struct TestDisplayContext {
 
-    @Test(.disabled("Number formatting produces invalid syntax on round-trip - needs investigation"))
+    @Test(
+        .disabled("Number formatting produces invalid syntax on round-trip - needs investigation"))
     func testPrecision() throws {
         // Python: Tests that different precisions are preserved (INT, FP1-FP5)
         let p: ContentProvider = """
-        2014-01-01 open Assets:Account
-        2014-01-01 open Assets:Cash
+            2014-01-01 open Assets:Account
+            2014-01-01 open Assets:Cash
 
-        2014-07-01 *
-          Assets:Account  1 INT
-          Assets:Cash    -1 INT
-          Assets:Account  1.1 FP1
-          Assets:Cash    -1.1 FP1
-          Assets:Account  22.22 FP2
-          Assets:Cash    -22.22 FP2
-          Assets:Account  333.333 FP3
-          Assets:Cash    -333.333 FP3
-          Assets:Account  4444.4444 FP4
-          Assets:Cash    -4444.4444 FP4
-          Assets:Account  55555.55555 FP5
-          Assets:Cash    -55555.55555 FP5
+            2014-07-01 *
+              Assets:Account  1 INT
+              Assets:Cash    -1 INT
+              Assets:Account  1.1 FP1
+              Assets:Cash    -1.1 FP1
+              Assets:Account  22.22 FP2
+              Assets:Cash    -22.22 FP2
+              Assets:Account  333.333 FP3
+              Assets:Cash    -333.333 FP3
+              Assets:Account  4444.4444 FP4
+              Assets:Cash    -4444.4444 FP4
+              Assets:Account  55555.55555 FP5
+              Assets:Cash    -55555.55555 FP5
 
-        """
+            """
 
         let ledger = try p.parseLedger()
         let output = ledger.directives.map { $0.description }.joined()
@@ -395,14 +418,14 @@ struct TestPrinterAlignment {
     @Test func testAlign() throws {
         // Python: Tests basic amount alignment in transactions
         let p: ContentProvider = """
-        2014-01-01 open Expenses:Commissions
+            2014-01-01 open Expenses:Commissions
 
-        2014-07-01 * "Something"
-          Expenses:Commissions  20000 USD
-          Expenses:Commissions  9.9505 USD
-          Expenses:Commissions  -20009.9505 USD
+            2014-07-01 * "Something"
+              Expenses:Commissions  20000 USD
+              Expenses:Commissions  9.9505 USD
+              Expenses:Commissions  -20009.9505 USD
 
-        """
+            """
 
         let ledger = try p.parseLedger()
         let output = ledger.directives.map { $0.description }.joined()
@@ -422,17 +445,17 @@ struct TestPrinterAlignment {
         // Python: Tests print_entries(render_weights=True)
         // Adds weight comments showing position values in common currency
         let p: ContentProvider = """
-        2014-01-01 open Assets:US:Investments:HOOL
-        2014-01-01 open Expenses:Commissions
-        2014-01-01 open Assets:US:Investments:Cash
+            2014-01-01 open Assets:US:Investments:HOOL
+            2014-01-01 open Expenses:Commissions
+            2014-01-01 open Assets:US:Investments:Cash
 
-        2014-07-01 * "Something"
-          Assets:US:Investments:HOOL  45 HOOL {504.30 USD}
-          Assets:US:Investments:HOOL  4 HOOL {504.30 USD, 2014-11-11}
-          Expenses:Commissions  9.9520 USD
-          Assets:US:Investments:Cash  -22473.32 CAD @ 1.10 USD
+            2014-07-01 * "Something"
+              Assets:US:Investments:HOOL  45 HOOL {504.30 USD}
+              Assets:US:Investments:HOOL  4 HOOL {504.30 USD, 2014-11-11}
+              Expenses:Commissions  9.9520 USD
+              Assets:US:Investments:Cash  -22473.32 CAD @ 1.10 USD
 
-        """
+            """
 
         let ledger = try p.parseLedger()
 
@@ -452,14 +475,14 @@ struct TestPrinterMisc {
         // Python: Tests printing entries with no valid account names
         // Expects printer to handle gracefully without errors
         let p: ContentProvider = """
-        2000-01-01 * "Test"
-          Assets:Foo
+            2000-01-01 * "Test"
+              Assets:Foo
 
-        2000-01-01 * "Test"
-          Assets:Foo
-          Assets:Bar
+            2000-01-01 * "Test"
+              Assets:Foo
+              Assets:Bar
 
-        """
+            """
 
         let ledger = try p.parseLedger()
         let output = ledger.directives.map { $0.description }.joined()
@@ -470,28 +493,31 @@ struct TestPrinterMisc {
 
     @Test func testMetadataWithTransaction() throws {
         // Python: Tests metadata on directives and postings
-        try assertRoundTrip("""
-        2000-01-01 open Assets:US:Investments:Cash
-          name: "Investment account"
+        try assertRoundTrip(
+            """
+            2000-01-01 open Assets:US:Investments:Cash
+              name: "Investment account"
 
-        2000-01-01 open Assets:US:Investments:HOOL
+            2000-01-01 open Assets:US:Investments:HOOL
 
-        2000-01-02 commodity VHT
-          asset-class: "Stocks"
-          name: "Vanguard Health Care ETF"
+            2000-01-02 commodity VHT
+              asset-class: "Stocks"
+              name: "Vanguard Health Care ETF"
 
-        2000-01-03 * "Something"
-          doc: "some-statement.pdf"
-          Assets:US:Investments:Cash  -23.45 USD
-            note: "No commission"
-          Assets:US:Investments:HOOL  1 HOOL {23.45 USD}
-            settlement: 2000-01-05
+            2000-01-03 * "Something"
+              doc: "some-statement.pdf"
+              Assets:US:Investments:Cash  -23.45 USD
+                note: "No commission"
+              Assets:US:Investments:HOOL  1 HOOL {23.45 USD}
+                settlement: 2000-01-05
 
-        """)
+            """)
     }
 
     /// Round-trip test helper for misc tests
-    private func assertRoundTrip(_ source: String, sourceLocation: SourceLocation = #_sourceLocation) throws {
+    private func assertRoundTrip(
+        _ source: String, sourceLocation: SourceLocation = #_sourceLocation
+    ) throws {
         let p = ContentProvider(source: source)
         let ledger1 = try p.parseLedger()
         #expect(ledger1.errors.isEmpty, "Expected no parse errors", sourceLocation: sourceLocation)
@@ -499,41 +525,48 @@ struct TestPrinterMisc {
         let output1 = ledger1.directives.map { $0.description }.joined()
         let p2 = ContentProvider(source: output1)
         let ledger2 = try p2.parseLedger()
-        #expect(ledger2.errors.isEmpty, "Expected no parse errors on round-trip", sourceLocation: sourceLocation)
-        #expect(ledger1.directives.count == ledger2.directives.count, "Directive count mismatch", sourceLocation: sourceLocation)
+        #expect(
+            ledger2.errors.isEmpty, "Expected no parse errors on round-trip",
+            sourceLocation: sourceLocation)
+        #expect(
+            ledger1.directives.count == ledger2.directives.count, "Directive count mismatch",
+            sourceLocation: sourceLocation)
 
         let output2 = ledger2.directives.map { $0.description }.joined()
-        #expect(output1 == output2, "Round-trip output should be identical", sourceLocation: sourceLocation)
+        #expect(
+            output1 == output2, "Round-trip output should be identical",
+            sourceLocation: sourceLocation)
     }
 
     @Test func testZeroCost() throws {
         // Python: Tests that zero costs are printed correctly
-        try assertRoundTrip("""
-        2000-01-01 open Assets:Invest:Cash
-        2000-01-01 open Assets:Invest:Options
+        try assertRoundTrip(
+            """
+            2000-01-01 open Assets:Invest:Cash
+            2000-01-01 open Assets:Invest:Options
 
-        2000-01-03 *
-          Assets:Invest:Options  100 HOOLOPT {0 USD}
-          Assets:Invest:Cash  0 USD
+            2000-01-03 *
+              Assets:Invest:Options  100 HOOLOPT {0 USD}
+              Assets:Invest:Cash  0 USD
 
-        """)
+            """)
     }
 
     @Test func testVerySmallNumber() throws {
         // Python: Ensures very small numbers don't use scientific notation
         let p: ContentProvider = """
-        2016-11-05 open Expenses:Bank:Conversion
-        2016-11-05 open Expenses:Gifts
-        2016-11-05 open Expenses:Entertainment:Travel
-        2016-11-05 open Assets:Current:Bank:SomeBank
+            2016-11-05 open Expenses:Bank:Conversion
+            2016-11-05 open Expenses:Gifts
+            2016-11-05 open Expenses:Entertainment:Travel
+            2016-11-05 open Assets:Current:Bank:SomeBank
 
-        2016-11-05 * "Aquarium"
-          Expenses:Gifts  435 DKK
-          Expenses:Entertainment:Travel  340 DKK
-          Expenses:Bank:Conversion
-          Assets:Current:Bank:SomeBank  -204.17 BGN @@ 775.00 DKK
+            2016-11-05 * "Aquarium"
+              Expenses:Gifts  435 DKK
+              Expenses:Entertainment:Travel  340 DKK
+              Expenses:Bank:Conversion
+              Assets:Current:Bank:SomeBank  -204.17 BGN @@ 775.00 DKK
 
-        """
+            """
 
         let ledger = try p.parseLedger()
         let output = ledger.directives.map { $0.description }.joined()
@@ -547,11 +580,11 @@ struct TestPrinterMisc {
     @Test func testRenderMissing() throws {
         // Python: Tests rendering transactions with missing amounts
         let p: ContentProvider = """
-        2019-01-19 * "Fitness First" "Last training session"
-          Expenses:Sports:Gym:Martin
-          Assets:Martin:Cash
+            2019-01-19 * "Fitness First" "Last training session"
+              Expenses:Sports:Gym:Martin
+              Assets:Martin:Cash
 
-        """
+            """
 
         let ledger = try p.parseLedger()
 
@@ -565,15 +598,15 @@ struct TestPrinterMisc {
     func testRenderMetaWithNone() throws {
         // Python: Tests metadata with None values (Issue 378)
         let p: ContentProvider = """
-        2019-01-01 open Assets:A
-        2019-01-01 open Assets:B
+            2019-01-01 open Assets:A
+            2019-01-01 open Assets:B
 
-        2019-02-28 txn "Test"
-          Assets:A  10.00 USD
-          Assets:B  -10.00 USD
-            foo:
+            2019-02-28 txn "Test"
+              Assets:A  10.00 USD
+              Assets:B  -10.00 USD
+                foo:
 
-        """
+            """
 
         let ledger = try p.parseLedger()
         #expect(ledger.directives.count == 3)
@@ -599,10 +632,10 @@ struct AdditionalPrinterTests {
         // Test option directive printing
         // Options are stored separately in ParsedLedger.options, not as directives
         let p: ContentProvider = """
-        option "title" "My Ledger"
-        option "operating_currency" "USD"
+            option "title" "My Ledger"
+            option "operating_currency" "USD"
 
-        """
+            """
 
         let ledger = try p.parseLedger()
         // Options are stored in ledger.options, not as directives
@@ -611,11 +644,11 @@ struct AdditionalPrinterTests {
 
     @Test func testCommodity() throws {
         let p: ContentProvider = """
-        2000-01-02 commodity VHT
-          asset-class: "Stocks"
-          name: "Vanguard Health Care ETF"
+            2000-01-02 commodity VHT
+              asset-class: "Stocks"
+              name: "Vanguard Health Care ETF"
 
-        """
+            """
 
         let ledger = try p.parseLedger()
         let output = ledger.directives.map { $0.description }.joined()
@@ -625,10 +658,10 @@ struct AdditionalPrinterTests {
     @Test func testRenderMetadata() throws {
         // Test basic metadata rendering
         let p: ContentProvider = """
-        2014-01-01 open Assets:Account1
-          name: "Test Account"
-          number: "12345"
-        """
+            2014-01-01 open Assets:Account1
+              name: "Test Account"
+              number: "12345"
+            """
 
         let ledger = try p.parseLedger()
         let directive = ledger.directives[0]
@@ -642,14 +675,14 @@ struct AdditionalPrinterTests {
         // Test that strings with escaped characters round-trip correctly
         // Currently failing due to double-escaping in .escaped method
         let p: ContentProvider = """
-        2014-01-01 open Assets:Account1
-        2014-01-01 open Assets:Cash
+            2014-01-01 open Assets:Account1
+            2014-01-01 open Assets:Cash
 
-        2014-06-10 * "Entry with escaped \\"quotes\\""
-          Assets:Account1  111.00 BEAN
-          Assets:Cash     -111.00 BEAN
+            2014-06-10 * "Entry with escaped \\"quotes\\""
+              Assets:Account1  111.00 BEAN
+              Assets:Cash     -111.00 BEAN
 
-        """
+            """
 
         let ledger1 = try p.parseLedger()
         let output1 = ledger1.directives.map { $0.description }.joined()

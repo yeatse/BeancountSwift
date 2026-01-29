@@ -124,7 +124,8 @@ struct ForecastPlugin: BeancountPlugin {
     private func parseForecastPattern(from narration: String) throws -> ForecastConfig {
         // Regex pattern to match forecast configuration
         // Pattern: "Description [INTERVAL SKIP X TIME(S) REPEAT Y TIME(S) UNTIL YYYY-MM-DD]"
-        let pattern = #/
+        let pattern =
+            #/
             ^(.*?)\[
             (DAILY|WEEKLY|MONTHLY|YEARLY)
             (?:\s+SKIP\s+(\d+)\s+TIMES?)?
@@ -134,7 +135,8 @@ struct ForecastPlugin: BeancountPlugin {
         /#
 
         guard let match = narration.firstMatch(of: pattern) else {
-            throw ForecastError.invalidConfiguration("Invalid forecast pattern in narration: \(narration)")
+            throw ForecastError.invalidConfiguration(
+                "Invalid forecast pattern in narration: \(narration)")
         }
 
         let cleanNarration = String(match.1).trimmingCharacters(in: .whitespaces)
@@ -190,13 +192,15 @@ struct ForecastPlugin: BeancountPlugin {
             endDate = untilDate
         } else if let repeatCount = config.repeatCount {
             // Calculate end date based on repeat count
-            let totalSkip = config.skipCount + 1 // +1 because we skip by interval+1
+            let totalSkip = config.skipCount + 1  // +1 because we skip by interval+1
             let lastIteration = (repeatCount - 1) * totalSkip
             endDate = config.interval.addTo(date: startDate, count: lastIteration)
         } else {
             // Default to end of current year
             let currentYear = calendar.component(.year, from: defaultUntilDate)
-            endDate = calendar.date(from: DateComponents(year: currentYear, month: 12, day: 31)) ?? defaultUntilDate
+            endDate =
+                calendar.date(from: DateComponents(year: currentYear, month: 12, day: 31))
+                ?? defaultUntilDate
         }
 
         // Generate forecast dates

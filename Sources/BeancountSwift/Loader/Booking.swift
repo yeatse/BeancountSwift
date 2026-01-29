@@ -5,8 +5,8 @@
 //  Created by Yeatse on 2023/12/24.
 //
 
-import Foundation
 import Algorithms
+import Foundation
 
 enum CategorizationError: LocatableError, LocalizedError {
     case failedToCategorize(txn: Transaction<CostSpec>, index: Int)
@@ -15,7 +15,9 @@ enum CategorizationError: LocatableError, LocalizedError {
 
     var location: LedgerLocation? {
         func getLocation(_ txn: Transaction<CostSpec>) -> LedgerLocation? {
-            if let meta = txn.postings.first?.meta, let filename = meta.filename, let lineno = meta.lineno {
+            if let meta = txn.postings.first?.meta, let filename = meta.filename,
+                let lineno = meta.lineno
+            {
                 return LedgerLocation(filename: filename, lineno: lineno - 1)
             } else {
                 return nil
@@ -48,49 +50,194 @@ enum InterpolationError: Error {
     case costIsNegative
 }
 
+/// Errors emitted while converting CostSpec values into resolved Cost lots.
+///
+/// This mirrors the legacy Beancount behavior where incomplete or unsupported
+/// cost specifications are downgraded to errors while still allowing parsing
+/// to continue.
+enum LotConversionError: LocatableError, LocalizedError {
+    case unsupportedCostSpec(entry: Directive<CostSpec>)
+    case amountIsZero(entry: Directive<CostSpec>, units: Amount)
+    case costIsNegative(entry: Directive<CostSpec>, cost: Cost)
+
+    var location: LedgerLocation? {
+        func getLocation(_ entry: Directive<CostSpec>) -> LedgerLocation? {
+            if let filename = entry.meta.filename, let lineno = entry.meta.lineno {
+                return LedgerLocation(filename: filename, lineno: lineno)
+            } else {
+                return nil
+            }
+        }
+        return switch self {
+        case .unsupportedCostSpec(let entry): getLocation(entry)
+        case .amountIsZero(let entry, _): getLocation(entry)
+        case .costIsNegative(let entry, _): getLocation(entry)
+        }
+    }
+
+    var errorDescription: String? {
+        return switch self {
+        case .unsupportedCostSpec:
+            "Cost syntax not supported; cost spec ignored"
+        case .amountIsZero(_, let units):
+            "Amount is zero: \"\(units)\""
+        case .costIsNegative(_, let cost):
+            "Cost is negative: \"\(cost)\""
+        }
+    }
+}
+
 extension DirectiveContent<CostSpec> {
     func resolved() -> DirectiveContent<Cost> {
         switch self {
-            case .open(let open): .open(open)
-            case .close(let close): .close(close)
-            case .commodity(let commodity): .commodity(commodity)
-            case .pad(let pad): .pad(pad)
-            case .balance(let balance): .balance(balance)
-            case .transaction(_): fatalError()
-            case .note(let note): .note(note)
-            case .event(let event): .event(event)
-            case .query(let query): .query(query)
-            case .price(let price): .price(price)
-            case .document(let document): .document(document)
-            case .custom(let custom): .custom(custom)
+        case .open(let open): .open(open)
+        case .close(let close): .close(close)
+        case .commodity(let commodity): .commodity(commodity)
+        case .pad(let pad): .pad(pad)
+        case .balance(let balance): .balance(balance)
+        case .transaction(_): fatalError()
+        case .note(let note): .note(note)
+        case .event(let event): .event(event)
+        case .query(let query): .query(query)
+        case .price(let price): .price(price)
+        case .document(let document): .document(document)
+        case .custom(let custom): .custom(custom)
         }
     }
 }
 
 enum Booking {
-    
-    
+
+    /// Convert all CostSpec values in a list of directives into resolved Cost lots.
+    ///
+    /// This replicates the legacy Beancount parser behavior by computing concrete
+    /// per-unit costs whenever possible, while preserving incomplete postings.
+    ///
+    /// - Parameter entries: Directives that may contain CostSpec postings.
+    /// - Returns: Converted directives (CostSpec -> Cost) and any conversion errors.
+    static func convertLotSpecsToLots(
+        entries: [Directive<CostSpec>]
+    ) -> ([Directive<Cost>], [Error]) {
+        var newEntries: [Directive<Cost>] = []
+        var errors: [Error] = []
+
+        for entry in entries {
+            guard case .transaction(let txn) = entry.content else {
+                newEntries.append(
+                    .init(
+                        meta: entry.meta,
+                        date: entry.date,
+                        comment: entry.comment,
+                        content: entry.content.resolved()
+                    ))
+                continue
+            }
+
+            var newPostings: [Posting<Cost>] = []
+            for posting in txn.postings {
+                let units = posting.units
+                let costSpec = posting.cost
+                let cost = convertSpecToCost(units: units, costSpec: costSpec)
+
+                if costSpec != nil,
+                    cost == nil,
+                    units.number != .nan,
+                    units.currency != .missing
+                {
+                    errors.append(LotConversionError.unsupportedCostSpec(entry: entry))
+                }
+
+                if let cost {
+                    if units.number == .zero {
+                        errors.append(LotConversionError.amountIsZero(entry: entry, units: units))
+                    } else if cost.number < .zero {
+                        errors.append(LotConversionError.costIsNegative(entry: entry, cost: cost))
+                    }
+                }
+
+                newPostings.append(posting.resolved(cost: cost))
+            }
+
+            let newTxn = Transaction(
+                flag: txn.flag,
+                payee: txn.payee,
+                narration: txn.narration,
+                tags: txn.tags,
+                links: txn.links,
+                postings: newPostings
+            )
+            newEntries.append(
+                .init(
+                    meta: entry.meta,
+                    date: entry.date,
+                    comment: entry.comment,
+                    content: .transaction(newTxn)
+                ))
+        }
+
+        return (newEntries, errors)
+    }
+
+    /// Convert a single CostSpec to a resolved Cost for a posting.
+    ///
+    /// - Parameters:
+    ///   - units: The posting units.
+    ///   - costSpec: The CostSpec attached to the posting.
+    /// - Returns: A resolved Cost, or nil if the spec is incomplete or not applicable.
+    static func convertSpecToCost(units: Amount, costSpec: CostSpec?) -> Cost? {
+        guard let costSpec else {
+            return nil
+        }
+        if units.number == .nan || units.currency == .missing {
+            return nil
+        }
+
+        let numberPer = costSpec.numberPerUnit
+        let numberTotal = costSpec.numberTotal
+        guard numberPer != .nan || numberTotal != nil else {
+            return nil
+        }
+
+        let unitCost: Decimal
+        if let numberTotal {
+            let unitsNum = units.number
+            var costTotal = numberTotal
+            if let numberPer, numberPer != .nan {
+                costTotal += numberPer * unitsNum
+            }
+            unitCost = costTotal / abs(unitsNum)
+        } else {
+            unitCost = numberPer!
+        }
+
+        let currency = costSpec.currency ?? .missing
+        return Cost(
+            number: unitCost, currency: currency, date: costSpec.date, label: costSpec.label)
+    }
+
     static func book(ledger: ParsedLedger<CostSpec>) -> ParsedLedger<Cost> {
-        
-        var bookingMethods = DefaultDictionary<Account, BookingMethod>(default: ledger.options.bookingMethod)
+
+        var bookingMethods = DefaultDictionary<Account, BookingMethod>(
+            default: ledger.options.bookingMethod)
         for directive in ledger.directives {
             if case .open(let open) = directive.content, let booking = open.booking {
                 bookingMethods[open.account] = booking
             }
         }
-        
+
         var newEntries = [Directive<Cost>]()
         var errors = [Error]()
-        
+
         var balances = DefaultDictionary<Account, Inventory> { Inventory() }
         for directive in ledger.directives {
             guard case .transaction(let txn) = directive.content else {
-                newEntries.append(.init(
-                    meta: directive.meta,
-                    date: directive.date,
-                    comment: directive.comment,
-                    content: directive.content.resolved()
-                ))
+                newEntries.append(
+                    .init(
+                        meta: directive.meta,
+                        date: directive.date,
+                        comment: directive.comment,
+                        content: directive.content.resolved()
+                    ))
                 continue
             }
             // Group postings by currency.
@@ -106,10 +253,11 @@ enum Booking {
                 postings: txn.postings,
                 referGroups: referGroups
             )
-            
+
             // Get the list of tolerances.
-            let tolerances = Interpolate.inferTolerances(postings: txn.postings, options: ledger.options)
-            
+            let tolerances = Interpolate.inferTolerances(
+                postings: txn.postings, options: ledger.options)
+
             // Resolve reductions to a particular lot in their inventory balance.
             var replPostings = [Posting<Cost>]()
             for (currency, groupPostings) in postingGroups {
@@ -119,12 +267,12 @@ enum Booking {
                     balances: balances,
                     methods: &bookingMethods
                 )
-                
+
                 guard bookingErrors.isEmpty else {
                     errors += bookingErrors
                     continue
                 }
-                
+
                 let (interPostings, interErrors, _) = interpolateGroup(
                     postings: bookedPostings,
                     currency: currency,
@@ -138,21 +286,23 @@ enum Booking {
             for posting in replPostings {
                 balances[posting.account].addPosition(posting)
             }
-            newEntries.append(.init(
-                meta: directive.meta,
-                date: directive.date,
-                comment: directive.comment,
-                content: .transaction(.init(
-                    flag: txn.flag,
-                    payee: txn.payee,
-                    narration: txn.narration,
-                    tags: txn.tags,
-                    links: txn.links,
-                    postings: replPostings
+            newEntries.append(
+                .init(
+                    meta: directive.meta,
+                    date: directive.date,
+                    comment: directive.comment,
+                    content: .transaction(
+                        .init(
+                            flag: txn.flag,
+                            payee: txn.payee,
+                            narration: txn.narration,
+                            tags: txn.tags,
+                            links: txn.links,
+                            postings: replPostings
+                        ))
                 ))
-            ))
         }
-        
+
         return .init(
             options: ledger.options,
             plugins: ledger.plugins,
@@ -160,54 +310,56 @@ enum Booking {
             errors: ledger.errors + errors
         )
     }
-    
+
     typealias Refer = (
         index: Int, unitsCurrency: Currency?, costCurrency: Currency?, priceCurrency: Currency?
     )
-    
+
     static func getBucketCurrency(refer: Refer) -> Currency? {
         if let costCurrency = refer.costCurrency, costCurrency != .missing {
             return costCurrency
         } else if let priceCurrency = refer.priceCurrency, priceCurrency != .missing {
             return priceCurrency
         } else if refer.costCurrency == nil, refer.priceCurrency == nil,
-                  let unitsCurrency = refer.unitsCurrency, unitsCurrency != .missing
+            let unitsCurrency = refer.unitsCurrency, unitsCurrency != .missing
         {
             return unitsCurrency
         }
         return nil
     }
-    
-    static func categorizeByCurrency(transaction: Transaction<CostSpec>, balances: DefaultDictionary<Account, Inventory>)
-    -> (
-        [(Currency, [Refer])], [Error]
+
+    static func categorizeByCurrency(
+        transaction: Transaction<CostSpec>, balances: DefaultDictionary<Account, Inventory>
     )
+        -> (
+            [(Currency, [Refer])], [Error]
+        )
     {
         var errors = [Error]()
-        
+
         var groups = DefaultDictionary<Currency, [Refer]>(default: [])
         var sortDict = [Currency: Int]()
         var autoPostings = [Refer]()
         var unknown = [Refer]()
-        
+
         for (index, posting) in transaction.postings.indexed() {
             let units = posting.units
             let cost = posting.cost
             let price = posting.price
-            
+
             let unitsCurrency = units == .missing ? nil : units.currency
             var costCurrency = cost?.currency
             var priceCurrency = price == .missing ? nil : price?.currency
-            
+
             if costCurrency == .missing, let priceCurrency, priceCurrency != .missing {
                 costCurrency = priceCurrency
             }
             if priceCurrency == .missing, let costCurrency, costCurrency != .missing {
                 priceCurrency = costCurrency
             }
-            
+
             let refer: Refer = (index, unitsCurrency, costCurrency, priceCurrency)
-            
+
             if units == .missing, priceCurrency == nil {
                 autoPostings.append(refer)
             } else {
@@ -219,7 +371,7 @@ enum Booking {
                 }
             }
         }
-        
+
         // We look at the remaining postings... if they are all of a single currency,
         // the posting must be in that currency too.
         if unknown.count == 1 && groups.count == 1 {
@@ -235,27 +387,27 @@ enum Booking {
                     costCurrency = otherCurrency
                 }
             }
-            
+
             let refer: Refer = (index, unitsCurrency, costCurrency, priceCurrency)
             let currency = getBucketCurrency(refer: refer)!
             sortDict.putIfAbsent(key: currency, value: index)
             groups[currency].append(refer)
         }
-        
+
         // Finally, try to resolve all the unknown legs using the inventory contents
         // of each account.
         for refer in unknown {
             var (index, unitsCurrency, costCurrency, priceCurrency) = refer
             let posting = transaction.postings[index]
             let balance = balances.peek(posting.account) ?? Inventory()
-            
+
             if unitsCurrency == .missing {
                 let balanceCurrencies = balance.currencies
                 if balanceCurrencies.count == 1 {
                     unitsCurrency = balanceCurrencies.first
                 }
             }
-            
+
             if costCurrency == .missing || priceCurrency == .missing {
                 let balanceCostCurrencies = balance.costCurrencies
                 if balanceCostCurrencies.count == 1 {
@@ -268,7 +420,7 @@ enum Booking {
                     }
                 }
             }
-            
+
             let refer: Refer = (index, unitsCurrency, costCurrency, priceCurrency)
             if let currency = getBucketCurrency(refer: refer) {
                 sortDict.putIfAbsent(key: currency, value: index)
@@ -279,7 +431,7 @@ enum Booking {
                 )
             }
         }
-        
+
         // Fill in missing units currencies if some remain as missing. This may occur
         // if we used the cost or price to bucket the currency but the units currency
         // was missing.
@@ -302,19 +454,19 @@ enum Booking {
                 }
             }
         }
-        
+
         if autoPostings.count > 1 {
             errors.append(CategorizationError.extraAutoPostings(txn: transaction))
             autoPostings.removeSubrange(1...)
         }
-        
+
         for refer in autoPostings {
             for currency in groups.keys {
                 sortDict.putIfAbsent(key: currency, value: refer.index)
                 groups[currency].append((refer.index, currency, nil, nil))
             }
         }
-        
+
         for refers in groups.values {
             for refer in refers {
                 for (currency, name) in [
@@ -330,16 +482,18 @@ enum Booking {
                 }
             }
         }
-        
+
         let sortedGroups = groups.sorted { lhs, rhs in
             return sortDict[lhs.key, default: 0] < sortDict[rhs.key, default: 0]
         }
         return (sortedGroups, errors)
     }
-    
-    static func replaceCurrencies(postings: [Posting<CostSpec>], referGroups: [(Currency, [Refer])]) -> [(
-        Currency, [Posting<CostSpec>]
-    )] {
+
+    static func replaceCurrencies(postings: [Posting<CostSpec>], referGroups: [(Currency, [Refer])])
+        -> [(
+            Currency, [Posting<CostSpec>]
+        )]
+    {
         var newGroups = [(Currency, [Posting<CostSpec>])]()
         for (currency, refers) in referGroups {
             var newPostings = [Posting<CostSpec>]()
@@ -382,40 +536,40 @@ enum Booking {
         }
         return newGroups
     }
-    
+
     enum BookedPosting: Equatable {
         case incomplete(Posting<CostSpec>)
         case complete(Posting<Cost>)
-        
+
         var units: Amount {
             switch self {
-                case .incomplete(let posting): posting.units
-                case .complete(let posting): posting.units
+            case .incomplete(let posting): posting.units
+            case .complete(let posting): posting.units
             }
         }
-        
+
         var price: Amount? {
             switch self {
-                case .incomplete(let posting): posting.price
-                case .complete(let posting): posting.price
+            case .incomplete(let posting): posting.price
+            case .complete(let posting): posting.price
             }
         }
-        
+
         var meta: MetaData? {
             switch self {
-                case .incomplete(let posting): posting.meta
-                case .complete(let posting): posting.meta
+            case .incomplete(let posting): posting.meta
+            case .complete(let posting): posting.meta
             }
         }
-        
+
         var complete: Posting<Cost>? {
             switch self {
-                case .incomplete(_): nil
-                case .complete(let posting): posting
+            case .incomplete(_): nil
+            case .complete(let posting): posting
             }
         }
     }
-    
+
     static func bookReductions(
         entry: Directive<CostSpec>,
         groupPostings: [Posting<CostSpec>],
@@ -425,12 +579,12 @@ enum Booking {
         var errors = [Error]()
         var localBalances = [Account: Inventory]()
         var bookedPostings = [BookedPosting]()
-        
+
         for posting in groupPostings {
             let units = posting.units
             let costSpec = posting.cost
             let account = posting.account
-            
+
             if !localBalances.keys.contains(account) {
                 localBalances[account] = balances.peek(account) ?? Inventory()
             }
@@ -439,7 +593,7 @@ enum Booking {
                 bookedPostings.append(.incomplete(posting))
                 continue
             }
-            
+
             let method = methods[account]
             if method != .NONE, balance.isReducedBy(units) {
                 let costNumber = costSpec.computeCostNumber(by: units)
@@ -469,7 +623,7 @@ enum Booking {
                     errors.append(BookingError.reduction(entry))
                     return ([], errors)
                 }
-                
+
                 let (reductionPostings, _, ambiErrors) = handleAmbiguousMatches(
                     entry: entry,
                     posting: posting,
@@ -480,9 +634,9 @@ enum Booking {
                     errors += ambiErrors
                     return ([], errors)
                 }
-                
+
                 bookedPostings.append(contentsOf: reductionPostings.map({ .complete($0) }))
-                
+
                 for posting in reductionPostings {
                     balance.addPosition(.init(posting: posting))
                 }
@@ -499,14 +653,14 @@ enum Booking {
         }
         return (bookedPostings, errors)
     }
-    
+
     enum MissingType {
         case units
         case costPer
         case costTotal
         case price
     }
-    
+
     static func interpolateGroup(
         postings: [BookedPosting],
         currency: Currency,
@@ -514,7 +668,7 @@ enum Booking {
     ) -> ([Posting<Cost>], [Error], Bool) {
         var errors = [Error]()
         var incomplete = [(MissingType, Int)]()
-        
+
         for (index, posting) in postings.indexed() {
             guard case .incomplete(let posting) = posting else {
                 continue
@@ -534,25 +688,26 @@ enum Booking {
                 incomplete.append((.price, index))
             }
         }
-        
+
         var newPosting: Posting<CostSpec>?
         var outPostings: [Posting<Cost>] = []
-        
+
         if incomplete.isEmpty {
             outPostings = postings.map { posting in
                 switch posting {
-                    case .incomplete(let posting): posting.resolvedCost()
-                    case .complete(let posting): posting
+                case .incomplete(let posting): posting.resolvedCost()
+                case .complete(let posting): posting
                 }
             }
         } else if incomplete.count > 1 {
             errors.append(InterpolationError.tooManyMissingNumbers(currency: currency))
         } else {
             let (missing, index) = incomplete[0]
-            let incompletePosting = switch postings[index] {
+            let incompletePosting =
+                switch postings[index] {
                 case .incomplete(let posting): posting
                 case .complete(_): fatalError()
-            }
+                }
             var newPostings = postings.indexed().map { idx, posting in
                 if index == idx {
                     return posting
@@ -564,12 +719,12 @@ enum Booking {
             }
             let postingsToCompute = newPostings.compactMap { posting in
                 switch posting {
-                    case .complete(let p): p
-                    case .incomplete(_): nil
+                case .complete(let p): p
+                case .incomplete(_): nil
                 }
             }
             let residual = Interpolate.computeResidual(postings: postingsToCompute)
-            
+
             let weight: Decimal
             if !residual.isEmpty {
                 let respos = residual.positions.first!
@@ -578,72 +733,74 @@ enum Booking {
                 weight = .zero
             }
             switch missing {
-                case .units:
-                    let units = incompletePosting.units
-                    let unitsNumber: Decimal
-                    if let cost = incompletePosting.cost {
-                        if cost.numberPerUnit == .zero {
-                            errors.append(InterpolationError.cannotInferPerUnitCost)
-                            return (
-                                postings.compactMap { $0.complete },
-                                errors,
-                                true
-                            )
-                        } else {
-                            let costTotal = cost.numberTotal ?? .zero
-                            unitsNumber = (weight - costTotal) / cost.numberPerUnit!
-                        }
-                    } else if let price = incompletePosting.price {
-                        unitsNumber = weight / price.number
-                    } else {
-                        unitsNumber = weight
-                    }
-                    if weight != .zero {
-                        var pos = incompletePosting
-                        pos.units = Amount(number: unitsNumber, currency: units.currency)
-                        pos.cost = incompletePosting.cost
-                        newPosting = pos
-                    } else {
-                        newPosting = nil
-                    }
-                case .costPer:
-                    let units = incompletePosting.units
-                    var cost = incompletePosting.cost!
-                    if units.number != .zero {
-                        cost.numberPerUnit = (weight - (cost.numberTotal ?? .zero)) / units.number
-                        var pos = incompletePosting
-                        pos.units = units
-                        pos.cost = cost
-                        newPosting = pos
-                    } else {
-                        newPosting = nil
-                    }
-                case .costTotal:
-                    let units = incompletePosting.units
-                    var cost = incompletePosting.cost!
-                    cost.numberTotal = weight - cost.numberPerUnit! * units.number
-                    var pos = incompletePosting
-                    pos.units = units
-                    pos.cost = cost
-                    newPosting = pos
-                case .price:
-                    let units = incompletePosting.units
-                    if incompletePosting.cost != nil {
-                        errors.append(InterpolationError.cannotInferPrice)
+            case .units:
+                let units = incompletePosting.units
+                let unitsNumber: Decimal
+                if let cost = incompletePosting.cost {
+                    if cost.numberPerUnit == .zero {
+                        errors.append(InterpolationError.cannotInferPerUnitCost)
                         return (
                             postings.compactMap { $0.complete },
                             errors,
                             true
                         )
                     } else {
-                        let price = incompletePosting.price!
-                        var pos = incompletePosting
-                        pos.price = Amount(
-                            number: abs(weight / units.number),
-                            currency: price.currency
-                        )
-                        newPosting = pos
+                        let costTotal = cost.numberTotal ?? .zero
+                        unitsNumber = (weight - costTotal) / cost.numberPerUnit!
                     }
+                } else if let price = incompletePosting.price {
+                    unitsNumber = weight / price.number
+                } else {
+                    unitsNumber = weight
+                }
+                let quantizedUnits = Interpolate.quantizeWithTolerance(
+                    tolerances: tolerances, currency: units.currency, number: unitsNumber)
+                if weight != .zero {
+                    var pos = incompletePosting
+                    pos.units = Amount(number: quantizedUnits, currency: units.currency)
+                    pos.cost = incompletePosting.cost
+                    newPosting = pos
+                } else {
+                    newPosting = nil
+                }
+            case .costPer:
+                let units = incompletePosting.units
+                var cost = incompletePosting.cost!
+                if units.number != .zero {
+                    cost.numberPerUnit = (weight - (cost.numberTotal ?? .zero)) / units.number
+                    var pos = incompletePosting
+                    pos.units = units
+                    pos.cost = cost
+                    newPosting = pos
+                } else {
+                    newPosting = nil
+                }
+            case .costTotal:
+                let units = incompletePosting.units
+                var cost = incompletePosting.cost!
+                cost.numberTotal = weight - cost.numberPerUnit! * units.number
+                var pos = incompletePosting
+                pos.units = units
+                pos.cost = cost
+                newPosting = pos
+            case .price:
+                let units = incompletePosting.units
+                if incompletePosting.cost != nil {
+                    errors.append(InterpolationError.cannotInferPrice)
+                    return (
+                        postings.compactMap { $0.complete },
+                        errors,
+                        true
+                    )
+                } else {
+                    let price = incompletePosting.price!
+                    var pos = incompletePosting
+                    pos.price = Amount(
+                        number: abs(weight / units.number),
+                        currency: price.currency
+                    )
+                    newPosting = pos
+                }
             }
             if var newPosting {
                 if newPosting.meta == nil {
@@ -656,7 +813,7 @@ enum Booking {
             }
             outPostings = newPostings.compactMap { $0.complete }
         }
-        
+
         for posting in outPostings {
             guard let cost = posting.cost else {
                 continue
@@ -692,15 +849,16 @@ extension CostSpec {
 
 extension Posting<CostSpec> {
     func resolved(units: Amount? = nil, cost: Cost? = nil) -> Posting<Cost> {
-        return .init(account: account,
-                     units: units ?? self.units,
-                     cost: cost ?? nil,
-                     price: price,
-                     flag: flag,
-                     meta: meta,
-                     comment: comment)
+        return .init(
+            account: account,
+            units: units ?? self.units,
+            cost: cost ?? nil,
+            price: price,
+            flag: flag,
+            meta: meta,
+            comment: comment)
     }
-    
+
     func resolvedCost() -> Posting<Cost> {
         guard let cost, cost.numberPerUnit != nil || cost.numberTotal != nil else {
             return resolved()
@@ -718,11 +876,12 @@ extension Posting<CostSpec> {
         } else {
             unitCost = numberPerUnit!
         }
-        return resolved(cost: .init(
-            number: unitCost,
-            currency: cost.currency!,
-            date: cost.date!,
-            label: cost.label
-        ))
+        return resolved(
+            cost: .init(
+                number: unitCost,
+                currency: cost.currency!,
+                date: cost.date,
+                label: cost.label
+            ))
     }
 }

@@ -60,11 +60,11 @@ struct PositionTests {
     @Test func eqAndSortKeyByCost() {
         let pos1 = Position(units: "1 USD")
         let pos2 = Position(
-            units: "1 USD", cost: Cost(number: 10, currency: "USD", date: .distantPast))
+            units: "1 USD", cost: Cost(number: 10, currency: "USD"))
         let pos3 = Position(
-            units: "1 USD", cost: Cost(number: 11, currency: "USD", date: .distantPast))
+            units: "1 USD", cost: Cost(number: 11, currency: "USD"))
         let pos4 = Position(
-            units: "1 USD", cost: Cost(number: 12, currency: "USD", date: .distantPast))
+            units: "1 USD", cost: Cost(number: 12, currency: "USD"))
 
         var positions = [pos3, pos2, pos1, pos4]
         #expect([pos1, pos2, pos3, pos4] == positions.sorted())
@@ -81,14 +81,14 @@ struct PositionTests {
         #expect(pos.totalCost == "10 USD")
 
         pos = Position(
-            units: "10 USD", cost: Cost(number: "1.5", currency: "AUD", date: .distantPast))
+            units: "10 USD", cost: Cost(number: "1.5", currency: "AUD"))
         #expect(pos.units == "10 USD")
         #expect(pos.totalCost == "15 AUD")
     }
 
     @Test func negative() {
         let pos = Position(
-            units: "28372 USD", cost: Cost(number: 10, currency: "AUD", date: .distantPast))
+            units: "28372 USD", cost: Cost(number: 10, currency: "AUD"))
         let negpos = -pos
         #expect(negpos.units == "-28372 USD")
         #expect(negpos.totalCost == "-283720 AUD")
@@ -96,9 +96,9 @@ struct PositionTests {
 
     @Test func isNegativeAtCost() {
         let pos1 = Position(
-            units: "1 USD", cost: Cost(number: 10, currency: "AUD", date: .distantPast))
+            units: "1 USD", cost: Cost(number: 10, currency: "AUD"))
         let pos2 = Position(
-            units: "-1 USD", cost: Cost(number: 10, currency: "AUD", date: .distantPast))
+            units: "-1 USD", cost: Cost(number: 10, currency: "AUD"))
         #expect(!pos1.isNegativeAtCost)
         #expect(pos2.isNegativeAtCost)
     }
@@ -107,10 +107,11 @@ struct PositionTests {
         var pair = Position(units: "100 USD").currencyPair
         #expect(pair.unit == "USD" && pair.cost == nil)
 
-        pair = Position(
-            units: "100 AAPL",
-            cost: Cost(number: "43.23", currency: "USD", date: .distantPast)
-        ).currencyPair
+        pair =
+            Position(
+                units: "100 AAPL",
+                cost: Cost(number: "43.23", currency: "USD")
+            ).currencyPair
         #expect(pair.unit == "AAPL" && pair.cost == "USD")
     }
 }

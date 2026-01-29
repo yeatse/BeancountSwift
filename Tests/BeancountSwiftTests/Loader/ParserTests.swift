@@ -162,18 +162,18 @@ struct ParserTests {
         let provider = MapContentProvider(files: [
             "main.beancount":
                 """
-                include "account/account.bean"
-                2024-01-01 open Assets:Cash USD
-                """,
+            include "account/account.bean"
+            2024-01-01 open Assets:Cash USD
+            """,
             "account/account.bean":
                 """
-                include "expenses.bean"
-                2024-01-02 open Expenses:Food USD
-                """,
+            include "expenses.bean"
+            2024-01-02 open Expenses:Food USD
+            """,
             "account/expenses.bean":
                 """
-                2024-01-03 open Expenses:Travel USD
-                """
+            2024-01-03 open Expenses:Travel USD
+            """,
         ])
 
         let ledger = try Parser.parse(file: "main.beancount", contentProvider: provider)
@@ -209,20 +209,20 @@ struct ParserTests {
             files: [
                 "main.beancount":
                     """
-                    include "account/accounts.bean"
-                    """,
+                include "account/accounts.bean"
+                """,
                 "account/accounts.bean":
                     """
-                    include "*.bean"
-                    """,
+                include "*.bean"
+                """,
                 "account/a.bean":
                     """
-                    2024-01-01 open Assets:Cash USD
-                    """,
+                2024-01-01 open Assets:Cash USD
+                """,
                 "account/b.bean":
                     """
-                    2024-01-02 open Expenses:Food USD
-                    """
+                2024-01-02 open Expenses:Food USD
+                """,
             ],
             expansions: [
                 "account/*.bean": ["account/a.bean", "account/b.bean"]
@@ -236,9 +236,9 @@ struct ParserTests {
         #expect(filenames.contains("account/a.bean"))
         #expect(filenames.contains("account/b.bean"))
     }
-    
+
     @Test func parseSnippetTransaction() throws {
-        
+
         let content = """
             2014-12-15 * "Payee" "Narration"
               Assets:Checking   101.23 USD
@@ -257,7 +257,7 @@ struct ParserTests {
     }
 
     @Test func parseSnippetOpen() throws {
-        
+
         let directive = Parser.parseSnippet(from: "2020-07-30 open Assets:Test USD")
         #expect(directive != nil)
         guard case .open(let open) = directive?.content else {
@@ -269,7 +269,7 @@ struct ParserTests {
     }
 
     @Test func parseSnippetClose() throws {
-        
+
         let directive = Parser.parseSnippet(from: "2020-12-31 close Assets:Test")
         #expect(directive != nil)
         guard case .close(let close) = directive?.content else {
@@ -280,7 +280,7 @@ struct ParserTests {
     }
 
     @Test func parseSnippetBalance() throws {
-        
+
         let directive = Parser.parseSnippet(from: "2020-07-30 balance Assets:Test 1000.00 USD")
         #expect(directive != nil)
         guard case .balance(let balance) = directive?.content else {
@@ -293,7 +293,7 @@ struct ParserTests {
     }
 
     @Test func parseSnippetNote() throws {
-        
+
         let directive = Parser.parseSnippet(from: "2020-07-30 note Assets:Test \"This is a note\"")
         #expect(directive != nil)
         guard case .note(let note) = directive?.content else {
@@ -305,7 +305,7 @@ struct ParserTests {
     }
 
     @Test func parseSnippetPrice() throws {
-        
+
         let directive = Parser.parseSnippet(from: "2020-07-30 price EUR 1.20 USD")
         #expect(directive != nil)
         guard case .price(let price) = directive?.content else {
@@ -318,19 +318,19 @@ struct ParserTests {
     }
 
     @Test func parseSnippetInvalidContent() throws {
-        
+
         let directive = Parser.parseSnippet(from: "invalid content")
         #expect(directive == nil)
     }
 
     @Test func parseSnippetEmptyString() throws {
-        
+
         let directive = Parser.parseSnippet(from: "")
         #expect(directive == nil)
     }
 
     @Test func parseSnippetMultipleDirectives() throws {
-        
+
         let content = """
             2020-07-30 open Assets:Test USD
             2020-07-31 close Assets:Test
@@ -345,7 +345,7 @@ struct ParserTests {
     }
 
     @Test func parseSnippetsMultipleDirectives() throws {
-        
+
         let content = """
             2020-07-30 open Assets:Checking USD
             2020-07-31 open Assets:Savings USD
@@ -383,13 +383,13 @@ struct ParserTests {
     }
 
     @Test func parseSnippetsEmptyString() throws {
-        
+
         let directives = Parser.parseSnippets(from: "")
         #expect(directives.isEmpty)
     }
 
     @Test func parseSnippetsSingleDirective() throws {
-        
+
         let content = "2020-07-30 open Assets:Test USD"
         let directives = Parser.parseSnippets(from: content)
         #expect(directives.count == 1)
@@ -400,7 +400,7 @@ struct ParserTests {
     }
 
     @Test func parseSnippetsWithInvalidContent() throws {
-        
+
         let content = """
             2020-07-30 open Assets:Checking USD
             invalid line that should be skipped
@@ -421,7 +421,7 @@ struct ParserTests {
     }
 
     @Test func parseSnippetsWithComments() throws {
-        
+
         let content = """
             ; This is a comment
             2020-07-30 open Assets:Test USD
@@ -433,7 +433,7 @@ struct ParserTests {
     }
 
     @Test func parseSnippetsPreservesOrder() throws {
-        
+
         let content = """
             2020-07-30 open Assets:A USD
             2020-07-29 open Assets:B USD

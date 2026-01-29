@@ -5,12 +5,12 @@
 //  Created by Yeatse on 2023/12/24.
 //
 
+import Algorithms
 import Foundation
 import OrderedCollections
-import Algorithms
 
 /// A collection of positions representing account holdings.
-/// 
+///
 /// Inventory manages a collection of positions (amounts with optional cost information)
 /// for an account. It automatically aggregates positions with the same currency and cost,
 /// maintaining the fundamental accounting property that positions can be added and subtracted.
@@ -25,24 +25,24 @@ import Algorithms
 /// inventory.addAmount(Amount(number: -25, currency: Currency(id: "USD")))
 /// print(inventory.getCurrencyUnits(in: Currency(id: "USD"))) // 75 USD
 /// ```
-/// 
+///
 /// - SeeAlso: [Beancount Design Doc - Inventory](https://beancount.github.io/docs/beancount_design_doc.html#inventory)
 public struct Inventory: Sendable {
     fileprivate var cache: OrderedDictionary<PositionKey, Position> = [:]
-    
+
     /// Creates an inventory with the given positions.
-    /// 
+    ///
     /// Positions with the same currency and cost will be automatically aggregated.
-    /// 
+    ///
     /// - Parameter positions: Initial positions to add to the inventory
     public init(positions: [Position] = []) {
         positions.forEach { addPosition($0) }
     }
-    
+
     struct PositionKey: Equatable, Hashable, Comparable {
         let currency: Currency
         let cost: Cost?
-        
+
         static func < (lhs: Inventory.PositionKey, rhs: Inventory.PositionKey) -> Bool {
             if lhs.currency != rhs.currency {
                 return lhs.currency < rhs.currency
@@ -55,7 +55,7 @@ public struct Inventory: Sendable {
             }
         }
     }
-    
+
     enum MatchResult {
         case created
         case reduced
@@ -66,62 +66,63 @@ public struct Inventory: Sendable {
 
 extension Inventory {
     /// Returns true if the inventory contains no positions.
-    /// 
+    ///
     /// - Returns: True if there are no positions in the inventory
     public var isEmpty: Bool {
         positions.isEmpty
     }
-    
+
     /// A collection of all positions in this inventory.
-    /// 
+    ///
     /// - Returns: A collection of positions sorted by their currency and cost
     var positions: some RandomAccessCollection<Position> {
         cache.map(\.value)
     }
-    
+
     /// The set of all currencies present in this inventory.
-    /// 
+    ///
     /// - Returns: A set containing all currencies held in positions
     public var currencies: Set<Currency> {
         Set(cache.keys.map(\.currency))
     }
-    
+
     /// The set of all cost currencies used in this inventory.
-    /// 
+    ///
     /// - Returns: A set of currencies used for cost specifications
     var costCurrencies: Set<Currency> {
         Set(cache.keys.compactMap(\.cost?.currency))
     }
-    
+
     /// The set of all currency pairs represented in this inventory.
-    /// 
+    ///
     /// A currency pair consists of the position's currency and its cost currency.
-    /// 
+    ///
     /// - Returns: A set of currency pairs from all positions
     var currencyPairs: Set<Position.CurrencyPair> {
         Set(cache.values.map(\.currencyPair))
     }
-    
+
     /// Returns the single position if inventory contains exactly one position.
-    /// 
+    ///
     /// - Returns: The position if there is exactly one, nil otherwise
     var onlyPosition: Position? {
         return positions.first
     }
-    
+
     public func getCurrencyUnits(in currency: Currency) -> Amount {
-        let totalUnits = positions
+        let totalUnits =
+            positions
             .filter { $0.units.currency == currency }
             .reduce(0) { $0 + $1.units.number }
         return Amount(number: totalUnits, currency: currency)
     }
-    
+
     /// Segregates positions by specified currencies.
-    /// 
+    ///
     /// Separates the inventory into multiple inventories based on whether
     /// positions match the specified currencies. Unmatched currencies go
     /// into the nil key inventory.
-    /// 
+    ///
     /// - Parameter currencies: The currencies to segregate by
     /// - Returns: A dictionary mapping currencies to their respective inventories
     func segregateUnits(by currencies: [Currency]) -> [Currency?: Inventory] {
@@ -137,12 +138,12 @@ extension Inventory {
         }
         return perCurrencyDict
     }
-    
+
     /// Splits the inventory by currency into separate inventories.
-    /// 
+    ///
     /// Creates a separate inventory for each currency present in this inventory.
     /// Each resulting inventory contains only positions of a single currency.
-    /// 
+    ///
     /// - Returns: A dictionary mapping currencies to inventories containing only that currency
     func split() -> [Currency: Inventory] {
         var perCurrencyDict = [Currency: Inventory]()
@@ -152,13 +153,13 @@ extension Inventory {
         }
         return perCurrencyDict
     }
-    
+
     /// Checks if all positions are within specified tolerances.
-    /// 
+    ///
     /// Determines whether all position amounts are smaller than their
     /// respective tolerance values. Useful for checking if an inventory
     /// can be considered "balanced" or "empty" within tolerance limits.
-    /// 
+    ///
     /// - Parameter tolerances: A dictionary mapping currencies to their tolerance values
     /// - Returns: True if all positions are within tolerance, false otherwise
     func isSmall(tolerances: [Currency: Decimal]) -> Bool {
@@ -170,12 +171,12 @@ extension Inventory {
         }
         return true
     }
-    
+
     /// Checks if all positions are within a uniform tolerance.
-    /// 
+    ///
     /// Determines whether all position amounts are smaller than the
     /// specified tolerance value, regardless of currency.
-    /// 
+    ///
     /// - Parameter tolerance: The tolerance value to check against
     /// - Returns: True if all positions are within tolerance, false otherwise
     func isSmall(tolerance: Decimal) -> Bool {
@@ -186,7 +187,7 @@ extension Inventory {
         }
         return true
     }
-    
+
     /// Return true if all the positions in the inventory are small.
     ///
     /// - Parameter tolerances: A dict of currency to the small number of units
@@ -201,21 +202,21 @@ extension Inventory {
         }
         return true
     }
-    
+
     /// Checks if the inventory contains mixed signs for any currency.
-    /// 
+    ///
     /// A mixed inventory has both positive and negative positions
     /// in the same currency. This is useful for detecting when an
     /// inventory might require special handling or represents conflicting positions.
-    /// 
+    ///
     /// - Returns: True if any currency has both positive and negative positions
     func isMixed() -> Bool {
         var currencySigns: [Currency: Bool] = [:]
-        
+
         for position in positions {
             let currency = position.units.currency
             let sign = position.units.number >= 0
-            
+
             if let prevSign = currencySigns[currency] {
                 if sign != prevSign {
                     return true
@@ -224,10 +225,10 @@ extension Inventory {
                 currencySigns[currency] = sign
             }
         }
-        
+
         return false
     }
-    
+
     public func reduce(by reducer: (Position) -> Amount) -> Inventory {
         var inventory = Inventory()
         for position in positions {
@@ -235,30 +236,30 @@ extension Inventory {
         }
         return inventory
     }
-    
+
     /// Checks if adding the given amount would reduce any position.
-    /// 
+    ///
     /// Determines whether adding the specified amount to this inventory
     /// would reduce (partially or completely) any existing position by
     /// having an opposite sign in the same currency.
-    /// 
+    ///
     /// - Parameter ramount: The amount to test for reduction
     /// - Returns: True if the amount would reduce an existing position
     func isReducedBy(_ ramount: Amount) -> Bool {
         if ramount.number == .zero {
             return false
         }
-        
+
         for position in positions {
             let units = position.units
             if ramount.currency == units.currency && ramount.number.sign != units.number.sign {
                 return true
             }
         }
-        
+
         return false
     }
-    
+
     @discardableResult
     mutating func addAmount(_ units: Amount, cost: Cost? = nil) -> (Position?, MatchResult) {
         let key = PositionKey(currency: units.currency, cost: cost)
@@ -269,16 +270,17 @@ extension Inventory {
             } else {
                 booking = .augmented
             }
-            
+
             let number = pos.units.number + units.number
             if number == .zero {
                 cache[key] = nil
             } else {
                 let index = cache.keys.partitioningIndex(where: { $0 > key })
-                cache.updateValue(Position(
-                    units: Amount(number: number, currency: units.currency),
-                    cost: cost
-                ), forKey: key, insertingAt: index)
+                cache.updateValue(
+                    Position(
+                        units: Amount(number: number, currency: units.currency),
+                        cost: cost
+                    ), forKey: key, insertingAt: index)
             }
             return (pos, booking)
         } else {
@@ -286,33 +288,34 @@ extension Inventory {
                 booking = .ignored
             } else {
                 let index = cache.keys.partitioningIndex(where: { $0 > key })
-                cache.updateValue(Position(
-                    units: units,
-                    cost: cost
-                ), forKey: key, insertingAt: index)
+                cache.updateValue(
+                    Position(
+                        units: units,
+                        cost: cost
+                    ), forKey: key, insertingAt: index)
                 booking = .created
             }
             return (nil, booking)
         }
     }
-    
+
     // Add a position to the inventory
     @discardableResult
     mutating func addPosition(_ position: Position) -> (Position?, MatchResult) {
         return addAmount(position.units, cost: position.cost)
     }
-    
+
     @discardableResult
     mutating func addPosition(_ position: Posting<Cost>) -> (Position?, MatchResult) {
         return addAmount(position.units, cost: position.cost)
     }
-    
+
     /// Adds all positions from another inventory to this inventory.
-    /// 
+    ///
     /// Efficiently merges another inventory into this one by adding all
     /// its positions. If this inventory is empty, the operation is optimized
     /// by directly copying the other inventory's cache.
-    /// 
+    ///
     /// - Parameter inventory: The inventory to add
     mutating func addInventory(_ inventory: Inventory) {
         if isEmpty {
@@ -335,17 +338,17 @@ extension Inventory: Equatable, Comparable {
             i += 1
         }
     }
-    
+
     public static func == (lhs: Inventory, rhs: Inventory) -> Bool {
         return lhs.cache == rhs.cache
     }
-    
+
     public static func + (lhs: Inventory, rhs: Inventory) -> Inventory {
         var ret = lhs
         ret.addInventory(rhs)
         return ret
     }
-    
+
     public prefix static func - (inventory: Inventory) -> Inventory {
         var negatedInventory = Inventory()
         for position in inventory.positions {
@@ -355,11 +358,11 @@ extension Inventory: Equatable, Comparable {
         }
         return negatedInventory
     }
-    
+
     public static func - (lhs: Inventory, rhs: Inventory) -> Inventory {
         return lhs + (-rhs)
     }
-    
+
     public static func * (lhs: Inventory, rhs: Decimal) -> Inventory {
         var multipliedInventory = Inventory()
         for position in lhs.positions {
@@ -372,7 +375,7 @@ extension Inventory: Equatable, Comparable {
         }
         return multipliedInventory
     }
-    
+
     // Absolute value
     public var absolute: Inventory {
         var absInventory = Inventory()
@@ -386,13 +389,13 @@ extension Inventory: Equatable, Comparable {
         }
         return absInventory
     }
-    
+
     public var average: Inventory {
         struct GroupKey: Hashable {
             let currency: Currency
             let costCurrency: Currency?
         }
-        
+
         var groups = [GroupKey: [Position]]()
         for position in positions {
             let key = GroupKey(
@@ -410,13 +413,12 @@ extension Inventory: Equatable, Comparable {
             if let costCurrency = key.costCurrency {
                 let totalCost: Decimal = positions.reduce(0) { $0 + $1.totalCost.number }
                 let costNumber: Decimal =
-                totalUnits == .zero ? .greatestFiniteMagnitude : totalCost / totalUnits
-                let minDate: Date =
-                positions.reduce(nil) { result, pos in
+                    totalUnits == .zero ? .greatestFiniteMagnitude : totalCost / totalUnits
+                let minDate: Date? = positions.reduce(nil) { result, pos in
                     guard let posDate = pos.cost?.date else { return result }
                     guard let result else { return posDate }
                     return min(result, posDate)
-                } ?? .distantPast
+                }
                 cost = Cost(number: costNumber, currency: costCurrency, date: minDate)
             } else {
                 cost = nil
