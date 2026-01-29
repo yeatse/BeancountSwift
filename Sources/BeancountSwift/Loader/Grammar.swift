@@ -181,16 +181,23 @@ struct CompoundAmount {
 
 extension CompoundAmount: Parsable {
     init(from node: Node, content: String) throws {
-        let currency = try node.child(byFieldName: "currency").map {
+        var currency = try node.child(byFieldName: "currency").map {
             try Currency(from: $0, content: content)
         }
         var per = try node.child(byFieldName: "number_per").map {
             try Decimal(from: $0, content: content)
         }
-        let total = try node.child(byFieldName: "number_total").map {
+        var total = try node.child(byFieldName: "number_total").map {
             try Decimal(from: $0, content: content)
         }
-        if total == nil && per == nil { per = .nan }
+        if currency != nil {
+            per = per ?? .nan
+        } else if per != nil {
+            currency = currency ?? .missing
+        }
+        if node.childCount == node.namedChildCount + 1, total == nil {
+            total = .nan
+        }
         self.init(currency: currency, per: per, total: total)
     }
 }
@@ -536,17 +543,30 @@ extension CostSpec: Parsable {
         }
         let numberPer: Decimal?
         let numberTotal: Decimal?
-        if node.nodeType == "total_cost" {
-            numberTotal = amount?.total ?? amount?.per
-            numberPer = 0
+        let currency: Currency?
+        if let amount {
+            currency = amount.currency
+            if node.nodeType == "total_cost" {
+                if amount.total != nil {
+                    numberTotal = amount.total
+                    numberPer = 0
+                } else {
+                    numberTotal = amount.per
+                    numberPer = 0
+                }
+            } else {
+                numberPer = amount.per
+                numberTotal = amount.total
+            }
         } else {
-            numberPer = amount?.per
-            numberTotal = amount?.total
+            numberPer = .nan
+            numberTotal = nil
+            currency = .missing
         }
         self.init(
             numberPerUnit: numberPer,
             numberTotal: numberTotal,
-            currency: amount?.currency,
+            currency: currency,
             date: date,
             label: label,
             merge: merge

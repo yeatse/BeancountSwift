@@ -62,7 +62,9 @@ struct InterpolateCurrencyGroupTests {
     }
 
     // Parse an expected string into lightweight expectations we can compare
-    private func expectedPostings(from content: String, sourceLocation: SourceLocation) throws -> [Posting<Cost>] {
+    private func expectedPostings(from content: String, sourceLocation: SourceLocation) throws
+        -> [Posting<Cost>]
+    {
         let provider = ContentProvider(source: content)
         let ledger = try provider.parseLedger()
         let (entries, errors) = Booking.convertLotSpecsToLots(entries: ledger.directives)
@@ -124,7 +126,8 @@ struct InterpolateCurrencyGroupTests {
             }
 
             if let expString = exp.expected {
-                let expPostingsSpec = try expectedPostings(from: expString, sourceLocation: sourceLocation)
+                let expPostingsSpec = try expectedPostings(
+                    from: expString, sourceLocation: sourceLocation)
                 let left = newPostings.map(comparableTuple)
                 let right = expPostingsSpec.map(comparableTuple)
                 #expect(left.count == right.count, sourceLocation: sourceLocation)
@@ -151,7 +154,7 @@ struct InterpolateCurrencyGroupTests {
         try check(
             ledger.directives[0],
             expected: [
-                Currency(id: "USD"): .init(interpolated: false, expected: nil, errorSubstrings: nil)
+                "USD": .init(interpolated: false, expected: nil, errorSubstrings: nil)
             ], options: ledger.options)
     }
 
@@ -165,7 +168,7 @@ struct InterpolateCurrencyGroupTests {
         try check(
             ledger.directives[0],
             expected: [
-                Currency(id: "USD"): .init(
+                "USD": .init(
                     interpolated: true,
                     expected: """
                           2015-10-02 *
@@ -191,7 +194,7 @@ struct InterpolateCurrencyGroupTests {
         try check(
             ledger.directives[0],
             expected: [
-                Currency(id: "USD"): .init(
+                "USD": .init(
                     interpolated: true,
                     expected: """
                           2015-10-02 *
@@ -204,7 +207,7 @@ struct InterpolateCurrencyGroupTests {
         try check(
             ledger.directives[1],
             expected: [
-                Currency(id: "USD"): .init(
+                "USD": .init(
                     interpolated: true,  // interpolation attempted but price inference forbidden
                     expected: nil,
                     errorSubstrings: ["cannotInferPrice"]
@@ -225,7 +228,7 @@ struct InterpolateCurrencyGroupTests {
         try check(
             ledger.directives[0],
             expected: [
-                Currency(id: "CAD"): .init(
+                "CAD": .init(
                     interpolated: true,
                     expected: """
                           2010-05-28 *
@@ -235,7 +238,7 @@ struct InterpolateCurrencyGroupTests {
                         """,
                     errorSubstrings: nil
                 ),
-                Currency(id: "USD"): .init(
+                "USD": .init(
                     interpolated: true,
                     expected: """
                           2010-05-28 *
@@ -258,7 +261,7 @@ struct InterpolateCurrencyGroupTests {
         try check(
             ledger.directives[0],
             expected: [
-                Currency(id: "USD"): .init(
+                "USD": .init(
                     interpolated: false,
                     expected: nil,
                     errorSubstrings: ["tooManyMissingNumbers"]
@@ -276,7 +279,7 @@ struct InterpolateCurrencyGroupTests {
         try check(
             ledger.directives[0],
             expected: [
-                Currency(id: "USD"): .init(
+                "USD": .init(
                     interpolated: false,
                     expected: nil,
                     errorSubstrings: ["tooManyMissingNumbers"]
@@ -294,7 +297,7 @@ struct InterpolateCurrencyGroupTests {
         try check(
             ledger.directives[0],
             expected: [
-                Currency(id: "USD"): .init(
+                "USD": .init(
                     interpolated: false,
                     expected: nil,
                     errorSubstrings: ["tooManyMissingNumbers"]
@@ -312,7 +315,7 @@ struct InterpolateCurrencyGroupTests {
         try check(
             ledger.directives[0],
             expected: [
-                Currency(id: "USD"): .init(
+                "USD": .init(
                     interpolated: false,
                     expected: nil,
                     errorSubstrings: ["tooManyMissingNumbers"]
@@ -356,7 +359,7 @@ struct InterpolateCurrencyGroupTests {
         try check(
             transactions[0],
             expected: [
-                Currency(id: "USD"): .init(
+                "USD": .init(
                     interpolated: true,
                     expected: """
                           2015-10-02 *
@@ -370,7 +373,7 @@ struct InterpolateCurrencyGroupTests {
         try check(
             transactions[1],
             expected: [
-                Currency(id: "USD"): .init(
+                "USD": .init(
                     interpolated: true,
                     expected: """
                           2015-10-02 *
@@ -384,7 +387,7 @@ struct InterpolateCurrencyGroupTests {
         try check(
             transactions[2],
             expected: [
-                Currency(id: "USD"): .init(
+                "USD": .init(
                     interpolated: true,
                     expected: """
                           2015-10-02 *
@@ -398,7 +401,7 @@ struct InterpolateCurrencyGroupTests {
         try check(
             transactions[3],
             expected: [
-                Currency(id: "USD"): .init(
+                "USD": .init(
                     interpolated: true,
                     expected: """
                           2015-10-02 *
@@ -412,7 +415,7 @@ struct InterpolateCurrencyGroupTests {
         try check(
             transactions[4],
             expected: [
-                Currency(id: "USD"): .init(
+                "USD": .init(
                     interpolated: true,
                     expected: nil,
                     errorSubstrings: ["cannotInferPerUnitCost"]
@@ -422,7 +425,7 @@ struct InterpolateCurrencyGroupTests {
         try check(
             transactions[5],
             expected: [
-                Currency(id: "USD"): .init(
+                "USD": .init(
                     interpolated: true,
                     expected: """
                           2015-10-02 *
@@ -458,7 +461,7 @@ struct InterpolateCurrencyGroupTests {
         try check(
             transactions[0],
             expected: [
-                Currency(id: "USD"): .init(
+                "USD": .init(
                     interpolated: true,
                     expected: """
                           2015-10-02 *
@@ -472,7 +475,7 @@ struct InterpolateCurrencyGroupTests {
         try check(
             transactions[1],
             expected: [
-                Currency(id: "USD"): .init(
+                "USD": .init(
                     interpolated: true,
                     expected: """
                           2015-10-02 *
@@ -486,7 +489,7 @@ struct InterpolateCurrencyGroupTests {
         try check(
             transactions[2],
             expected: [
-                Currency(id: "USD"): .init(
+                "USD": .init(
                     interpolated: true,
                     expected: """
                           2015-10-02 *
@@ -518,7 +521,7 @@ struct InterpolateCurrencyGroupTests {
         try check(
             transactions[0],
             expected: [
-                Currency(id: "USD"): .init(
+                "USD": .init(
                     interpolated: true,
                     expected: """
                           2015-10-02 *
@@ -532,7 +535,7 @@ struct InterpolateCurrencyGroupTests {
         try check(
             transactions[1],
             expected: [
-                Currency(id: "USD"): .init(
+                "USD": .init(
                     interpolated: true,
                     expected: """
                           2015-10-02 *
@@ -564,7 +567,7 @@ struct InterpolateCurrencyGroupTests {
         try check(
             transactions[0],
             expected: [
-                Currency(id: "USD"): .init(
+                "USD": .init(
                     interpolated: true,
                     expected: """
                           2015-10-02 *
@@ -578,7 +581,7 @@ struct InterpolateCurrencyGroupTests {
         try check(
             transactions[1],
             expected: [
-                Currency(id: "USD"): .init(
+                "USD": .init(
                     interpolated: true,
                     expected: """
                           2015-10-02 *
@@ -617,7 +620,7 @@ struct InterpolateCurrencyGroupTests {
             try check(
                 entry,
                 expected: [
-                    Currency(id: "CAD"): .init(
+                    "CAD": .init(
                         interpolated: true,
                         expected: """
                               2010-05-28 *
@@ -627,7 +630,7 @@ struct InterpolateCurrencyGroupTests {
                             """,
                         errorSubstrings: nil
                     ),
-                    Currency(id: "USD"): .init(
+                    "USD": .init(
                         interpolated: true,
                         expected: """
                               2010-05-28 *
@@ -653,7 +656,7 @@ struct InterpolateCurrencyGroupTests {
         try check(
             entry,
             expected: [
-                Currency(id: "CAD"): .init(
+                "CAD": .init(
                     interpolated: true,
                     expected: """
                           1997-03-16 *
@@ -662,7 +665,7 @@ struct InterpolateCurrencyGroupTests {
                         """,
                     errorSubstrings: nil
                 ),
-                Currency(id: "RSPCAD"): .init(
+                "RSPCAD": .init(
                     interpolated: false,
                     expected: """
                           1997-03-16 *
@@ -692,7 +695,7 @@ struct InterpolateCurrencyGroupTests {
         try check(
             transactions[0],
             expected: [
-                Currency(id: "USD"): .init(
+                "USD": .init(
                     interpolated: false,
                     expected: """
                           2016-04-23 * ""
@@ -723,7 +726,7 @@ struct InterpolateCurrencyGroupTests {
         try check(
             transactions[0],
             expected: [
-                Currency(id: "USD"): .init(
+                "USD": .init(
                     interpolated: false,
                     expected: """
                           2016-04-23 * ""
@@ -759,7 +762,7 @@ struct InterpolateCurrencyGroupTests {
         try check(
             transactions[0],
             expected: [
-                Currency(id: "USD"): .init(
+                "USD": .init(
                     interpolated: false,
                     expected: """
                           2016-04-23 * ""
@@ -768,7 +771,7 @@ struct InterpolateCurrencyGroupTests {
                         """,
                     errorSubstrings: nil
                 ),
-                Currency(id: "CAD"): .init(
+                "CAD": .init(
                     interpolated: true,
                     expected: """
                           2016-04-23 * ""
@@ -810,7 +813,7 @@ struct InterpolateCurrencyGroupTests {
         try check(
             transactions[0],
             expected: [
-                Currency(id: "USD"): .init(
+                "USD": .init(
                     interpolated: true,
                     expected: """
                           2016-04-23 * ""
@@ -824,7 +827,7 @@ struct InterpolateCurrencyGroupTests {
         try check(
             transactions[1],
             expected: [
-                Currency(id: "CAD"): .init(
+                "CAD": .init(
                     interpolated: true,
                     expected: """
                           2016-04-24 * ""
@@ -838,7 +841,7 @@ struct InterpolateCurrencyGroupTests {
         try check(
             transactions[2],
             expected: [
-                Currency(id: "JPY"): .init(
+                "JPY": .init(
                     interpolated: true,
                     expected: """
                           2016-04-25 * ""
@@ -870,7 +873,7 @@ struct InterpolateCurrencyGroupTests {
         try check(
             transactions[0],
             expected: [
-                Currency(id: "USD"): .init(
+                "USD": .init(
                     interpolated: false,
                     expected: """
                           2018-10-31 * "Sold Short 23 MSFT @ 106.935"
@@ -1175,7 +1178,7 @@ struct CategorizeCurrencyGroupTests {
         var (groups, errors) = Booking.categorizeByCurrency(
             transaction: ledger.directives[0].transaction, balances: [:])
         #expect(errors.isEmpty)
-        #expect(indexes(of: groups) == ["HOOL": [0], "USD": [1]])
+        #expect(indexes(of: groups) == ["USD": [0, 1]])
 
         // Test second transaction with balance - resolves to USD
         (groups, errors) = Booking.categorizeByCurrency(
@@ -1187,7 +1190,7 @@ struct CategorizeCurrencyGroupTests {
         // Test second transaction without balance - still resolves to USD
         (groups, errors) = Booking.categorizeByCurrency(
             transaction: ledger.directives[1].transaction, balances: [:])
-        #expect(errors.isEmpty)
+        #expect(!errors.isEmpty)
         #expect(indexes(of: groups) == ["USD": [0, 1]])
 
         // Test third transaction with balance - resolves to HOOL
@@ -1195,20 +1198,20 @@ struct CategorizeCurrencyGroupTests {
             transaction: ledger.directives[2].transaction,
             balances: ["Assets:Account": "1 HOOL {1.00 USD}"])
         #expect(errors.isEmpty)
-        #expect(indexes(of: groups) == ["HOOL": [0, 1]])
+        #expect(indexes(of: groups) == ["USD": [0, 1]])
 
         // Test third transaction without balance - resolves to HOOL
         (groups, errors) = Booking.categorizeByCurrency(
             transaction: ledger.directives[2].transaction, balances: [:])
-        #expect(errors.isEmpty)
-        #expect(indexes(of: groups) == ["HOOL": [0, 1]])
+        #expect(errors.count == 1)
+        #expect(indexes(of: groups) == [:])
 
         // Test fourth transaction with balance - resolves to HOOL
         (groups, errors) = Booking.categorizeByCurrency(
             transaction: ledger.directives[3].transaction,
             balances: ["Assets:Account": "1 HOOL {1.00 USD}"])
         #expect(errors.isEmpty)
-        #expect(indexes(of: groups) == ["HOOL": [0, 1]])
+        #expect(indexes(of: groups) == ["USD": [0, 1]])
 
         // Test fourth transaction without balance - fails to categorize
         (groups, errors) = Booking.categorizeByCurrency(
@@ -1418,7 +1421,7 @@ struct ReplaceCurrenciesInGroupTests {
         let ledger = try provider.parseLedger()
         try checkReplaceCurrencies(
             expected: [
-                Currency(id: "USD"): [
+                "USD": [
                     ("Assets:Account", "USD", nil, nil),
                     ("Assets:Other", "USD", nil, nil),
                 ]
@@ -1426,11 +1429,11 @@ struct ReplaceCurrenciesInGroupTests {
 
         try checkReplaceCurrencies(
             expected: [
-                Currency(id: "CAD"): [
+                "CAD": [
                     ("Assets:Account", "CAD", nil, nil),
                     ("Assets:Other", "CAD", nil, nil),
                 ],
-                Currency(id: "USD"): [
+                "USD": [
                     ("Assets:Account", "USD", nil, nil),
                     ("Assets:Other", "USD", nil, nil),
                 ],
@@ -1438,11 +1441,11 @@ struct ReplaceCurrenciesInGroupTests {
 
         try checkReplaceCurrencies(
             expected: [
-                Currency(id: "CAD"): [
+                "CAD": [
                     ("Assets:Account", "CAD", nil, nil),
                     ("Assets:CA:Other", "CAD", nil, nil),
                 ],
-                Currency(id: "USD"): [
+                "USD": [
                     ("Assets:Account", "USD", nil, nil),
                     ("Assets:US:Other", "USD", nil, nil),
                 ],
@@ -1479,7 +1482,7 @@ struct ReplaceCurrenciesInGroupTests {
 
         try checkReplaceCurrencies(
             expected: [
-                Currency(id: "USD"): [
+                "USD": [
                     ("Assets:Account", "USD", nil, nil),
                     ("Assets:Another", "USD", nil, nil),
                 ]
@@ -1487,7 +1490,7 @@ struct ReplaceCurrenciesInGroupTests {
 
         try checkReplaceCurrencies(
             expected: [
-                Currency(id: "CAD"): [
+                "CAD": [
                     ("Assets:Account", "USD", nil, "CAD"),
                     ("Assets:Another", "CAD", nil, nil),
                 ]
@@ -1495,7 +1498,7 @@ struct ReplaceCurrenciesInGroupTests {
 
         try checkReplaceCurrencies(
             expected: [
-                Currency(id: "USD"): [
+                "USD": [
                     ("Assets:Account", "HOOL", "USD", nil),
                     ("Assets:Another", "USD", nil, nil),
                 ]
@@ -1503,7 +1506,7 @@ struct ReplaceCurrenciesInGroupTests {
 
         try checkReplaceCurrencies(
             expected: [
-                Currency(id: "USD"): [
+                "USD": [
                     ("Assets:Account", "HOOL", "USD", "USD"),
                     ("Assets:Another", "USD", nil, nil),
                 ]
@@ -1511,7 +1514,7 @@ struct ReplaceCurrenciesInGroupTests {
 
         try checkReplaceCurrencies(
             expected: [
-                Currency(id: "USD"): [
+                "USD": [
                     ("Assets:Account", "HOOL", "USD", "USD"),
                     ("Assets:Another", "USD", nil, nil),
                 ]
@@ -1524,45 +1527,45 @@ struct ComputeCostNumberTests {
 
     @Test func testComputeCostNumberMissingPer() throws {
         let costSpec = CostSpec(
-            numberPerUnit: .nan, numberTotal: 1.0, currency: Currency(id: "USD"), date: nil,
+            numberPerUnit: .nan, numberTotal: 1.0, currency: "USD", date: nil,
             label: nil, merge: false)
-        let units = Amount(number: 12.0, currency: Currency(id: "HOOL"))
+        let units = Amount(number: 12.0, currency: "HOOL")
         let result = costSpec.computeCostNumber(by: units)
         #expect(result == nil)
     }
 
     @Test func testComputeCostNumberMissingTotal() throws {
         let costSpec = CostSpec(
-            numberPerUnit: 1.0, numberTotal: .nan, currency: Currency(id: "USD"), date: nil,
+            numberPerUnit: 1.0, numberTotal: .nan, currency: "USD", date: nil,
             label: nil, merge: false)
-        let units = Amount(number: 12.0, currency: Currency(id: "HOOL"))
+        let units = Amount(number: 12.0, currency: "HOOL")
         let result = costSpec.computeCostNumber(by: units)
         #expect(result == nil)
     }
 
     @Test func testComputeCostNumberBothNone() throws {
         let costSpec = CostSpec(
-            numberPerUnit: nil, numberTotal: nil, currency: Currency(id: "USD"), date: nil,
+            numberPerUnit: nil, numberTotal: nil, currency: "USD", date: nil,
             label: nil, merge: false)
-        let units = Amount(number: 12.0, currency: Currency(id: "HOOL"))
+        let units = Amount(number: 12.0, currency: "HOOL")
         let result = costSpec.computeCostNumber(by: units)
         #expect(result == nil)
     }
 
     @Test func testComputeCostNumberTotalOnly() throws {
         let costSpec = CostSpec(
-            numberPerUnit: nil, numberTotal: 48.0, currency: Currency(id: "USD"), date: nil,
+            numberPerUnit: nil, numberTotal: 48.0, currency: "USD", date: nil,
             label: nil, merge: false)
-        let units = Amount(number: 12.0, currency: Currency(id: "HOOL"))
+        let units = Amount(number: 12.0, currency: "HOOL")
         let result = costSpec.computeCostNumber(by: units)
         #expect(result == 4.0)
     }
 
     @Test func testComputeCostNumberPerOnly() throws {
         let costSpec = CostSpec(
-            numberPerUnit: 4.0, numberTotal: nil, currency: Currency(id: "USD"), date: nil,
+            numberPerUnit: 4.0, numberTotal: nil, currency: "USD", date: nil,
             label: nil, merge: false)
-        let units = Amount(number: 12.0, currency: Currency(id: "HOOL"))
+        let units = Amount(number: 12.0, currency: "HOOL")
         let result = costSpec.computeCostNumber(by: units)
         #expect(result == 4.0)
     }
@@ -1570,9 +1573,9 @@ struct ComputeCostNumberTests {
     @Test func testComputeCostNumberBoth() throws {
         let date: Date = "2016-01-01"
         let costSpec = CostSpec(
-            numberPerUnit: 3.0, numberTotal: 6.0, currency: Currency(id: "USD"), date: date,
+            numberPerUnit: 3.0, numberTotal: 6.0, currency: "USD", date: date,
             label: nil, merge: false)
-        let units = Amount(number: 12.0, currency: Currency(id: "HOOL"))
+        let units = Amount(number: 12.0, currency: "HOOL")
         let result = costSpec.computeCostNumber(by: units)
         #expect(result == 3.5)
     }
@@ -1582,7 +1585,7 @@ struct ComputeCostNumberTests {
         let costSpec = CostSpec(
             numberPerUnit: 3.0, numberTotal: 6.0, currency: nil, date: date, label: nil,
             merge: false)
-        let units = Amount(number: 12.0, currency: Currency(id: "HOOL"))
+        let units = Amount(number: 12.0, currency: "HOOL")
         let result = costSpec.computeCostNumber(by: units)
         #expect(result == 3.5)
     }
@@ -1592,7 +1595,7 @@ struct ComputeCostNumberTests {
         let costSpec = CostSpec(
             numberPerUnit: 3.0, numberTotal: 6.0, currency: nil, date: date, label: nil,
             merge: false)
-        let units = Amount(number: -12.0, currency: Currency(id: "HOOL"))
+        let units = Amount(number: -12.0, currency: "HOOL")
         let result = costSpec.computeCostNumber(by: units)
         #expect(result == 3.5)
     }
@@ -1776,12 +1779,12 @@ struct BookAugmentationsTests {
             return
         }
         #expect(inc.account == "Assets:Account")
-        #expect(inc.units == Amount(number: 1, currency: "HOOL"))
+        #expect(inc.units == "1 HOOL")
         let cost = try #require(inc.cost)
         // Empty cost spec: no currency; per/total absent
-        #expect(cost.currency == nil)
-        #expect(cost.numberPerUnit == nil)
+        #expect(cost.numberPerUnit == .nan)
         #expect(cost.numberTotal == nil)
+        #expect(cost.currency == .missing)
         #expect(cost.date == "2015-10-01")
     }
 

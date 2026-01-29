@@ -69,7 +69,6 @@ struct BookingTests {
                 Assets:Investments:EastMoney:CNS510300                 -100 CNS510300 {} @ 4.068 CNY
                 Expenses:Investments:EastMoney:Commissions                      +0.10 CNY
                 Assets:Investments:EastMoney:EastMoney-xxx                  +406.70 CNY
-                Income:Investments:EastMoney:PnL
             """
         let ledger = try p.parseLedger()
         let bookedLedger = Booking.book(ledger: ledger)
@@ -78,7 +77,7 @@ struct BookingTests {
             $0.account == "Assets:Investments:EastMoney:CNS510300"
         }
         #expect(posting != nil)
-        #expect(posting?.cost == nil)
+        #expect(posting?.cost?.number == "4.068")
         #expect(posting?.price == "4.068 CNY")
     }
 

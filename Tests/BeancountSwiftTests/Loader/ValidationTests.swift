@@ -465,7 +465,7 @@ struct ValidationTests {
 
     @Test func validateErrorDescription() {
         let account = Account(id: "Assets:Checking")
-        let currency = Currency(id: "USD")
+        let currency = "USD"
         let directive = Directive<Cost>(
             meta: [:],
             date: "2014-01-01",
@@ -477,7 +477,7 @@ struct ValidationTests {
         #expect(error1.localizedDescription.contains("Assets:Checking"))
 
         let error2 = ValidationError.invalidCurrency(
-            currency: currency, account: account, entry: directive)
+            currency: Currency(id: currency), account: account, entry: directive)
         #expect(error2.localizedDescription.contains("Invalid currency"))
         #expect(error2.localizedDescription.contains("USD"))
         #expect(error2.localizedDescription.contains("Assets:Checking"))

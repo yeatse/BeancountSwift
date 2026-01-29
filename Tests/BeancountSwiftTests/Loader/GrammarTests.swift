@@ -21,7 +21,7 @@ struct GrammarTests {
         #expect(ledger.directives[0].transaction.isIncomplete)
         let posting = ledger.directives[0].transaction.postings[0]
         #expect(posting.units == "20 AAPL")
-        #expect(posting.cost == CostSpec(merge: true))
+        #expect(posting.cost == CostSpec(numberPerUnit: .nan, currency: .missing, merge: true))
     }
 
     @Test func parenNumericExpressionAmount() throws {

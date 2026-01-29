@@ -140,9 +140,9 @@ enum Booking {
                 let cost = convertSpecToCost(units: units, costSpec: costSpec)
 
                 if costSpec != nil,
-                   cost == nil,
-                   units.number != .nan,
-                   units.currency != .missing
+                    cost == nil,
+                    units.number != .nan,
+                    units.currency != .missing
                 {
                     errors.append(LotConversionError.unsupportedCostSpec(entry: entry))
                 }
@@ -194,9 +194,7 @@ enum Booking {
 
         let numberPer = costSpec.numberPerUnit
         let numberTotal = costSpec.numberTotal
-        let hasPer = numberPer != nil && numberPer != .nan
-
-        guard hasPer || numberTotal != nil else {
+        guard numberPer != .nan || numberTotal != nil else {
             return nil
         }
 
@@ -213,7 +211,8 @@ enum Booking {
         }
 
         let currency = costSpec.currency ?? .missing
-        return Cost(number: unitCost, currency: currency, date: costSpec.date, label: costSpec.label)
+        return Cost(
+            number: unitCost, currency: currency, date: costSpec.date, label: costSpec.label)
     }
 
     static func book(ledger: ParsedLedger<CostSpec>) -> ParsedLedger<Cost> {
