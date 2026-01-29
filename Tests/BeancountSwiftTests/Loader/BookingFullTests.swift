@@ -62,11 +62,13 @@ struct InterpolateCurrencyGroupTests {
     }
 
     // Parse an expected string into lightweight expectations we can compare
-    private func expectedPostings(from content: String) throws -> [Posting<CostSpec>] {
+    private func expectedPostings(from content: String, sourceLocation: SourceLocation) throws -> [Posting<Cost>] {
         let provider = ContentProvider(source: content)
         let ledger = try provider.parseLedger()
-        #expect(ledger.directives.count == 1)
-        return ledger.directives[0].transaction.postings
+        let (entries, errors) = Booking.convertLotSpecsToLots(entries: ledger.directives)
+        #expect(entries.count == 1, sourceLocation: sourceLocation)
+        #expect(errors.isEmpty, sourceLocation: sourceLocation)
+        return try #require(entries.first?.transaction.postings, sourceLocation: sourceLocation)
     }
 
     // Normalize a Posting<Cost> for comparison against Posting<CostSpec>
@@ -79,20 +81,6 @@ struct InterpolateCurrencyGroupTests {
             posting.units.currency.id,
             posting.cost?.number,
             posting.cost?.currency.id,
-            posting.price?.number,
-            posting.price?.currency.id
-        )
-    }
-
-    private func comparableTuple(_ posting: Posting<CostSpec>) -> (
-        String, Decimal, String, Decimal?, String?, Decimal?, String?
-    ) {
-        (
-            posting.account.id,
-            posting.units.number,
-            posting.units.currency.id,
-            posting.cost?.numberPerUnit,
-            posting.cost?.currency?.id,
             posting.price?.number,
             posting.price?.currency.id
         )
@@ -136,7 +124,7 @@ struct InterpolateCurrencyGroupTests {
             }
 
             if let expString = exp.expected {
-                let expPostingsSpec = try expectedPostings(from: expString)
+                let expPostingsSpec = try expectedPostings(from: expString, sourceLocation: sourceLocation)
                 let left = newPostings.map(comparableTuple)
                 let right = expPostingsSpec.map(comparableTuple)
                 #expect(left.count == right.count, sourceLocation: sourceLocation)

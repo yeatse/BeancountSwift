@@ -50,6 +50,43 @@ enum InterpolationError: Error {
     case costIsNegative
 }
 
+/// Errors emitted while converting CostSpec values into resolved Cost lots.
+///
+/// This mirrors the legacy Beancount behavior where incomplete or unsupported
+/// cost specifications are downgraded to errors while still allowing parsing
+/// to continue.
+enum LotConversionError: LocatableError, LocalizedError {
+    case unsupportedCostSpec(entry: Directive<CostSpec>)
+    case amountIsZero(entry: Directive<CostSpec>, units: Amount)
+    case costIsNegative(entry: Directive<CostSpec>, cost: Cost)
+
+    var location: LedgerLocation? {
+        func getLocation(_ entry: Directive<CostSpec>) -> LedgerLocation? {
+            if let filename = entry.meta.filename, let lineno = entry.meta.lineno {
+                return LedgerLocation(filename: filename, lineno: lineno)
+            } else {
+                return nil
+            }
+        }
+        return switch self {
+        case .unsupportedCostSpec(let entry): getLocation(entry)
+        case .amountIsZero(let entry, _): getLocation(entry)
+        case .costIsNegative(let entry, _): getLocation(entry)
+        }
+    }
+
+    var errorDescription: String? {
+        return switch self {
+        case .unsupportedCostSpec:
+            "Cost syntax not supported; cost spec ignored"
+        case .amountIsZero(_, let units):
+            "Amount is zero: \"\(units)\""
+        case .costIsNegative(_, let cost):
+            "Cost is negative: \"\(cost)\""
+        }
+    }
+}
+
 extension DirectiveContent<CostSpec> {
     func resolved() -> DirectiveContent<Cost> {
         switch self {
@@ -70,6 +107,114 @@ extension DirectiveContent<CostSpec> {
 }
 
 enum Booking {
+
+    /// Convert all CostSpec values in a list of directives into resolved Cost lots.
+    ///
+    /// This replicates the legacy Beancount parser behavior by computing concrete
+    /// per-unit costs whenever possible, while preserving incomplete postings.
+    ///
+    /// - Parameter entries: Directives that may contain CostSpec postings.
+    /// - Returns: Converted directives (CostSpec -> Cost) and any conversion errors.
+    static func convertLotSpecsToLots(
+        entries: [Directive<CostSpec>]
+    ) -> ([Directive<Cost>], [Error]) {
+        var newEntries: [Directive<Cost>] = []
+        var errors: [Error] = []
+
+        for entry in entries {
+            guard case .transaction(let txn) = entry.content else {
+                newEntries.append(
+                    .init(
+                        meta: entry.meta,
+                        date: entry.date,
+                        comment: entry.comment,
+                        content: entry.content.resolved()
+                    ))
+                continue
+            }
+
+            var newPostings: [Posting<Cost>] = []
+            for posting in txn.postings {
+                let units = posting.units
+                let costSpec = posting.cost
+                let cost = convertSpecToCost(units: units, costSpec: costSpec)
+
+                if costSpec != nil,
+                   cost == nil,
+                   units.number != .nan,
+                   units.currency != .missing
+                {
+                    errors.append(LotConversionError.unsupportedCostSpec(entry: entry))
+                }
+
+                if let cost {
+                    if units.number == .zero {
+                        errors.append(LotConversionError.amountIsZero(entry: entry, units: units))
+                    } else if cost.number < .zero {
+                        errors.append(LotConversionError.costIsNegative(entry: entry, cost: cost))
+                    }
+                }
+
+                newPostings.append(posting.resolved(cost: cost))
+            }
+
+            let newTxn = Transaction(
+                flag: txn.flag,
+                payee: txn.payee,
+                narration: txn.narration,
+                tags: txn.tags,
+                links: txn.links,
+                postings: newPostings
+            )
+            newEntries.append(
+                .init(
+                    meta: entry.meta,
+                    date: entry.date,
+                    comment: entry.comment,
+                    content: .transaction(newTxn)
+                ))
+        }
+
+        return (newEntries, errors)
+    }
+
+    /// Convert a single CostSpec to a resolved Cost for a posting.
+    ///
+    /// - Parameters:
+    ///   - units: The posting units.
+    ///   - costSpec: The CostSpec attached to the posting.
+    /// - Returns: A resolved Cost, or nil if the spec is incomplete or not applicable.
+    static func convertSpecToCost(units: Amount, costSpec: CostSpec?) -> Cost? {
+        guard let costSpec else {
+            return nil
+        }
+        if units.number == .nan || units.currency == .missing {
+            return nil
+        }
+
+        let numberPer = costSpec.numberPerUnit
+        let numberTotal = costSpec.numberTotal
+        let hasPer = numberPer != nil && numberPer != .nan
+
+        guard hasPer || numberTotal != nil else {
+            return nil
+        }
+
+        let unitCost: Decimal
+        if let numberTotal {
+            let unitsNum = units.number
+            var costTotal = numberTotal
+            if let numberPer, numberPer != .nan {
+                costTotal += numberPer * unitsNum
+            }
+            unitCost = costTotal / abs(unitsNum)
+        } else {
+            unitCost = numberPer!
+        }
+
+        let currency = costSpec.currency ?? .missing
+        return Cost(number: unitCost, currency: currency, date: costSpec.date, label: costSpec.label)
+    }
 
     static func book(ledger: ParsedLedger<CostSpec>) -> ParsedLedger<Cost> {
 
