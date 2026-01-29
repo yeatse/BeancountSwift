@@ -45,7 +45,7 @@ public struct ToleranceConfiguration: Sendable {
     /// and no currency-specific tolerances.
     static let `default` = ToleranceConfiguration(
         interFromCost: false,
-        multiplier: Decimal(string: "0.5")!,
+        multiplier: Decimal(sign: .plus, exponent: -1, significand: 5), // 0.5
         defaultTolerances: [:]
     )
 }
@@ -131,9 +131,7 @@ enum Interpolate {
             return number
         }
 
-        var quantum = tolerance * 2
-        quantum = normalizeDecimal(quantum)
-
+        let quantum = tolerance * 2
         if isToleranceUserSpecified(quantum) {
             let scale = -quantum.exponent
             return number.rounded(scale, .bankers)
@@ -142,14 +140,6 @@ enum Interpolate {
     }
 
     private static func isToleranceUserSpecified(_ tolerance: Decimal) -> Bool {
-        let str = NSDecimalNumber(decimal: tolerance).stringValue
-        let digits = str.filter { $0.isNumber }
-        let trimmed = digits.drop(while: { $0 == "0" })
-        return trimmed.count < maxToleranceDigits
-    }
-
-    private static func normalizeDecimal(_ value: Decimal) -> Decimal {
-        let str = NSDecimalNumber(decimal: value).stringValue
-        return Decimal(string: str) ?? value
+        return abs(tolerance.exponent) < maxToleranceDigits
     }
 }

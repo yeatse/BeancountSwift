@@ -30,19 +30,6 @@ extension Dictionary {
 }
 
 extension Decimal {
-    /// Rounds the decimal in-place to the specified scale.
-    ///
-    /// Modifies the decimal value to have the specified number of decimal places
-    /// using the given rounding mode.
-    ///
-    /// - Parameters:
-    ///   - scale: The number of decimal places to round to
-    ///   - roundingMode: The rounding mode to apply
-    mutating func round(_ scale: Int, _ roundingMode: NSDecimalNumber.RoundingMode) {
-        var localCopy = self
-        NSDecimalRound(&self, &localCopy, scale, roundingMode)
-    }
-
     /// Returns a rounded copy of the decimal to the specified scale.
     ///
     /// Creates a new decimal value rounded to the specified number of decimal places
@@ -54,8 +41,9 @@ extension Decimal {
     /// - Returns: A new decimal rounded to the specified scale
     func rounded(_ scale: Int, _ roundingMode: NSDecimalNumber.RoundingMode) -> Decimal {
         var result = Decimal()
-        var localCopy = self
-        NSDecimalRound(&result, &localCopy, scale, roundingMode)
+        withUnsafePointer(to: self) {
+            NSDecimalRound(&result, $0, scale, roundingMode)
+        }
         return result
     }
 
