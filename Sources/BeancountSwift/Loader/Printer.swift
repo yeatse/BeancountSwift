@@ -235,7 +235,9 @@ extension Posting: CustomStringConvertible {
 
         if units != .missing {
             positionStr = units.description
-            if let cost {
+            if let cost = cost as? CostSpec, cost.isTotal {
+                positionStr += " {{\(cost.description)}}"
+            } else if let cost {
                 positionStr += " {\(cost.description)}"
             }
             if cost == nil {
