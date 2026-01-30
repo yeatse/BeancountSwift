@@ -45,7 +45,7 @@ public struct ToleranceConfiguration: Sendable {
     /// and no currency-specific tolerances.
     static let `default` = ToleranceConfiguration(
         interFromCost: false,
-        multiplier: Decimal(sign: .plus, exponent: -1, significand: 5), // 0.5
+        multiplier: Decimal(sign: .plus, exponent: -1, significand: 5),  // 0.5
         defaultTolerances: [:]
     )
 }

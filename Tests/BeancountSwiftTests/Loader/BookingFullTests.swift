@@ -52,6 +52,641 @@ struct BookingFullTests {
     }
 }
 
+@Suite("TestAllInterpolationCombinations")
+struct AllInterpolationCombinationsTests {
+
+    func genMissingCombinations(template: String, args: [String]) -> [String] {
+        var results: [String] = []
+        let count = args.count
+
+        for mask in 0..<(1 << count) {
+            var actualArgs: [String] = []
+            for i in 0..<count {
+                if (1 << i) & mask != 0 {
+                    actualArgs.append("")
+                } else {
+                    actualArgs.append(args[i])
+                }
+            }
+
+            var formatted = template
+            for (index, arg) in actualArgs.enumerated() {
+                formatted = formatted.replacingOccurrences(of: "{\(index)}", with: arg)
+            }
+            results.append(formatted)
+        }
+
+        return results
+    }
+
+    @Test func testAllCurrencyInterpolations() throws {
+        let template = """
+              2015-10-02 *
+                Assets:Account  {0}
+                Assets:Other
+            """
+
+        let testCases: [(String, [String])] = [
+            ("100.00 {0}", ["USD"]),
+            ("100.00 {0} @ 1.20 {1}", ["USD", "CAD"]),
+            ("10 {0} {{100.00 {1}}}", ["HOOL", "USD"]),
+            ("10 {0} {{100.00 {1}}} @ 120.00 {2}", ["HOOL", "USD", "USD"]),
+        ]
+
+        for (posTemplate, args) in testCases {
+            let formattedTemplate = template.replacingOccurrences(of: "{0}", with: posTemplate)
+            let combinations = genMissingCombinations(template: formattedTemplate, args: args)
+
+            for string in combinations {
+                let provider: ContentProvider = ContentProvider(source: string)
+                let result = try provider.parseLedger()
+                #expect(result.errors.isEmpty, "Expected no errors for: \(string)")
+            }
+        }
+    }
+
+    @Test func testAllInterpolationCombinations() throws {
+        let template = """
+              2015-10-02 *
+                Assets:Account  {0}
+                Assets:Other
+            """
+
+        let testCases: [(String, [String])] = [
+            ("{0} {1}", ["100.00", "USD"]),
+            ("{0} {1} @ {2} {3}", ["100.00", "USD", "1.20", "CAD"]),
+            ("{0} {1} {{{2} {3}}}", ["10", "HOOL", "100.00", "USD"]),
+            ("{0} {1} {{{2} # {3} USD}}", ["10", "HOOL", "100.00", "9.95"]),
+            (
+                "{0} {1} {{{2} # {3} USD}} @ {4} {5}",
+                ["10", "HOOL", "100.00", "9.95", "120.00", "USD"]
+            ),
+        ]
+
+        for (posTemplate, args) in testCases {
+            let formattedTemplate = template.replacingOccurrences(of: "{0}", with: posTemplate)
+            let combinations = genMissingCombinations(template: formattedTemplate, args: args)
+
+            for string in combinations {
+                let provider: ContentProvider = ContentProvider(source: string)
+                let result = try provider.parseLedger()
+                for error in result.errors {
+                    Issue.record("Unexpected error for transaction: \(string)\nError: \(error)")
+                }
+            }
+        }
+    }
+}
+
+@Suite("TestCategorizeCurrencyGroup")
+struct CategorizeCurrencyGroupTests {
+
+    func indexes(of groups: [(Currency, [Booking.Refer])]) -> [Currency: Set<Int>] {
+        var result: [Currency: Set<Int>] = [:]
+        for (currency, refers) in groups {
+            result[currency] = refers.reduce(
+                [],
+                { p, refers in
+                    p.union([refers.index])
+                })
+        }
+        return result
+    }
+
+    @Test func testCategorizeUnitsUnambiguous() throws {
+        let provider: ContentProvider = """
+            2015-10-02 *
+              Assets:Account  100.00 USD
+              Assets:Other   -100.00 USD
+
+            2015-10-02 *
+              Assets:Account         USD
+              Assets:Other   -100.00 USD
+            """
+
+        let ledger = try provider.parseLedger()
+        for entry in ledger.directives {
+            let (groups, errors) = Booking.categorizeByCurrency(
+                transaction: entry.transaction, balances: DefaultDictionary(default: Inventory()))
+            #expect(errors.isEmpty)
+            #expect(indexes(of: groups) == ["USD": [0, 1]])
+        }
+    }
+
+    @Test func testCategorizeUnitsAmbiguous() throws {
+        let provider: ContentProvider = """
+            2015-10-02 *
+              Assets:Account  100.00
+              Assets:Other   -100.00 USD
+
+            2015-10-02 *
+              Assets:Account  100.00
+              Assets:Other
+            """
+
+        let ledger = try provider.parseLedger()
+        let transaction1 = ledger.directives[0].transaction
+        var (groups, errors) = Booking.categorizeByCurrency(
+            transaction: transaction1, balances: [:])
+        #expect(errors.isEmpty)
+        #expect(indexes(of: groups) == ["USD": [0, 1]])
+
+        let transaction2 = ledger.directives[1].transaction
+        (groups, errors) = Booking.categorizeByCurrency(
+            transaction: transaction2,
+            balances: ["Assets:Account": "1.00 USD"])
+        #expect(errors.isEmpty)
+        #expect(indexes(of: groups) == ["USD": [0, 1]])
+
+        (groups, errors) = Booking.categorizeByCurrency(transaction: transaction2, balances: [:])
+        #expect(!errors.isEmpty)
+        #expect(String(describing: errors.first).contains("failedToCategorize"))
+        #expect(indexes(of: groups) == [:])
+    }
+
+    @Test func testCategorizeUnitsPriceUnambiguous() throws {
+        let provider: ContentProvider = """
+            2015-10-02 *
+              Assets:Account  100.00 USD @ 1.20 CAD
+              Assets:Other   -120.00 CAD
+
+            2015-10-02 *
+              Assets:Account  100.00     @ 1.20 CAD
+              Assets:Other   -120.00 CAD
+            """
+
+        let ledger = try provider.parseLedger()
+        let transaction1 = ledger.directives[0].transaction
+        var (groups, errors) = Booking.categorizeByCurrency(
+            transaction: transaction1, balances: [:])
+        #expect(errors.isEmpty)
+        #expect(indexes(of: groups) == ["CAD": [0, 1]])
+
+        let transaction2 = ledger.directives[1].transaction
+        (groups, errors) = Booking.categorizeByCurrency(
+            transaction: transaction2,
+            balances: ["Assets:Account": "1.00 USD"])
+        #expect(errors.isEmpty)
+        #expect(indexes(of: groups) == ["CAD": [0, 1]])
+
+        (groups, errors) = Booking.categorizeByCurrency(transaction: transaction2, balances: [:])
+        #expect(!errors.isEmpty)
+        #expect(String(describing: errors.first).contains("cannotResolve"))
+        #expect(indexes(of: groups) == ["CAD": [0, 1]])
+    }
+
+    @Test func testCategorizeUnitsPriceAmbiguous() throws {
+        let provider: ContentProvider = """
+            2015-10-02 *
+              Assets:Account  100.00 USD @ 1.20
+              Assets:Other   -120.00 CAD
+
+            2015-10-02 *
+              Assets:Account  100.00     @ 1.20
+              Assets:Other   -120.00 CAD
+
+            2015-10-02 *
+              Assets:Account  100.00 USD @ 1.20
+              Assets:Other
+
+            2015-10-02 *
+              Assets:Account  100.00     @ 1.20
+              Assets:Other
+            """
+
+        let ledger = try provider.parseLedger()
+
+        // Test first transaction
+        var (groups, errors) = Booking.categorizeByCurrency(
+            transaction: ledger.directives[0].transaction, balances: [:])
+        #expect(errors.isEmpty)
+        #expect(indexes(of: groups) == ["CAD": [0, 1]])
+
+        // Test second transaction
+        (groups, errors) = Booking.categorizeByCurrency(
+            transaction: ledger.directives[1].transaction,
+            balances: ["Assets:Account": "1.00 USD"])
+        #expect(errors.isEmpty)
+        #expect(indexes(of: groups) == ["CAD": [0, 1]])
+
+        (groups, errors) = Booking.categorizeByCurrency(
+            transaction: ledger.directives[1].transaction, balances: [:])
+        #expect(!errors.isEmpty)
+        #expect(String(describing: errors.first).contains("cannotResolve"))
+        #expect(indexes(of: groups) == ["CAD": [0, 1]])
+
+        // Test third and fourth transactions - should fail
+        for i in 2...3 {
+            (groups, errors) = Booking.categorizeByCurrency(
+                transaction: ledger.directives[i].transaction, balances: [:])
+            #expect(errors.count == 1)
+            #expect(String(describing: errors.first).contains("failedToCategorize"))
+            #expect(indexes(of: groups) == [:])
+        }
+    }
+
+    @Test func testCategorizeUnitsCostUnambiguous() throws {
+        let provider: ContentProvider = """
+            2015-10-02 *
+              Assets:Account    10 HOOL {100.00 USD}
+              Assets:Other   -1000 USD
+
+            2015-10-02 *
+              Assets:Account    10      {100.00 USD}
+              Assets:Other   -1000 USD
+            """
+
+        let ledger = try provider.parseLedger()
+
+        // Test first transaction
+        var (groups, errors) = Booking.categorizeByCurrency(
+            transaction: ledger.directives[0].transaction, balances: [:])
+        #expect(errors.isEmpty)
+        #expect(indexes(of: groups) == ["USD": [0, 1]])
+
+        // Test second transaction
+        (groups, errors) = Booking.categorizeByCurrency(
+            transaction: ledger.directives[1].transaction,
+            balances: ["Assets:Account": "1 HOOL {1.00 USD}"])
+        #expect(errors.isEmpty)
+        #expect(indexes(of: groups) == ["USD": [0, 1]])
+
+        (groups, errors) = Booking.categorizeByCurrency(
+            transaction: ledger.directives[1].transaction, balances: [:])
+        #expect(!errors.isEmpty)
+        #expect(String(describing: errors.first).contains("cannotResolve"))
+        #expect(indexes(of: groups) == ["USD": [0, 1]])
+    }
+
+    @Test func testCategorizeUnitsCostAmbiguous() throws {
+        let provider: ContentProvider = """
+            2015-10-02 *
+              Assets:Account    10 HOOL {100.00    }
+              Assets:Other   -1000 USD
+
+            2015-10-02 *
+              Assets:Account    10      {100.00    }
+              Assets:Other   -1000 USD
+
+            2015-10-02 *
+              Assets:Account    10 HOOL {100.00    }
+              Assets:Other
+
+            2015-10-02 *
+              Assets:Account    10      {100.00    }
+              Assets:Other
+            """
+
+        let ledger = try provider.parseLedger()
+
+        // Test first transaction - Swift categorizes by both currencies
+        var (groups, errors) = Booking.categorizeByCurrency(
+            transaction: ledger.directives[0].transaction, balances: [:])
+        #expect(errors.isEmpty)
+        #expect(indexes(of: groups) == ["USD": [0, 1]])
+
+        // Test second transaction with balance - resolves to USD
+        (groups, errors) = Booking.categorizeByCurrency(
+            transaction: ledger.directives[1].transaction,
+            balances: ["Assets:Account": "1 HOOL {1.00 USD}"])
+        #expect(errors.isEmpty)
+        #expect(indexes(of: groups) == ["USD": [0, 1]])
+
+        // Test second transaction without balance - still resolves to USD
+        (groups, errors) = Booking.categorizeByCurrency(
+            transaction: ledger.directives[1].transaction, balances: [:])
+        #expect(!errors.isEmpty)
+        #expect(indexes(of: groups) == ["USD": [0, 1]])
+
+        // Test third transaction with balance - resolves to HOOL
+        (groups, errors) = Booking.categorizeByCurrency(
+            transaction: ledger.directives[2].transaction,
+            balances: ["Assets:Account": "1 HOOL {1.00 USD}"])
+        #expect(errors.isEmpty)
+        #expect(indexes(of: groups) == ["USD": [0, 1]])
+
+        // Test third transaction without balance - resolves to HOOL
+        (groups, errors) = Booking.categorizeByCurrency(
+            transaction: ledger.directives[2].transaction, balances: [:])
+        #expect(errors.count == 1)
+        #expect(indexes(of: groups) == [:])
+
+        // Test fourth transaction with balance - resolves to HOOL
+        (groups, errors) = Booking.categorizeByCurrency(
+            transaction: ledger.directives[3].transaction,
+            balances: ["Assets:Account": "1 HOOL {1.00 USD}"])
+        #expect(errors.isEmpty)
+        #expect(indexes(of: groups) == ["USD": [0, 1]])
+
+        // Test fourth transaction without balance - fails to categorize
+        (groups, errors) = Booking.categorizeByCurrency(
+            transaction: ledger.directives[3].transaction, balances: [:])
+        #expect(errors.count == 1)
+        #expect(String(describing: errors.first).contains("failedToCategorize"))
+        #expect(indexes(of: groups) == [:])
+    }
+
+    @Test func testCategorizeUnitsCostPriceUnambiguous() throws {
+        let provider: ContentProvider = """
+            2015-10-02 *
+              Assets:Account  10 HOOL {100.00 USD} @ 120.00 USD
+              Assets:Other
+
+            2015-10-02 *
+              Assets:Account  10      {100.00 USD} @ 120.00 USD
+              Assets:Other
+
+            2015-10-02 *
+              Assets:Account  10 HOOL {100.00    } @ 120.00 USD
+              Assets:Other
+
+            2015-10-02 *
+              Assets:Account  10      {100.00    } @ 120.00 USD
+              Assets:Other
+
+            2015-10-02 *
+              Assets:Account  10 HOOL {100.00 USD} @ 120.00
+              Assets:Other
+
+            2015-10-02 *
+              Assets:Account  10      {100.00 USD} @ 120.00
+              Assets:Other
+            """
+
+        let ledger = try provider.parseLedger()
+
+        // Test transactions 0, 2, 4 (should succeed)
+        for i in [0, 2, 4] {
+            let (groups, errors) = Booking.categorizeByCurrency(
+                transaction: ledger.directives[i].transaction, balances: [:])
+            #expect(errors.isEmpty)
+            #expect(indexes(of: groups) == ["USD": [0, 1]])
+        }
+
+        // Test transactions 1, 3, 5 (should have errors but still categorize)
+        for i in [1, 3, 5] {
+            let (groups, errors) = Booking.categorizeByCurrency(
+                transaction: ledger.directives[i].transaction, balances: [:])
+            #expect(errors.count == 1)
+            #expect(String(describing: errors.first).contains("cannotResolve"))
+            #expect(indexes(of: groups) == ["USD": [0, 1]])
+        }
+    }
+
+    @Test func testCategorizeUnitsCostPriceAmbiguous() throws {
+        let provider: ContentProvider = """
+            2015-10-02 *
+              Assets:Account   10 HOOL {100.00    } @ 120.00
+              Assets:Other  -1000 USD
+
+            2015-10-02 *
+              Assets:Account   10      {100.00    } @ 120.00
+              Assets:Other  -1000 USD
+
+            2015-10-02 *
+              Assets:Account   10 HOOL {100.00    } @ 120.00
+              Assets:Other
+
+            2015-10-02 *
+              Assets:Account   10      {100.00    } @ 120.00
+              Assets:Other
+            """
+
+        let ledger = try provider.parseLedger()
+
+        // Test first transaction
+        var (groups, errors) = Booking.categorizeByCurrency(
+            transaction: ledger.directives[0].transaction, balances: [:])
+        #expect(errors.isEmpty)
+        #expect(indexes(of: groups) == ["USD": [0, 1]])
+
+        // Test second transaction
+        (groups, errors) = Booking.categorizeByCurrency(
+            transaction: ledger.directives[1].transaction, balances: [:])
+        #expect(!errors.isEmpty)
+        #expect(String(describing: errors.first).contains("cannotResolve"))
+        #expect(indexes(of: groups) == ["USD": [0, 1]])
+
+        // Test third and fourth transactions
+        for i in 2...3 {
+            (groups, errors) = Booking.categorizeByCurrency(
+                transaction: ledger.directives[i].transaction,
+                balances: ["Assets:Account": "1 HOOL {1.00 USD}"])
+            #expect(errors.isEmpty)
+            #expect(indexes(of: groups) == ["USD": [0, 1]])
+
+            (groups, errors) = Booking.categorizeByCurrency(
+                transaction: ledger.directives[i].transaction, balances: [:])
+            #expect(!errors.isEmpty)
+            #expect(String(describing: errors.first).contains("failedToCategorize"))
+            #expect(indexes(of: groups) == [:])
+        }
+    }
+
+    @Test func testCategorizeMultipleAutoPostings() throws {
+        let provider: ContentProvider = """
+            2015-10-02 *
+              Assets:Account   100.00 USD
+              Assets:Account   100.00 CAD
+              Assets:Other
+            """
+
+        let ledger = try provider.parseLedger()
+        let (groups, errors) = Booking.categorizeByCurrency(
+            transaction: ledger.directives[0].transaction, balances: [:])
+        #expect(errors.isEmpty)
+        #expect(indexes(of: groups) == ["USD": [0, 2], "CAD": [1, 2]])
+    }
+
+    @Test func testCategorizeRedundantAutoPostings() throws {
+        let provider: ContentProvider = """
+            2015-10-02 *
+              Assets:Account   10 HOOL {100.00    } @ 120.00
+              Assets:Other
+              Assets:Other
+            """
+
+        let ledger = try provider.parseLedger()
+        let (_, errors) = Booking.categorizeByCurrency(
+            transaction: ledger.directives[0].transaction, balances: [:])
+        #expect(!errors.isEmpty)
+    }
+
+    // TODO: These tests require complex inventory balances that may not be fully supported yet
+    // @Test func testCategorizeTwoUnknownPostings() throws { ... }
+    // @Test func testCategorizeAgainstMixed() throws { ... }
+}
+
+@Suite("TestReplaceCurrenciesInGroup")
+struct ReplaceCurrenciesInGroupTests {
+
+    func checkReplaceCurrencies(
+        expected: [Currency: [(String, String, String?, String?)]],
+        transaction: Transaction<CostSpec>
+    ) throws {
+        let (referGroups, errors) = Booking.categorizeByCurrency(
+            transaction: transaction, balances: [:])
+        #expect(errors.isEmpty)
+
+        let postingGroups = Booking.replaceCurrencies(
+            postings: transaction.postings, referGroups: referGroups)
+
+        var checkGroups: [String: [(String, String, String?, String?)]] = [:]
+        for (currency, postings) in postingGroups {
+            var tuples: [(String, String, String?, String?)] = []
+            for posting in postings {
+                let tuple = (
+                    posting.account.id,
+                    posting.units.currency.id,
+                    posting.cost?.currency?.id,
+                    posting.price?.currency.id
+                )
+                tuples.append(tuple)
+            }
+            checkGroups[currency.id] = tuples
+        }
+
+        // Convert expected to use string keys for comparison
+        let expectedStringKeys = Dictionary(
+            uniqueKeysWithValues: expected.map { (k, v) in (k.id, v) })
+
+        // Manually compare the dictionaries since tuples don't conform to Equatable
+        #expect(checkGroups.keys.sorted() == expectedStringKeys.keys.sorted())
+        for key in expectedStringKeys.keys {
+            let checkTuples = checkGroups[key] ?? []
+            let expectedTuples = expectedStringKeys[key] ?? []
+            #expect(checkTuples.count == expectedTuples.count)
+            for (check, expected) in zip(checkTuples, expectedTuples) {
+                #expect(check.0 == expected.0)
+                #expect(check.1 == expected.1)
+                #expect(check.2 == expected.2)
+                #expect(check.3 == expected.3)
+            }
+        }
+    }
+
+    @Test func testAutoPosting() throws {
+        let provider: ContentProvider = """
+            2015-10-02 *
+              Assets:Account   100.00 USD
+              Assets:Other
+
+            2015-10-02 *
+              Assets:Account   100.00 USD
+              Assets:Account   100.00 CAD
+              Assets:Other
+
+            2015-10-02 *
+              Assets:Account   100.00 USD
+              Assets:Account   100.00 CAD
+              Assets:US:Other  USD
+              Assets:CA:Other  CAD
+            """
+
+        let ledger = try provider.parseLedger()
+        try checkReplaceCurrencies(
+            expected: [
+                "USD": [
+                    ("Assets:Account", "USD", nil, nil),
+                    ("Assets:Other", "USD", nil, nil),
+                ]
+            ], transaction: ledger.directives[0].transaction)
+
+        try checkReplaceCurrencies(
+            expected: [
+                "CAD": [
+                    ("Assets:Account", "CAD", nil, nil),
+                    ("Assets:Other", "CAD", nil, nil),
+                ],
+                "USD": [
+                    ("Assets:Account", "USD", nil, nil),
+                    ("Assets:Other", "USD", nil, nil),
+                ],
+            ], transaction: ledger.directives[1].transaction)
+
+        try checkReplaceCurrencies(
+            expected: [
+                "CAD": [
+                    ("Assets:Account", "CAD", nil, nil),
+                    ("Assets:CA:Other", "CAD", nil, nil),
+                ],
+                "USD": [
+                    ("Assets:Account", "USD", nil, nil),
+                    ("Assets:US:Other", "USD", nil, nil),
+                ],
+            ], transaction: ledger.directives[2].transaction)
+    }
+
+    @Test func testMissing() throws {
+        let provider: ContentProvider = """
+            2015-10-02 *
+              Assets:Account   100.00
+              Assets:Another  -100.00 USD
+
+            2015-10-02 *
+              Assets:Account   100.00 USD @ 120.00
+              Assets:Another  -120.00 CAD
+
+            2015-10-02 *
+              Assets:Account   10 HOOL {100.00}
+              Assets:Another  -1000.00 USD
+
+            2015-10-02 *
+              Assets:Account   10 HOOL {100.00} @ 120.00 USD
+              Assets:Another  -1000.00 USD
+            2015-10-02 *
+              Assets:Account   10 HOOL {100.00 USD} @ 120.00
+              Assets:Another  -1000.00 USD
+            """
+        let ledger = try provider.parseLedger()
+        let transactions = ledger.directives.filter {
+            if case .transaction = $0.content { return true }
+            return false
+        }
+        #expect(transactions.count == 5)
+
+        try checkReplaceCurrencies(
+            expected: [
+                "USD": [
+                    ("Assets:Account", "USD", nil, nil),
+                    ("Assets:Another", "USD", nil, nil),
+                ]
+            ], transaction: transactions[0].transaction)
+
+        try checkReplaceCurrencies(
+            expected: [
+                "CAD": [
+                    ("Assets:Account", "USD", nil, "CAD"),
+                    ("Assets:Another", "CAD", nil, nil),
+                ]
+            ], transaction: transactions[1].transaction)
+
+        try checkReplaceCurrencies(
+            expected: [
+                "USD": [
+                    ("Assets:Account", "HOOL", "USD", nil),
+                    ("Assets:Another", "USD", nil, nil),
+                ]
+            ], transaction: transactions[2].transaction)
+
+        try checkReplaceCurrencies(
+            expected: [
+                "USD": [
+                    ("Assets:Account", "HOOL", "USD", "USD"),
+                    ("Assets:Another", "USD", nil, nil),
+                ]
+            ], transaction: transactions[3].transaction)
+
+        try checkReplaceCurrencies(
+            expected: [
+                "USD": [
+                    ("Assets:Account", "HOOL", "USD", "USD"),
+                    ("Assets:Another", "USD", nil, nil),
+                ]
+            ], transaction: transactions[4].transaction)
+    }
+}
+
 @Suite("TestInterpolateCurrencyGroup")
 struct InterpolateCurrencyGroupTests {
 
@@ -887,641 +1522,6 @@ struct InterpolateCurrencyGroupTests {
     }
 }
 
-@Suite("TestAllInterpolationCombinations")
-struct AllInterpolationCombinationsTests {
-
-    func genMissingCombinations(template: String, args: [String]) -> [String] {
-        var results: [String] = []
-        let count = args.count
-
-        for mask in 0..<(1 << count) {
-            var actualArgs: [String] = []
-            for i in 0..<count {
-                if (1 << i) & mask != 0 {
-                    actualArgs.append("")
-                } else {
-                    actualArgs.append(args[i])
-                }
-            }
-
-            var formatted = template
-            for (index, arg) in actualArgs.enumerated() {
-                formatted = formatted.replacingOccurrences(of: "{\(index)}", with: arg)
-            }
-            results.append(formatted)
-        }
-
-        return results
-    }
-
-    @Test func testAllCurrencyInterpolations() throws {
-        let template = """
-              2015-10-02 *
-                Assets:Account  {0}
-                Assets:Other
-            """
-
-        let testCases: [(String, [String])] = [
-            ("100.00 {0}", ["USD"]),
-            ("100.00 {0} @ 1.20 {1}", ["USD", "CAD"]),
-            ("10 {0} {{100.00 {1}}}", ["HOOL", "USD"]),
-            ("10 {0} {{100.00 {1}}} @ 120.00 {2}", ["HOOL", "USD", "USD"]),
-        ]
-
-        for (posTemplate, args) in testCases {
-            let formattedTemplate = template.replacingOccurrences(of: "{0}", with: posTemplate)
-            let combinations = genMissingCombinations(template: formattedTemplate, args: args)
-
-            for string in combinations {
-                let provider: ContentProvider = ContentProvider(source: string)
-                let result = try provider.parseLedger()
-                #expect(result.errors.isEmpty, "Expected no errors for: \(string)")
-            }
-        }
-    }
-
-    @Test func testAllInterpolationCombinations() throws {
-        let template = """
-              2015-10-02 *
-                Assets:Account  {0}
-                Assets:Other
-            """
-
-        let testCases: [(String, [String])] = [
-            ("{0} {1}", ["100.00", "USD"]),
-            ("{0} {1} @ {2} {3}", ["100.00", "USD", "1.20", "CAD"]),
-            ("{0} {1} {{{2} {3}}}", ["10", "HOOL", "100.00", "USD"]),
-            ("{0} {1} {{{2} # {3} USD}}", ["10", "HOOL", "100.00", "9.95"]),
-            (
-                "{0} {1} {{{2} # {3} USD}} @ {4} {5}",
-                ["10", "HOOL", "100.00", "9.95", "120.00", "USD"]
-            ),
-        ]
-
-        for (posTemplate, args) in testCases {
-            let formattedTemplate = template.replacingOccurrences(of: "{0}", with: posTemplate)
-            let combinations = genMissingCombinations(template: formattedTemplate, args: args)
-
-            for string in combinations {
-                let provider: ContentProvider = ContentProvider(source: string)
-                let result = try provider.parseLedger()
-                for error in result.errors {
-                    Issue.record("Unexpected error for transaction: \(string)\nError: \(error)")
-                }
-            }
-        }
-    }
-}
-
-@Suite("TestCategorizeCurrencyGroup")
-struct CategorizeCurrencyGroupTests {
-
-    func indexes(of groups: [(Currency, [Booking.Refer])]) -> [Currency: Set<Int>] {
-        var result: [Currency: Set<Int>] = [:]
-        for (currency, refers) in groups {
-            result[currency] = refers.reduce(
-                [],
-                { p, refers in
-                    p.union([refers.index])
-                })
-        }
-        return result
-    }
-
-    @Test func testCategorizeUnitsUnambiguous() throws {
-        let provider: ContentProvider = """
-            2015-10-02 *
-              Assets:Account  100.00 USD
-              Assets:Other   -100.00 USD
-
-            2015-10-02 *
-              Assets:Account         USD
-              Assets:Other   -100.00 USD
-            """
-
-        let ledger = try provider.parseLedger()
-        for entry in ledger.directives {
-            let (groups, errors) = Booking.categorizeByCurrency(
-                transaction: entry.transaction, balances: DefaultDictionary(default: Inventory()))
-            #expect(errors.isEmpty)
-            #expect(indexes(of: groups) == ["USD": [0, 1]])
-        }
-    }
-
-    @Test func testCategorizeUnitsAmbiguous() throws {
-        let provider: ContentProvider = """
-            2015-10-02 *
-              Assets:Account  100.00
-              Assets:Other   -100.00 USD
-
-            2015-10-02 *
-              Assets:Account  100.00
-              Assets:Other
-            """
-
-        let ledger = try provider.parseLedger()
-        let transaction1 = ledger.directives[0].transaction
-        var (groups, errors) = Booking.categorizeByCurrency(
-            transaction: transaction1, balances: [:])
-        #expect(errors.isEmpty)
-        #expect(indexes(of: groups) == ["USD": [0, 1]])
-
-        let transaction2 = ledger.directives[1].transaction
-        (groups, errors) = Booking.categorizeByCurrency(
-            transaction: transaction2,
-            balances: ["Assets:Account": "1.00 USD"])
-        #expect(errors.isEmpty)
-        #expect(indexes(of: groups) == ["USD": [0, 1]])
-
-        (groups, errors) = Booking.categorizeByCurrency(transaction: transaction2, balances: [:])
-        #expect(!errors.isEmpty)
-        #expect(String(describing: errors.first).contains("failedToCategorize"))
-        #expect(indexes(of: groups) == [:])
-    }
-
-    @Test func testCategorizeUnitsPriceUnambiguous() throws {
-        let provider: ContentProvider = """
-            2015-10-02 *
-              Assets:Account  100.00 USD @ 1.20 CAD
-              Assets:Other   -120.00 CAD
-
-            2015-10-02 *
-              Assets:Account  100.00     @ 1.20 CAD
-              Assets:Other   -120.00 CAD
-            """
-
-        let ledger = try provider.parseLedger()
-        let transaction1 = ledger.directives[0].transaction
-        var (groups, errors) = Booking.categorizeByCurrency(
-            transaction: transaction1, balances: [:])
-        #expect(errors.isEmpty)
-        #expect(indexes(of: groups) == ["CAD": [0, 1]])
-
-        let transaction2 = ledger.directives[1].transaction
-        (groups, errors) = Booking.categorizeByCurrency(
-            transaction: transaction2,
-            balances: ["Assets:Account": "1.00 USD"])
-        #expect(errors.isEmpty)
-        #expect(indexes(of: groups) == ["CAD": [0, 1]])
-
-        (groups, errors) = Booking.categorizeByCurrency(transaction: transaction2, balances: [:])
-        #expect(!errors.isEmpty)
-        #expect(String(describing: errors.first).contains("cannotResolve"))
-        #expect(indexes(of: groups) == ["CAD": [0, 1]])
-    }
-
-    @Test func testCategorizeUnitsPriceAmbiguous() throws {
-        let provider: ContentProvider = """
-            2015-10-02 *
-              Assets:Account  100.00 USD @ 1.20
-              Assets:Other   -120.00 CAD
-
-            2015-10-02 *
-              Assets:Account  100.00     @ 1.20
-              Assets:Other   -120.00 CAD
-
-            2015-10-02 *
-              Assets:Account  100.00 USD @ 1.20
-              Assets:Other
-
-            2015-10-02 *
-              Assets:Account  100.00     @ 1.20
-              Assets:Other
-            """
-
-        let ledger = try provider.parseLedger()
-
-        // Test first transaction
-        var (groups, errors) = Booking.categorizeByCurrency(
-            transaction: ledger.directives[0].transaction, balances: [:])
-        #expect(errors.isEmpty)
-        #expect(indexes(of: groups) == ["CAD": [0, 1]])
-
-        // Test second transaction
-        (groups, errors) = Booking.categorizeByCurrency(
-            transaction: ledger.directives[1].transaction,
-            balances: ["Assets:Account": "1.00 USD"])
-        #expect(errors.isEmpty)
-        #expect(indexes(of: groups) == ["CAD": [0, 1]])
-
-        (groups, errors) = Booking.categorizeByCurrency(
-            transaction: ledger.directives[1].transaction, balances: [:])
-        #expect(!errors.isEmpty)
-        #expect(String(describing: errors.first).contains("cannotResolve"))
-        #expect(indexes(of: groups) == ["CAD": [0, 1]])
-
-        // Test third and fourth transactions - should fail
-        for i in 2...3 {
-            (groups, errors) = Booking.categorizeByCurrency(
-                transaction: ledger.directives[i].transaction, balances: [:])
-            #expect(errors.count == 1)
-            #expect(String(describing: errors.first).contains("failedToCategorize"))
-            #expect(indexes(of: groups) == [:])
-        }
-    }
-
-    @Test func testCategorizeUnitsCostUnambiguous() throws {
-        let provider: ContentProvider = """
-            2015-10-02 *
-              Assets:Account    10 HOOL {100.00 USD}
-              Assets:Other   -1000 USD
-
-            2015-10-02 *
-              Assets:Account    10      {100.00 USD}
-              Assets:Other   -1000 USD
-            """
-
-        let ledger = try provider.parseLedger()
-
-        // Test first transaction
-        var (groups, errors) = Booking.categorizeByCurrency(
-            transaction: ledger.directives[0].transaction, balances: [:])
-        #expect(errors.isEmpty)
-        #expect(indexes(of: groups) == ["USD": [0, 1]])
-
-        // Test second transaction
-        (groups, errors) = Booking.categorizeByCurrency(
-            transaction: ledger.directives[1].transaction,
-            balances: ["Assets:Account": "1 HOOL {1.00 USD}"])
-        #expect(errors.isEmpty)
-        #expect(indexes(of: groups) == ["USD": [0, 1]])
-
-        (groups, errors) = Booking.categorizeByCurrency(
-            transaction: ledger.directives[1].transaction, balances: [:])
-        #expect(!errors.isEmpty)
-        #expect(String(describing: errors.first).contains("cannotResolve"))
-        #expect(indexes(of: groups) == ["USD": [0, 1]])
-    }
-
-    @Test func testCategorizeUnitsCostAmbiguous() throws {
-        let provider: ContentProvider = """
-            2015-10-02 *
-              Assets:Account    10 HOOL {100.00    }
-              Assets:Other   -1000 USD
-
-            2015-10-02 *
-              Assets:Account    10      {100.00    }
-              Assets:Other   -1000 USD
-
-            2015-10-02 *
-              Assets:Account    10 HOOL {100.00    }
-              Assets:Other
-
-            2015-10-02 *
-              Assets:Account    10      {100.00    }
-              Assets:Other
-            """
-
-        let ledger = try provider.parseLedger()
-
-        // Test first transaction - Swift categorizes by both currencies
-        var (groups, errors) = Booking.categorizeByCurrency(
-            transaction: ledger.directives[0].transaction, balances: [:])
-        #expect(errors.isEmpty)
-        #expect(indexes(of: groups) == ["USD": [0, 1]])
-
-        // Test second transaction with balance - resolves to USD
-        (groups, errors) = Booking.categorizeByCurrency(
-            transaction: ledger.directives[1].transaction,
-            balances: ["Assets:Account": "1 HOOL {1.00 USD}"])
-        #expect(errors.isEmpty)
-        #expect(indexes(of: groups) == ["USD": [0, 1]])
-
-        // Test second transaction without balance - still resolves to USD
-        (groups, errors) = Booking.categorizeByCurrency(
-            transaction: ledger.directives[1].transaction, balances: [:])
-        #expect(!errors.isEmpty)
-        #expect(indexes(of: groups) == ["USD": [0, 1]])
-
-        // Test third transaction with balance - resolves to HOOL
-        (groups, errors) = Booking.categorizeByCurrency(
-            transaction: ledger.directives[2].transaction,
-            balances: ["Assets:Account": "1 HOOL {1.00 USD}"])
-        #expect(errors.isEmpty)
-        #expect(indexes(of: groups) == ["USD": [0, 1]])
-
-        // Test third transaction without balance - resolves to HOOL
-        (groups, errors) = Booking.categorizeByCurrency(
-            transaction: ledger.directives[2].transaction, balances: [:])
-        #expect(errors.count == 1)
-        #expect(indexes(of: groups) == [:])
-
-        // Test fourth transaction with balance - resolves to HOOL
-        (groups, errors) = Booking.categorizeByCurrency(
-            transaction: ledger.directives[3].transaction,
-            balances: ["Assets:Account": "1 HOOL {1.00 USD}"])
-        #expect(errors.isEmpty)
-        #expect(indexes(of: groups) == ["USD": [0, 1]])
-
-        // Test fourth transaction without balance - fails to categorize
-        (groups, errors) = Booking.categorizeByCurrency(
-            transaction: ledger.directives[3].transaction, balances: [:])
-        #expect(errors.count == 1)
-        #expect(String(describing: errors.first).contains("failedToCategorize"))
-        #expect(indexes(of: groups) == [:])
-    }
-
-    @Test func testCategorizeUnitsCostPriceUnambiguous() throws {
-        let provider: ContentProvider = """
-            2015-10-02 *
-              Assets:Account  10 HOOL {100.00 USD} @ 120.00 USD
-              Assets:Other
-
-            2015-10-02 *
-              Assets:Account  10      {100.00 USD} @ 120.00 USD
-              Assets:Other
-
-            2015-10-02 *
-              Assets:Account  10 HOOL {100.00    } @ 120.00 USD
-              Assets:Other
-
-            2015-10-02 *
-              Assets:Account  10      {100.00    } @ 120.00 USD
-              Assets:Other
-
-            2015-10-02 *
-              Assets:Account  10 HOOL {100.00 USD} @ 120.00
-              Assets:Other
-
-            2015-10-02 *
-              Assets:Account  10      {100.00 USD} @ 120.00
-              Assets:Other
-            """
-
-        let ledger = try provider.parseLedger()
-
-        // Test transactions 0, 2, 4 (should succeed)
-        for i in [0, 2, 4] {
-            let (groups, errors) = Booking.categorizeByCurrency(
-                transaction: ledger.directives[i].transaction, balances: [:])
-            #expect(errors.isEmpty)
-            #expect(indexes(of: groups) == ["USD": [0, 1]])
-        }
-
-        // Test transactions 1, 3, 5 (should have errors but still categorize)
-        for i in [1, 3, 5] {
-            let (groups, errors) = Booking.categorizeByCurrency(
-                transaction: ledger.directives[i].transaction, balances: [:])
-            #expect(errors.count == 1)
-            #expect(String(describing: errors.first).contains("cannotResolve"))
-            #expect(indexes(of: groups) == ["USD": [0, 1]])
-        }
-    }
-
-    @Test func testCategorizeUnitsCostPriceAmbiguous() throws {
-        let provider: ContentProvider = """
-            2015-10-02 *
-              Assets:Account   10 HOOL {100.00    } @ 120.00
-              Assets:Other  -1000 USD
-
-            2015-10-02 *
-              Assets:Account   10      {100.00    } @ 120.00
-              Assets:Other  -1000 USD
-
-            2015-10-02 *
-              Assets:Account   10 HOOL {100.00    } @ 120.00
-              Assets:Other
-
-            2015-10-02 *
-              Assets:Account   10      {100.00    } @ 120.00
-              Assets:Other
-            """
-
-        let ledger = try provider.parseLedger()
-
-        // Test first transaction
-        var (groups, errors) = Booking.categorizeByCurrency(
-            transaction: ledger.directives[0].transaction, balances: [:])
-        #expect(errors.isEmpty)
-        #expect(indexes(of: groups) == ["USD": [0, 1]])
-
-        // Test second transaction
-        (groups, errors) = Booking.categorizeByCurrency(
-            transaction: ledger.directives[1].transaction, balances: [:])
-        #expect(!errors.isEmpty)
-        #expect(String(describing: errors.first).contains("cannotResolve"))
-        #expect(indexes(of: groups) == ["USD": [0, 1]])
-
-        // Test third and fourth transactions
-        for i in 2...3 {
-            (groups, errors) = Booking.categorizeByCurrency(
-                transaction: ledger.directives[i].transaction,
-                balances: ["Assets:Account": "1 HOOL {1.00 USD}"])
-            #expect(errors.isEmpty)
-            #expect(indexes(of: groups) == ["USD": [0, 1]])
-
-            (groups, errors) = Booking.categorizeByCurrency(
-                transaction: ledger.directives[i].transaction, balances: [:])
-            #expect(!errors.isEmpty)
-            #expect(String(describing: errors.first).contains("failedToCategorize"))
-            #expect(indexes(of: groups) == [:])
-        }
-    }
-
-    @Test func testCategorizeMultipleAutoPostings() throws {
-        let provider: ContentProvider = """
-            2015-10-02 *
-              Assets:Account   100.00 USD
-              Assets:Account   100.00 CAD
-              Assets:Other
-            """
-
-        let ledger = try provider.parseLedger()
-        let (groups, errors) = Booking.categorizeByCurrency(
-            transaction: ledger.directives[0].transaction, balances: [:])
-        #expect(errors.isEmpty)
-        #expect(indexes(of: groups) == ["USD": [0, 2], "CAD": [1, 2]])
-    }
-
-    @Test func testCategorizeRedundantAutoPostings() throws {
-        let provider: ContentProvider = """
-            2015-10-02 *
-              Assets:Account   10 HOOL {100.00    } @ 120.00
-              Assets:Other
-              Assets:Other
-            """
-
-        let ledger = try provider.parseLedger()
-        let (_, errors) = Booking.categorizeByCurrency(
-            transaction: ledger.directives[0].transaction, balances: [:])
-        #expect(!errors.isEmpty)
-    }
-
-    // TODO: These tests require complex inventory balances that may not be fully supported yet
-    // @Test func testCategorizeTwoUnknownPostings() throws { ... }
-    // @Test func testCategorizeAgainstMixed() throws { ... }
-}
-
-@Suite("TestReplaceCurrenciesInGroup")
-struct ReplaceCurrenciesInGroupTests {
-
-    func checkReplaceCurrencies(
-        expected: [Currency: [(String, String, String?, String?)]],
-        transaction: Transaction<CostSpec>
-    ) throws {
-        let (referGroups, errors) = Booking.categorizeByCurrency(
-            transaction: transaction, balances: [:])
-        #expect(errors.isEmpty)
-
-        let postingGroups = Booking.replaceCurrencies(
-            postings: transaction.postings, referGroups: referGroups)
-
-        var checkGroups: [String: [(String, String, String?, String?)]] = [:]
-        for (currency, postings) in postingGroups {
-            var tuples: [(String, String, String?, String?)] = []
-            for posting in postings {
-                let tuple = (
-                    posting.account.id,
-                    posting.units.currency.id,
-                    posting.cost?.currency?.id,
-                    posting.price?.currency.id
-                )
-                tuples.append(tuple)
-            }
-            checkGroups[currency.id] = tuples
-        }
-
-        // Convert expected to use string keys for comparison
-        let expectedStringKeys = Dictionary(
-            uniqueKeysWithValues: expected.map { (k, v) in (k.id, v) })
-
-        // Manually compare the dictionaries since tuples don't conform to Equatable
-        #expect(checkGroups.keys.sorted() == expectedStringKeys.keys.sorted())
-        for key in expectedStringKeys.keys {
-            let checkTuples = checkGroups[key] ?? []
-            let expectedTuples = expectedStringKeys[key] ?? []
-            #expect(checkTuples.count == expectedTuples.count)
-            for (check, expected) in zip(checkTuples, expectedTuples) {
-                #expect(check.0 == expected.0)
-                #expect(check.1 == expected.1)
-                #expect(check.2 == expected.2)
-                #expect(check.3 == expected.3)
-            }
-        }
-    }
-
-    @Test func testAutoPosting() throws {
-        let provider: ContentProvider = """
-            2015-10-02 *
-              Assets:Account   100.00 USD
-              Assets:Other
-
-            2015-10-02 *
-              Assets:Account   100.00 USD
-              Assets:Account   100.00 CAD
-              Assets:Other
-
-            2015-10-02 *
-              Assets:Account   100.00 USD
-              Assets:Account   100.00 CAD
-              Assets:US:Other  USD
-              Assets:CA:Other  CAD
-            """
-
-        let ledger = try provider.parseLedger()
-        try checkReplaceCurrencies(
-            expected: [
-                "USD": [
-                    ("Assets:Account", "USD", nil, nil),
-                    ("Assets:Other", "USD", nil, nil),
-                ]
-            ], transaction: ledger.directives[0].transaction)
-
-        try checkReplaceCurrencies(
-            expected: [
-                "CAD": [
-                    ("Assets:Account", "CAD", nil, nil),
-                    ("Assets:Other", "CAD", nil, nil),
-                ],
-                "USD": [
-                    ("Assets:Account", "USD", nil, nil),
-                    ("Assets:Other", "USD", nil, nil),
-                ],
-            ], transaction: ledger.directives[1].transaction)
-
-        try checkReplaceCurrencies(
-            expected: [
-                "CAD": [
-                    ("Assets:Account", "CAD", nil, nil),
-                    ("Assets:CA:Other", "CAD", nil, nil),
-                ],
-                "USD": [
-                    ("Assets:Account", "USD", nil, nil),
-                    ("Assets:US:Other", "USD", nil, nil),
-                ],
-            ], transaction: ledger.directives[2].transaction)
-    }
-
-    @Test func testMissing() throws {
-        let provider: ContentProvider = """
-            2015-10-02 *
-              Assets:Account   100.00
-              Assets:Another  -100.00 USD
-
-            2015-10-02 *
-              Assets:Account   100.00 USD @ 120.00
-              Assets:Another  -120.00 CAD
-
-            2015-10-02 *
-              Assets:Account   10 HOOL {100.00}
-              Assets:Another  -1000.00 USD
-
-            2015-10-02 *
-              Assets:Account   10 HOOL {100.00} @ 120.00 USD
-              Assets:Another  -1000.00 USD
-            2015-10-02 *
-              Assets:Account   10 HOOL {100.00 USD} @ 120.00
-              Assets:Another  -1000.00 USD
-            """
-        let ledger = try provider.parseLedger()
-        let transactions = ledger.directives.filter {
-            if case .transaction = $0.content { return true }
-            return false
-        }
-        #expect(transactions.count == 5)
-
-        try checkReplaceCurrencies(
-            expected: [
-                "USD": [
-                    ("Assets:Account", "USD", nil, nil),
-                    ("Assets:Another", "USD", nil, nil),
-                ]
-            ], transaction: transactions[0].transaction)
-
-        try checkReplaceCurrencies(
-            expected: [
-                "CAD": [
-                    ("Assets:Account", "USD", nil, "CAD"),
-                    ("Assets:Another", "CAD", nil, nil),
-                ]
-            ], transaction: transactions[1].transaction)
-
-        try checkReplaceCurrencies(
-            expected: [
-                "USD": [
-                    ("Assets:Account", "HOOL", "USD", nil),
-                    ("Assets:Another", "USD", nil, nil),
-                ]
-            ], transaction: transactions[2].transaction)
-
-        try checkReplaceCurrencies(
-            expected: [
-                "USD": [
-                    ("Assets:Account", "HOOL", "USD", "USD"),
-                    ("Assets:Another", "USD", nil, nil),
-                ]
-            ], transaction: transactions[3].transaction)
-
-        try checkReplaceCurrencies(
-            expected: [
-                "USD": [
-                    ("Assets:Account", "HOOL", "USD", "USD"),
-                    ("Assets:Another", "USD", nil, nil),
-                ]
-            ], transaction: transactions[4].transaction)
-    }
-}
-
 @Suite("TestComputeCostNumber")
 struct ComputeCostNumberTests {
 
@@ -1631,47 +1631,6 @@ struct ParseBookingOptionsTests {
         // Note: Swift parser may handle invalid options differently than Python
         // The important thing is that it falls back to default STRICT
         #expect(ledger.options.bookingMethod == .STRICT)
-    }
-}
-
-@Suite("TestBookingApi")
-struct BookingApiTests {
-
-    @Test func testBookSingle() throws {
-        // Test with different booking methods
-        let methods: [BookingMethod] = [.STRICT, .FIFO, .LIFO, .NONE]
-
-        for method in methods {
-            let content = """
-                option "booking_method" "\(method.rawValue)"
-
-                2018-12-31 * "Payee" "Narration"
-                  Assets:Cash        100.00 USD
-                  Expenses:Stuff
-                """
-            let provider = ContentProvider(source: content)
-
-            let ledger = try provider.parseLedger()
-            #expect(ledger.directives.count == 1, "Should have exactly one directive")
-
-            let bookedLedger = Booking.book(ledger: ledger)
-
-            #expect(bookedLedger.directives.count == 1, "Should have exactly one booked directive")
-            #expect(bookedLedger.errors.isEmpty, "Should have no booking errors")
-
-            let bookedEntry = bookedLedger.directives[0]
-            #expect(bookedEntry.transaction.postings.count == 2, "Should have exactly two postings")
-
-            // First posting should remain unchanged
-            #expect(bookedEntry.transaction.postings[0].account == "Assets:Cash")
-            #expect(bookedEntry.transaction.postings[0].units.number == 100.00)
-            #expect(bookedEntry.transaction.postings[0].units.currency.id == "USD")
-
-            // Second posting should have been filled in
-            #expect(bookedEntry.transaction.postings[1].account == "Expenses:Stuff")
-            #expect(bookedEntry.transaction.postings[1].units.number == -100.00)
-            #expect(bookedEntry.transaction.postings[1].units.currency.id == "USD")
-        }
     }
 }
 
@@ -1889,6 +1848,36 @@ struct BookReductionsTests {
         #expect(errors.first is BookingError)
     }
 
+    @Test func testReduceNoMatchVariants() throws {
+        let balances: DefaultDictionary<Account, Inventory> = [
+            "Assets:Account": "10 HOOL {123.45 USD, 2016-04-15}"
+        ]
+        let contents = [
+            """
+            2016-05-02 * "Reduce no match amount"
+              Assets:Account          -5 HOOL {123.00 USD}
+            """,
+            """
+            2016-05-02 * "Reduce no match currency"
+              Assets:Account          -5 HOOL {123.45 CAD}
+            """,
+            """
+            2016-05-02 * "Reduce no match date"
+              Assets:Account          -5 HOOL {123.45 USD, 2016-04-16}
+            """,
+            """
+            2016-05-02 * "Reduce no match label"
+              Assets:Account          -5 HOOL {123.45 USD, "lot1"}
+            """,
+        ]
+        for content in contents {
+            let (_, booked, errors) = try runBookReductions(content: content, balances: balances)
+            #expect(booked.isEmpty)
+            #expect(errors.count == 1)
+            #expect(errors.first is BookingError)
+        }
+    }
+
     @Test func testReduceUnambiguous() throws {
         let content = """
             2016-05-02 * "Reduce unambiguous"
@@ -1926,6 +1915,37 @@ struct BookReductionsTests {
         #expect(booked.isEmpty)
         #expect(errors.count == 1)
         #expect(errors.first is BookingError)
+    }
+
+    @Test func testReduceAmbiguousStrictVariants() throws {
+        let balances: DefaultDictionary<Account, Inventory> = [
+            "Assets:Account":
+                "10 HOOL {115.00 USD, 2016-04-15, \"lot1\"}, 10 HOOL {115.00 USD, 2016-04-15, \"lot2\"}"
+        ]
+        let contents = [
+            """
+            2016-05-02 * "Reduce ambiguous strict empty"
+              Assets:Account          -5 HOOL {}
+            """,
+            """
+            2016-05-02 * "Reduce ambiguous strict cost"
+              Assets:Account          -5 HOOL {115.00 USD}
+            """,
+            """
+            2016-05-02 * "Reduce ambiguous strict currency"
+              Assets:Account          -5 HOOL {USD}
+            """,
+            """
+            2016-05-02 * "Reduce ambiguous strict date"
+              Assets:Account          -5 HOOL {2016-04-15}
+            """,
+        ]
+        for content in contents {
+            let (_, booked, errors) = try runBookReductions(content: content, balances: balances)
+            #expect(booked.isEmpty)
+            #expect(errors.count == 1)
+            #expect(errors.first is BookingError)
+        }
     }
 
     @Test func testReduceAmbiguousNone() throws {
@@ -2245,5 +2265,1209 @@ struct HasSelfReductionsTests {
         var methods = DefaultDictionary<Account, BookingMethod>(default: .STRICT)
         methods["Assets:Account"] = .NONE
         #expect(!Booking.hasSelfReduction(postings: postings, methods: methods))
+    }
+}
+
+@Suite("TestBookReductionsSelf")
+struct BookReductionsSelfTests {
+
+    private func runBookReductions(
+        content: String,
+        balances: DefaultDictionary<Account, Inventory>,
+        method: BookingMethod = .STRICT
+    ) throws -> (Directive<CostSpec>, [Booking.BookedPosting], [Error]) {
+        let ledger = try ContentProvider(source: content).parseLedger()
+        let entry = try #require(
+            ledger.directives.first { directive in
+                if case .transaction = directive.content { return true }
+                return false
+            })
+        var methods = DefaultDictionary<Account, BookingMethod>(default: method)
+        let (bookedPostings, errors) = Booking.bookReductions(
+            entry: entry,
+            groupPostings: entry.transaction.postings,
+            balances: balances,
+            methods: &methods
+        )
+        return (entry, bookedPostings, errors)
+    }
+
+    @Test func testReduceAugmentAndReduceWithEmptyBalance() throws {
+        let content = """
+            2016-05-02 * "augment and reduce with empty balance"
+              Assets:Account            2 HOOL {115.00 USD}
+              Assets:Account           -2 HOOL {116.00 USD}
+            """
+        let balances: DefaultDictionary<Account, Inventory> = [:]
+        let (entry, booked, errors) = try runBookReductions(content: content, balances: balances)
+        #expect(errors.isEmpty)
+        #expect(booked.count == 2)
+        for posting in booked {
+            guard case .incomplete(let inc) = posting else {
+                Issue.record("Expected incomplete booked posting")
+                return
+            }
+            let cost = try #require(inc.cost)
+            #expect(cost.date == entry.date)
+        }
+    }
+
+    @Test(.disabled("Disabled until self-reduction is supported"))
+    func testReduceAugmentAndReduceWithEmptyBalanceMatchingPos() throws {
+        let content = """
+            2016-05-02 * "augment and reduce matching pos"
+              Assets:Account            2 HOOL {115.00 USD}
+              Assets:Account           -2 HOOL {}
+            """
+        let balances: DefaultDictionary<Account, Inventory> = [:]
+        _ = try runBookReductions(content: content, balances: balances)
+    }
+
+    @Test(.disabled("Disabled until self-reduction is supported"))
+    func testReduceAugmentAndReduceWithEmptyBalanceMatchingNeg() throws {
+        let content = """
+            2016-05-02 * "augment and reduce matching neg"
+              Assets:Account           -2 HOOL {115.00 USD}
+              Assets:Account            2 HOOL {}
+            """
+        let balances: DefaultDictionary<Account, Inventory> = [:]
+        _ = try runBookReductions(content: content, balances: balances)
+    }
+
+    @Test(.disabled("Disabled until self-reduction is supported"))
+    func testReduceAugmentAndReduceWithNonEmptyBalance() throws {
+        let content = """
+            2016-03-01 * "augment and reduce non-empty balance"
+              Assets:Account            2 HOOL {6 USD}
+              Assets:Account           -2 HOOL {6 USD} @ 7 USD
+            """
+        let balances: DefaultDictionary<Account, Inventory> = [
+            "Assets:Account": "1 HOOL {5 USD}"
+        ]
+        _ = try runBookReductions(content: content, balances: balances)
+    }
+}
+
+@Suite("TestBookAmbiguous")
+struct BookAmbiguousTests {
+
+    private func accountInventory(
+        in directives: [Directive<Cost>],
+        account: Account
+    ) -> Inventory {
+        var inventory = Inventory()
+        for directive in directives {
+            guard case .transaction(let txn) = directive.content else {
+                continue
+            }
+            for posting in txn.postings where posting.account == account {
+                inventory.addPosition(posting)
+            }
+        }
+        return inventory
+    }
+
+    @Test func testAmbiguousMatchingExisting1() throws {
+        let content = """
+            option "booking_method" "FIFO"
+
+            2015-01-01 *
+              Assets:Account          5 HOOL {100.00 USD, 2015-10-01}
+              Assets:Account          5 HOOL {101.00 USD, 2015-10-01}
+
+            2015-06-01 *
+              Assets:Account         -2 HOOL {100.00 USD, 2015-10-01}
+            """
+        let ledger = try ContentProvider(source: content).parseLedger()
+        let booked = Booking.book(ledger: ledger)
+        #expect(booked.errors.isEmpty)
+        let inventory = accountInventory(in: booked.directives, account: "Assets:Account")
+        #expect(
+            inventory
+                == "3 HOOL {100.00 USD, 2015-10-01}, 5 HOOL {101.00 USD, 2015-10-01}"
+        )
+    }
+
+    @Test func testAmbiguousMatchingExisting2() throws {
+        let content = """
+            option "booking_method" "FIFO"
+
+            2015-01-01 *
+              Assets:Account          5 HOOL {100.00 USD, 2015-10-01}
+              Assets:Account          5 HOOL {101.00 USD, 2015-10-01}
+
+            2015-06-01 *
+              Assets:Account         -2 HOOL {101.00 USD, 2015-10-01}
+            """
+        let ledger = try ContentProvider(source: content).parseLedger()
+        let booked = Booking.book(ledger: ledger)
+        #expect(booked.errors.isEmpty)
+        let inventory = accountInventory(in: booked.directives, account: "Assets:Account")
+        #expect(
+            inventory
+                == "5 HOOL {100.00 USD, 2015-10-01}, 3 HOOL {101.00 USD, 2015-10-01}"
+        )
+    }
+
+    @Test func testAmbiguousNoneNotMatchingNonMixed1() throws {
+        let content = """
+            option "booking_method" "NONE"
+
+            2015-01-01 *
+              Assets:Account          5 HOOL {100.00 USD, 2015-10-01}
+              Assets:Account          5 HOOL {101.00 USD, 2015-10-01}
+
+            2015-06-01 *
+              Assets:Account         -2 HOOL {102.00 USD, 2015-06-01}
+            """
+        let ledger = try ContentProvider(source: content).parseLedger()
+        let booked = Booking.book(ledger: ledger)
+        #expect(booked.errors.isEmpty)
+        let inventory = accountInventory(in: booked.directives, account: "Assets:Account")
+        #expect(
+            inventory
+                == "5 HOOL {100.00 USD, 2015-10-01}, 5 HOOL {101.00 USD, 2015-10-01}, -2 HOOL {102.00 USD, 2015-06-01}"
+        )
+    }
+
+    @Test func testAmbiguousNoneNotMatchingNonMixed2() throws {
+        let content = """
+            option "booking_method" "NONE"
+
+            2015-01-01 *
+              Assets:Account          5 HOOL {100.00 USD, 2015-10-01}
+              Assets:Account          5 HOOL {101.00 USD, 2015-10-01}
+
+            2015-06-01 *
+              Assets:Account          2 HOOL {102.00 USD, 2015-06-01}
+            """
+        let ledger = try ContentProvider(source: content).parseLedger()
+        let booked = Booking.book(ledger: ledger)
+        #expect(booked.errors.isEmpty)
+        let inventory = accountInventory(in: booked.directives, account: "Assets:Account")
+        #expect(
+            inventory
+                == "5 HOOL {100.00 USD, 2015-10-01}, 5 HOOL {101.00 USD, 2015-10-01}, 2 HOOL {102.00 USD, 2015-06-01}"
+        )
+    }
+
+    @Test func testAmbiguousNoneNotMatchingMixed1() throws {
+        let content = """
+            option "booking_method" "NONE"
+
+            2015-01-01 *
+              Assets:Account          5 HOOL {100.00 USD, 2015-10-01}
+              Assets:Account         -5 HOOL {101.00 USD, 2015-10-01}
+
+            2015-06-01 *
+              Assets:Account         -2 HOOL {102.00 USD, 2015-06-01}
+            """
+        let ledger = try ContentProvider(source: content).parseLedger()
+        let booked = Booking.book(ledger: ledger)
+        #expect(booked.errors.isEmpty)
+        let inventory = accountInventory(in: booked.directives, account: "Assets:Account")
+        #expect(
+            inventory
+                == "5 HOOL {100.00 USD, 2015-10-01}, -5 HOOL {101.00 USD, 2015-10-01}, -2 HOOL {102.00 USD, 2015-06-01}"
+        )
+    }
+
+    @Test func testAmbiguousNoneNotMatchingMixed2() throws {
+        let content = """
+            option "booking_method" "NONE"
+
+            2015-01-01 *
+              Assets:Account          5 HOOL {100.00 USD, 2015-10-01}
+              Assets:Account         -5 HOOL {101.00 USD, 2015-10-01}
+
+            2015-06-01 *
+              Assets:Account          2 HOOL {102.00 USD, 2015-06-01}
+            """
+        let ledger = try ContentProvider(source: content).parseLedger()
+        let booked = Booking.book(ledger: ledger)
+        #expect(booked.errors.isEmpty)
+        let inventory = accountInventory(in: booked.directives, account: "Assets:Account")
+        #expect(
+            inventory
+                == "5 HOOL {100.00 USD, 2015-10-01}, -5 HOOL {101.00 USD, 2015-10-01}, 2 HOOL {102.00 USD, 2015-06-01}"
+        )
+    }
+
+    @Test func testAmbiguousStrictNoPositionMatches() throws {
+        let content = """
+            option "booking_method" "STRICT"
+
+            2015-01-01 *
+              Assets:Account          5 HOOL {100.00 USD, 2015-10-01}
+              Assets:Account          5 HOOL {101.00 USD, 2015-10-01}
+
+            2015-06-01 *
+              Assets:Account         -2 HOOL {102.00 USD, 2015-06-01}
+
+            2015-06-01 *
+              Assets:Account         -2 HOOL {102.00 USD}
+
+            2015-06-01 *
+              Assets:Account         -2 HOOL {2015-06-01}
+            """
+        let ledger = try ContentProvider(source: content).parseLedger()
+        let booked = Booking.book(ledger: ledger)
+        #expect(!booked.errors.isEmpty)
+        let inventory = accountInventory(in: booked.directives, account: "Assets:Account")
+        #expect(
+            inventory
+                == "5 HOOL {100.00 USD, 2015-10-01}, 5 HOOL {101.00 USD, 2015-10-01}"
+        )
+    }
+
+    @Test func testAmbiguousStrictNotEnoughLots() throws {
+        let content = """
+            option "booking_method" "STRICT"
+
+            2015-01-01 *
+              Assets:Account          5 HOOL {100.00 USD, 2015-10-01}
+              Assets:Account          5 HOOL {101.00 USD, 2015-10-01}
+
+            2015-06-01 *
+              Assets:Account         -6 HOOL {100.00 USD, 2015-10-01}
+            """
+        let ledger = try ContentProvider(source: content).parseLedger()
+        let booked = Booking.book(ledger: ledger)
+        #expect(!booked.errors.isEmpty)
+        let inventory = accountInventory(in: booked.directives, account: "Assets:Account")
+        #expect(
+            inventory
+                == "5 HOOL {100.00 USD, 2015-10-01}, 5 HOOL {101.00 USD, 2015-10-01}"
+        )
+    }
+
+    @Test func testAmbiguousStrictMixedNoPositionMatches() throws {
+        let content = """
+            option "booking_method" "STRICT"
+
+            2015-01-01 *
+              Assets:Account          5 HOOL {100.00 USD, 2015-10-01}
+              Assets:Account         -5 HOOL {101.00 USD, 2015-10-01}
+
+            2015-06-01 *
+              Assets:Account         -2 HOOL {102.00 USD, 2015-06-01}
+
+            2015-06-01 *
+              Assets:Account         -2 HOOL {102.00 USD}
+
+            2015-06-01 *
+              Assets:Account         -2 HOOL {2015-06-01}
+            """
+        let ledger = try ContentProvider(source: content).parseLedger()
+        let booked = Booking.book(ledger: ledger)
+        #expect(!booked.errors.isEmpty)
+        let inventory = accountInventory(in: booked.directives, account: "Assets:Account")
+        #expect(
+            inventory
+                == "5 HOOL {100.00 USD, 2015-10-01}, -5 HOOL {101.00 USD, 2015-10-01}"
+        )
+    }
+}
+
+@Suite("TestBookAmbiguousFIFO")
+struct BookAmbiguousFIFOTests {
+
+    private func accountInventory(
+        in directives: [Directive<Cost>],
+        account: Account
+    ) -> Inventory {
+        var inventory = Inventory()
+        for directive in directives {
+            guard case .transaction(let txn) = directive.content else {
+                continue
+            }
+            for posting in txn.postings where posting.account == account {
+                inventory.addPosition(posting)
+            }
+        }
+        return inventory
+    }
+
+    @Test func testAmbiguousFifoNoMatchAgainstAnyLots() throws {
+        let content = """
+            option "booking_method" "FIFO"
+
+            2015-01-01 *
+              Assets:Account          5 HOOL {111.11 USD, 2015-10-02}
+              Assets:Account          4 HOOL {100.00 USD, 2015-10-01}
+              Assets:Account          6 HOOL {122.22 USD, 2015-10-03}
+
+            2015-02-22 *
+              Assets:Account          0 HOOL {}
+            """
+        let ledger = try ContentProvider(source: content).parseLedger()
+        let booked = Booking.book(ledger: ledger)
+        #expect(booked.errors.isEmpty)
+        let inventory = accountInventory(in: booked.directives, account: "Assets:Account")
+        #expect(
+            inventory
+                == "5 HOOL {111.11 USD, 2015-10-02}, 4 HOOL {100.00 USD, 2015-10-01}, 6 HOOL {122.22 USD, 2015-10-03}"
+        )
+    }
+
+    @Test func testAmbiguousFifoMatchAgainstPartialFirstLot() throws {
+        let content = """
+            option "booking_method" "FIFO"
+
+            2015-01-01 *
+              Assets:Account          5 HOOL {111.11 USD, 2015-10-02}
+              Assets:Account          4 HOOL {100.00 USD, 2015-10-01}
+              Assets:Account          6 HOOL {122.22 USD, 2015-10-03}
+
+            2015-02-22 *
+              Assets:Account         -2 HOOL {}
+            """
+        let ledger = try ContentProvider(source: content).parseLedger()
+        let booked = Booking.book(ledger: ledger)
+        #expect(booked.errors.isEmpty)
+        let inventory = accountInventory(in: booked.directives, account: "Assets:Account")
+        #expect(
+            inventory
+                == "5 HOOL {111.11 USD, 2015-10-02}, 2 HOOL {100.00 USD, 2015-10-01}, 6 HOOL {122.22 USD, 2015-10-03}"
+        )
+    }
+
+    @Test func testAmbiguousFifoMatchAgainstCompleteFirstLot() throws {
+        let content = """
+            option "booking_method" "FIFO"
+
+            2015-01-01 *
+              Assets:Account          5 HOOL {111.11 USD, 2015-10-02}
+              Assets:Account          4 HOOL {100.00 USD, 2015-10-01}
+              Assets:Account          6 HOOL {122.22 USD, 2015-10-03}
+
+            2015-02-22 *
+              Assets:Account         -4 HOOL {}
+            """
+        let ledger = try ContentProvider(source: content).parseLedger()
+        let booked = Booking.book(ledger: ledger)
+        #expect(booked.errors.isEmpty)
+        let inventory = accountInventory(in: booked.directives, account: "Assets:Account")
+        #expect(
+            inventory
+                == "5 HOOL {111.11 USD, 2015-10-02}, 6 HOOL {122.22 USD, 2015-10-03}"
+        )
+    }
+
+    @Test func testAmbiguousFifoPartialMatchAgainstFirstTwoLots() throws {
+        let content = """
+            option "booking_method" "FIFO"
+
+            2015-01-01 *
+              Assets:Account          5 HOOL {111.11 USD, 2015-10-02}
+              Assets:Account          4 HOOL {100.00 USD, 2015-10-01}
+              Assets:Account          6 HOOL {122.22 USD, 2015-10-03}
+
+            2015-02-22 *
+              Assets:Account         -7 HOOL {}
+            """
+        let ledger = try ContentProvider(source: content).parseLedger()
+        let booked = Booking.book(ledger: ledger)
+        #expect(booked.errors.isEmpty)
+        let inventory = accountInventory(in: booked.directives, account: "Assets:Account")
+        #expect(
+            inventory
+                == "2 HOOL {111.11 USD, 2015-10-02}, 6 HOOL {122.22 USD, 2015-10-03}"
+        )
+    }
+
+    @Test func testAmbiguousFifoCompleteMatchAgainstFirstTwoLots() throws {
+        let content = """
+            option "booking_method" "FIFO"
+
+            2015-01-01 *
+              Assets:Account          5 HOOL {111.11 USD, 2015-10-02}
+              Assets:Account          4 HOOL {100.00 USD, 2015-10-01}
+              Assets:Account          6 HOOL {122.22 USD, 2015-10-03}
+
+            2015-02-22 *
+              Assets:Account         -9 HOOL {}
+            """
+        let ledger = try ContentProvider(source: content).parseLedger()
+        let booked = Booking.book(ledger: ledger)
+        #expect(booked.errors.isEmpty)
+        let inventory = accountInventory(in: booked.directives, account: "Assets:Account")
+        #expect(
+            inventory
+                == "6 HOOL {122.22 USD, 2015-10-03}"
+        )
+    }
+
+    @Test func testAmbiguousFifoPartialMatchAgainstFirstThreeLots() throws {
+        let content = """
+            option "booking_method" "FIFO"
+
+            2015-01-01 *
+              Assets:Account          5 HOOL {111.11 USD, 2015-10-02}
+              Assets:Account          4 HOOL {100.00 USD, 2015-10-01}
+              Assets:Account          6 HOOL {122.22 USD, 2015-10-03}
+
+            2015-02-22 *
+              Assets:Account        -12 HOOL {}
+            """
+        let ledger = try ContentProvider(source: content).parseLedger()
+        let booked = Booking.book(ledger: ledger)
+        #expect(booked.errors.isEmpty)
+        let inventory = accountInventory(in: booked.directives, account: "Assets:Account")
+        #expect(
+            inventory
+                == "3 HOOL {122.22 USD, 2015-10-03}"
+        )
+    }
+
+    @Test func testAmbiguousFifoCompleteMatchAgainstFirstThreeLots() throws {
+        let content = """
+            option "booking_method" "FIFO"
+
+            2015-01-01 *
+              Assets:Account          5 HOOL {111.11 USD, 2015-10-02}
+              Assets:Account          4 HOOL {100.00 USD, 2015-10-01}
+              Assets:Account          6 HOOL {122.22 USD, 2015-10-03}
+
+            2015-02-22 *
+              Assets:Account        -15 HOOL {}
+            """
+        let ledger = try ContentProvider(source: content).parseLedger()
+        let booked = Booking.book(ledger: ledger)
+        #expect(booked.errors.isEmpty)
+        let inventory = accountInventory(in: booked.directives, account: "Assets:Account")
+        #expect(inventory.isEmpty)
+    }
+
+    @Test func testAmbiguousFifoMatchingMoreThanAvailable() throws {
+        let content = """
+            option "booking_method" "FIFO"
+
+            2015-01-01 *
+              Assets:Account          5 HOOL {111.11 USD, 2015-10-02}
+              Assets:Account          4 HOOL {100.00 USD, 2015-10-01}
+              Assets:Account          6 HOOL {122.22 USD, 2015-10-03}
+
+            2015-02-22 *
+              Assets:Account        -16 HOOL {}
+            """
+        let ledger = try ContentProvider(source: content).parseLedger()
+        let booked = Booking.book(ledger: ledger)
+        #expect(!booked.errors.isEmpty)
+    }
+}
+
+@Suite("TestBookAmbiguousLIFO")
+struct BookAmbiguousLIFOTests {
+
+    private func accountInventory(
+        in directives: [Directive<Cost>],
+        account: Account
+    ) -> Inventory {
+        var inventory = Inventory()
+        for directive in directives {
+            guard case .transaction(let txn) = directive.content else {
+                continue
+            }
+            for posting in txn.postings where posting.account == account {
+                inventory.addPosition(posting)
+            }
+        }
+        return inventory
+    }
+
+    @Test func testAmbiguousLifoNoMatchAgainstAnyLots() throws {
+        let content = """
+            option "booking_method" "LIFO"
+
+            2015-01-01 *
+              Assets:Account          5 HOOL {111.11 USD, 2015-10-02}
+              Assets:Account          4 HOOL {100.00 USD, 2015-10-01}
+              Assets:Account          6 HOOL {122.22 USD, 2015-10-03}
+
+            2015-02-22 *
+              Assets:Account          0 HOOL {}
+            """
+        let ledger = try ContentProvider(source: content).parseLedger()
+        let booked = Booking.book(ledger: ledger)
+        #expect(booked.errors.isEmpty)
+        let inventory = accountInventory(in: booked.directives, account: "Assets:Account")
+        #expect(
+            inventory
+                == "5 HOOL {111.11 USD, 2015-10-02}, 4 HOOL {100.00 USD, 2015-10-01}, 6 HOOL {122.22 USD, 2015-10-03}"
+        )
+    }
+
+    @Test func testAmbiguousLifoMatchAgainstPartialFirstLot() throws {
+        let content = """
+            option "booking_method" "LIFO"
+
+            2015-01-01 *
+              Assets:Account          5 HOOL {111.11 USD, 2015-10-02}
+              Assets:Account          4 HOOL {100.00 USD, 2015-10-01}
+              Assets:Account          6 HOOL {122.22 USD, 2015-10-03}
+
+            2015-02-22 *
+              Assets:Account         -2 HOOL {}
+            """
+        let ledger = try ContentProvider(source: content).parseLedger()
+        let booked = Booking.book(ledger: ledger)
+        #expect(booked.errors.isEmpty)
+        let inventory = accountInventory(in: booked.directives, account: "Assets:Account")
+        #expect(
+            inventory
+                == "5 HOOL {111.11 USD, 2015-10-02}, 4 HOOL {100.00 USD, 2015-10-01}, 4 HOOL {122.22 USD, 2015-10-03}"
+        )
+    }
+
+    @Test func testAmbiguousLifoMatchAgainstCompleteFirstLot() throws {
+        let content = """
+            option "booking_method" "LIFO"
+
+            2015-01-01 *
+              Assets:Account          5 HOOL {111.11 USD, 2015-10-02}
+              Assets:Account          4 HOOL {100.00 USD, 2015-10-01}
+              Assets:Account          6 HOOL {122.22 USD, 2015-10-03}
+
+            2015-02-22 *
+              Assets:Account         -6 HOOL {}
+            """
+        let ledger = try ContentProvider(source: content).parseLedger()
+        let booked = Booking.book(ledger: ledger)
+        #expect(booked.errors.isEmpty)
+        let inventory = accountInventory(in: booked.directives, account: "Assets:Account")
+        #expect(
+            inventory
+                == "5 HOOL {111.11 USD, 2015-10-02}, 4 HOOL {100.00 USD, 2015-10-01}"
+        )
+    }
+
+    @Test func testAmbiguousLifoPartialMatchAgainstFirstTwoLots() throws {
+        let content = """
+            option "booking_method" "LIFO"
+
+            2015-01-01 *
+              Assets:Account          5 HOOL {111.11 USD, 2015-10-02}
+              Assets:Account          4 HOOL {100.00 USD, 2015-10-01}
+              Assets:Account          6 HOOL {122.22 USD, 2015-10-03}
+
+            2015-02-22 *
+              Assets:Account         -7 HOOL {}
+            """
+        let ledger = try ContentProvider(source: content).parseLedger()
+        let booked = Booking.book(ledger: ledger)
+        #expect(booked.errors.isEmpty)
+        let inventory = accountInventory(in: booked.directives, account: "Assets:Account")
+        #expect(
+            inventory
+                == "4 HOOL {111.11 USD, 2015-10-02}, 4 HOOL {100.00 USD, 2015-10-01}"
+        )
+    }
+
+    @Test func testAmbiguousLifoCompleteMatchAgainstFirstTwoLots() throws {
+        let content = """
+            option "booking_method" "LIFO"
+
+            2015-01-01 *
+              Assets:Account          5 HOOL {111.11 USD, 2015-10-02}
+              Assets:Account          4 HOOL {100.00 USD, 2015-10-01}
+              Assets:Account          6 HOOL {122.22 USD, 2015-10-03}
+
+            2015-02-22 *
+              Assets:Account        -11 HOOL {}
+            """
+        let ledger = try ContentProvider(source: content).parseLedger()
+        let booked = Booking.book(ledger: ledger)
+        #expect(booked.errors.isEmpty)
+        let inventory = accountInventory(in: booked.directives, account: "Assets:Account")
+        #expect(
+            inventory
+                == "4 HOOL {100.00 USD, 2015-10-01}"
+        )
+    }
+
+    @Test func testAmbiguousLifoPartialMatchAgainstFirstThreeLots() throws {
+        let content = """
+            option "booking_method" "LIFO"
+
+            2015-01-01 *
+              Assets:Account          5 HOOL {111.11 USD, 2015-10-02}
+              Assets:Account          4 HOOL {100.00 USD, 2015-10-01}
+              Assets:Account          6 HOOL {122.22 USD, 2015-10-03}
+
+            2015-02-22 *
+              Assets:Account        -12 HOOL {}
+            """
+        let ledger = try ContentProvider(source: content).parseLedger()
+        let booked = Booking.book(ledger: ledger)
+        #expect(booked.errors.isEmpty)
+        let inventory = accountInventory(in: booked.directives, account: "Assets:Account")
+        #expect(
+            inventory
+                == "3 HOOL {100.00 USD, 2015-10-01}"
+        )
+    }
+
+    @Test func testAmbiguousLifoCompleteMatchAgainstFirstThreeLots() throws {
+        let content = """
+            option "booking_method" "LIFO"
+
+            2015-01-01 *
+              Assets:Account          5 HOOL {111.11 USD, 2015-10-02}
+              Assets:Account          4 HOOL {100.00 USD, 2015-10-01}
+              Assets:Account          6 HOOL {122.22 USD, 2015-10-03}
+
+            2015-02-22 *
+              Assets:Account        -15 HOOL {}
+            """
+        let ledger = try ContentProvider(source: content).parseLedger()
+        let booked = Booking.book(ledger: ledger)
+        #expect(booked.errors.isEmpty)
+        let inventory = accountInventory(in: booked.directives, account: "Assets:Account")
+        #expect(inventory.isEmpty)
+    }
+
+    @Test func testAmbiguousLifoMatchingMoreThanAvailable() throws {
+        let content = """
+            option "booking_method" "LIFO"
+
+            2015-01-01 *
+              Assets:Account          5 HOOL {111.11 USD, 2015-10-02}
+              Assets:Account          4 HOOL {100.00 USD, 2015-10-01}
+              Assets:Account          6 HOOL {122.22 USD, 2015-10-03}
+
+            2015-02-22 *
+              Assets:Account        -16 HOOL {}
+            """
+        let ledger = try ContentProvider(source: content).parseLedger()
+        let booked = Booking.book(ledger: ledger)
+        #expect(!booked.errors.isEmpty)
+    }
+}
+@Suite("TestBasicBooking")
+struct BasicBookingTests {
+
+    private func accountInventory(
+        in directives: [Directive<Cost>],
+        account: Account
+    ) -> Inventory {
+        var inventory = Inventory()
+        for directive in directives {
+            guard case .transaction(let txn) = directive.content else {
+                continue
+            }
+            for posting in txn.postings where posting.account == account {
+                inventory.addPosition(posting)
+            }
+        }
+        return inventory
+    }
+
+    private func expectedInventory(from postings: [Posting<CostSpec>]) -> Inventory {
+        var inventory = Inventory()
+        for posting in postings {
+            inventory.addPosition(posting.resolvedCost())
+        }
+        return inventory
+    }
+
+    private func runBasicBookingScenario(
+        content: String, sourceLocation: SourceLocation = #_sourceLocation
+    ) throws {
+        let ledger = try ContentProvider(source: content).parseLedger()
+        let transactions = ledger.directives.filter {
+            if case .transaction = $0.content { return true }
+            return false
+        }
+
+        let applyEntries = transactions.filter { $0.transaction.tags.contains(Tag(id: "apply")) }
+        let anteEntry = transactions.first { $0.transaction.tags.contains(Tag(id: "ante")) }
+        let exEntry = try #require(
+            transactions.first { $0.transaction.tags.contains(Tag(id: "ex")) },
+            sourceLocation: sourceLocation
+        )
+
+        let expected = expectedInventory(from: exEntry.transaction.postings)
+
+        for applyEntry in applyEntries {
+            var inputDirectives: [Directive<CostSpec>] = []
+            if let anteEntry {
+                inputDirectives.append(anteEntry)
+            }
+            inputDirectives.append(applyEntry)
+
+            let inputLedger = ParsedLedger(
+                options: ledger.options,
+                plugins: ledger.plugins,
+                directives: inputDirectives,
+                errors: ledger.errors
+            )
+
+            let booked = Booking.book(ledger: inputLedger)
+            #expect(booked.errors.isEmpty, sourceLocation: sourceLocation)
+            let account = applyEntry.transaction.postings[0].account
+            let inventory = accountInventory(in: booked.directives, account: account)
+            #expect(inventory == expected, sourceLocation: sourceLocation)
+        }
+    }
+
+    @Test func testAugmentAtCostSameDate() throws {
+        let content = """
+            2015-10-01 * #ante
+              Assets:Account          1 HOOL {100.00 USD}
+
+            2015-10-01 * #apply
+              Assets:Account          2 HOOL {100.00 USD}
+
+            2015-10-02 * #apply
+              Assets:Account          2 HOOL {100.00 USD, 2015-10-01}
+
+            2015-11-01 * #ex
+              Assets:Account          3 HOOL {100.00 USD, 2015-10-01}
+            """
+        try runBasicBookingScenario(content: content)
+    }
+
+    @Test func testAugmentAtCostDifferentDate() throws {
+        let content = """
+            2015-10-01 * #ante
+              Assets:Account          1 HOOL {100.00 USD}
+
+            2015-10-02 * #apply
+              Assets:Account          2 HOOL {100.00 USD}
+
+            2015-10-01 * #apply
+              Assets:Account          2 HOOL {100.00 USD, 2015-10-02}
+
+            2015-11-01 * #ex
+              Assets:Account          1 HOOL {100.00 USD, 2015-10-01}
+              Assets:Account          2 HOOL {100.00 USD, 2015-10-02}
+            """
+        try runBasicBookingScenario(content: content)
+    }
+
+    @Test func testAugmentAtCostDifferentCost() throws {
+        let content = """
+            2015-10-01 * #ante
+              Assets:Account          1 HOOL {100.00 USD}
+
+            2015-10-01 * #apply
+              Assets:Account          2 HOOL {101.00 USD}
+
+            2015-10-01 * #booked
+              Assets:Account          2 HOOL {101.00 USD, 2015-10-01}
+
+            2015-11-01 * #ex
+              Assets:Account          1 HOOL {100.00 USD, 2015-10-01}
+              Assets:Account          2 HOOL {101.00 USD, 2015-10-01}
+            """
+        try runBasicBookingScenario(content: content)
+    }
+}
+
+@Suite("TestStrictWithSize")
+struct StrictWithSizeTests {
+
+    private func accountInventory(
+        in directives: [Directive<Cost>],
+        account: Account
+    ) -> Inventory {
+        var inventory = Inventory()
+        for directive in directives {
+            guard case .transaction(let txn) = directive.content else {
+                continue
+            }
+            for posting in txn.postings where posting.account == account {
+                inventory.addPosition(posting)
+            }
+        }
+        return inventory
+    }
+
+    @Test func testStrictWithSizeSingle() throws {
+        let content = """
+            option "booking_method" "STRICT_WITH_SIZE"
+
+            2015-10-01 *
+              Assets:Account          1 HOOL {101.00 USD}
+              Assets:Account          2 HOOL {102.00 USD}
+
+            2015-10-02 *
+              Assets:Account         -1 HOOL {}
+            """
+        let ledger = try ContentProvider(source: content).parseLedger()
+        let booked = Booking.book(ledger: ledger)
+        #expect(booked.errors.isEmpty)
+
+        let inventory = accountInventory(in: booked.directives, account: "Assets:Account")
+        #expect(inventory == "2 HOOL {102.00 USD, 2015-10-01}")
+
+        let applyEntry = try #require(booked.directives.last)
+        let posting = try #require(applyEntry.transaction.postings.first)
+        let cost = try #require(posting.cost)
+        #expect(posting.units == "-1 HOOL")
+        #expect(almostEqual(cost.number, 101))
+        #expect(cost.currency == "USD")
+        #expect(cost.date == "2015-10-01")
+    }
+
+    @Test func testStrictWithSizeMultiple() throws {
+        let content = """
+            option "booking_method" "STRICT_WITH_SIZE"
+
+            2015-10-01 *
+              Assets:Account          2 HOOL {101.00 USD, 2014-06-02}
+              Assets:Account          2 HOOL {102.00 USD, 2014-06-01}
+
+            2015-10-02 *
+              Assets:Account         -2 HOOL {}
+            """
+        let ledger = try ContentProvider(source: content).parseLedger()
+        let booked = Booking.book(ledger: ledger)
+        #expect(booked.errors.isEmpty)
+
+        let inventory = accountInventory(in: booked.directives, account: "Assets:Account")
+        #expect(inventory == "2 HOOL {101.00 USD, 2014-06-02}")
+
+        let applyEntry = try #require(booked.directives.last)
+        let posting = try #require(applyEntry.transaction.postings.first)
+        let cost = try #require(posting.cost)
+        #expect(posting.units == "-2 HOOL")
+        #expect(almostEqual(cost.number, 102))
+        #expect(cost.currency == "USD")
+        #expect(cost.date == "2014-06-01")
+    }
+}
+
+@Suite("TestBookingApi")
+struct BookingApiTests {
+
+    @Test func testBookSingle() throws {
+        // Test with different booking methods
+        let methods: [BookingMethod] = [.STRICT, .FIFO, .LIFO, .NONE]
+
+        for method in methods {
+            let content = """
+                option "booking_method" "\(method.rawValue)"
+
+                2018-12-31 * "Payee" "Narration"
+                  Assets:Cash        100.00 USD
+                  Expenses:Stuff
+                """
+            let provider = ContentProvider(source: content)
+
+            let ledger = try provider.parseLedger()
+            #expect(ledger.directives.count == 1, "Should have exactly one directive")
+
+            let bookedLedger = Booking.book(ledger: ledger)
+
+            #expect(bookedLedger.directives.count == 1, "Should have exactly one booked directive")
+            #expect(bookedLedger.errors.isEmpty, "Should have no booking errors")
+
+            let bookedEntry = bookedLedger.directives[0]
+            #expect(bookedEntry.transaction.postings.count == 2, "Should have exactly two postings")
+
+            // First posting should remain unchanged
+            #expect(bookedEntry.transaction.postings[0].account == "Assets:Cash")
+            #expect(bookedEntry.transaction.postings[0].units.number == 100.00)
+            #expect(bookedEntry.transaction.postings[0].units.currency.id == "USD")
+
+            // Second posting should have been filled in
+            #expect(bookedEntry.transaction.postings[1].account == "Expenses:Stuff")
+            #expect(bookedEntry.transaction.postings[1].units.number == -100.00)
+            #expect(bookedEntry.transaction.postings[1].units.currency.id == "USD")
+        }
+    }
+}
+
+@Suite("TestBook")
+struct BookTests {
+
+    private func accountInventory(
+        in directives: [Directive<Cost>],
+        account: Account
+    ) -> Inventory {
+        var inventory = Inventory()
+        for directive in directives {
+            guard case .transaction(let txn) = directive.content else {
+                continue
+            }
+            for posting in txn.postings where posting.account == account {
+                inventory.addPosition(posting)
+            }
+        }
+        return inventory
+    }
+
+    private func expectedPostings(
+        from content: String, sourceLocation: SourceLocation = #_sourceLocation
+    ) throws
+        -> [Posting<Cost>]
+    {
+        let ledger = try ContentProvider(source: content).parseLedger()
+        let (entries, errors) = Booking.convertLotSpecsToLots(entries: ledger.directives)
+        #expect(errors.isEmpty, sourceLocation: sourceLocation)
+        return try #require(entries.last?.transaction.postings, sourceLocation: sourceLocation)
+    }
+
+    private func runScenario(
+        content: String,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) throws -> ([Posting<Cost>], Inventory) {
+        let ledger = try ContentProvider(source: content).parseLedger()
+        let booked = Booking.book(ledger: ledger)
+        #expect(booked.errors.isEmpty, sourceLocation: sourceLocation)
+        let postings = try #require(
+            booked.directives.last?.transaction.postings,
+            sourceLocation: sourceLocation
+        )
+        let inventory = accountInventory(in: booked.directives, account: "Assets:Account1")
+        return (postings.map { $0.removingMeta() }, inventory)
+    }
+
+    @Test func testAugmentAtCostDifferentCost() throws {
+        let content = """
+            2015-10-01 * "Held-at-cost, positive"
+              Assets:Account1          1 HOOL {100.00 USD}
+              Assets:Other          -100.00 USD
+
+            2015-10-01 * "Held-at-cost, positive, different cost"
+              Assets:Account1          2 HOOL {101.00 USD}
+              Assets:Other          -204.00 USD
+            """
+        let (postings, balances) = try runScenario(content: content)
+        #expect(
+            balances
+                == "1 HOOL {100.00 USD, 2015-10-01}, 2 HOOL {101.00 USD, 2015-10-01}"
+        )
+        let expected = try expectedPostings(
+            from: """
+                2015-10-01 *
+                  Assets:Account1          2 HOOL {101.00 USD, 2015-10-01}
+                  Assets:Other          -204.00 USD
+                """
+        )
+        #expect(postings == expected.map { $0.removingMeta() })
+    }
+
+    @Test func testAugmentAtCostDifferentCurrency() throws {
+        let content = """
+            2015-10-01 * "Held-at-cost, positive"
+              Assets:Account1          1 HOOL {100.00 USD}
+              Assets:Other          -100.00 USD
+
+            2015-10-01 * "Held-at-cost, positive, same cost"
+              Assets:Account1          2 HOOL {100.00 CAD}
+              Assets:Other          -200.00 CAD
+            """
+        let (postings, balances) = try runScenario(content: content)
+        #expect(
+            balances
+                == "1 HOOL {100.00 USD, 2015-10-01}, 2 HOOL {100.00 CAD, 2015-10-01}"
+        )
+        let expected = try expectedPostings(
+            from: """
+                2015-10-01 *
+                  Assets:Account1          2 HOOL {100.00 CAD, 2015-10-01}
+                  Assets:Other          -200.00 CAD
+                """
+        )
+        #expect(postings == expected.map { $0.removingMeta() })
+    }
+
+    @Test func testAugmentAtCostDifferentLabel() throws {
+        let content = """
+            2015-10-01 * "Held-at-cost, positive"
+              Assets:Account1          1 HOOL {100.00 USD}
+              Assets:Other          -100.00 USD
+
+            2015-10-01 * "Held-at-cost, positive, same cost"
+              Assets:Account1          2 HOOL {100.00 USD, "lot1"}
+              Assets:Other          -200.00 USD
+            """
+        let (postings, balances) = try runScenario(content: content)
+        #expect(
+            balances
+                == "1 HOOL {100.00 USD, 2015-10-01}, 2 HOOL {100.00 USD, 2015-10-01, \"lot1\"}"
+        )
+        let expected = try expectedPostings(
+            from: """
+                2015-10-01 *
+                  Assets:Account1          2 HOOL {100.00 USD, 2015-10-01, "lot1"}
+                  Assets:Other          -200.00 USD
+                """
+        )
+        #expect(postings == expected.map { $0.removingMeta() })
+    }
+
+    @Test func testReduceNoCost() throws {
+        let content = """
+            2015-10-01 * "Held-at-cost, positive"
+              Assets:Account1          10 USD
+              Assets:Other1           -10 USD
+
+            2015-10-01 * "Held-at-cost, positive, same cost"
+              Assets:Account1         -1 USD
+              Assets:Other2            1 USD
+            """
+        let (_, balances) = try runScenario(content: content)
+        #expect(balances == "9 USD")
+    }
+
+    @Test func testReduceSameCost() throws {
+        let content = """
+            2015-10-01 * "Held-at-cost, positive"
+              Assets:Account1          3 HOOL {100.00 USD}
+              Assets:Other       -300.00 USD
+
+            2015-10-02 * "Held-at-cost, positive, same cost"
+              Assets:Account1         -1 HOOL {100.00 USD}
+              Assets:Other        100.00 USD
+            """
+        let (postings, balances) = try runScenario(content: content)
+        #expect(balances == "2 HOOL {100.00 USD, 2015-10-01}")
+        let expected = try expectedPostings(
+            from: """
+                2015-10-02 *
+                  Assets:Account1         -1 HOOL {100.00 USD, 2015-10-01}
+                  Assets:Other        100.00 USD
+                """
+        )
+        #expect(postings == expected.map { $0.removingMeta() })
+    }
+
+    @Test func testReduceAnySpec() throws {
+        let content = """
+            2015-10-01 * "Held-at-cost, positive"
+              Assets:Account1          3 HOOL {100.00 USD}
+              Assets:Other       -300.00 USD
+
+            2015-10-02 * "Held-at-cost, positive, same cost"
+              Assets:Account1         -1 HOOL {}
+              Assets:Other        100.00 USD
+            """
+        let (postings, balances) = try runScenario(content: content)
+        #expect(balances == "2 HOOL {100.00 USD, 2015-10-01}")
+        let expected = try expectedPostings(
+            from: """
+                2015-10-02 *
+                  Assets:Account1         -1 HOOL {100.00 USD, 2015-10-01}
+                  Assets:Other        100.00 USD
+                """
+        )
+        #expect(postings == expected.map { $0.removingMeta() })
+    }
+
+    @Test func testReduceSameCostPer() throws {
+        let content = """
+            2015-10-01 * "Held-at-cost, positive"
+              Assets:Account1          3 HOOL {100.00 USD}
+              Assets:Other       -300.00 USD
+
+            2015-10-02 * "Held-at-cost, positive, same cost"
+              Assets:Account1         -1 HOOL {100.00}
+              Assets:Other        100.00 USD
+            """
+        let (postings, balances) = try runScenario(content: content)
+        #expect(balances == "2 HOOL {100.00 USD, 2015-10-01}")
+        let expected = try expectedPostings(
+            from: """
+                2015-10-02 *
+                  Assets:Account1         -1 HOOL {100.00 USD, 2015-10-01}
+                  Assets:Other        100.00 USD
+                """
+        )
+        #expect(postings == expected.map { $0.removingMeta() })
+    }
+
+    @Test func testReduceSameCostTotal() throws {
+        let content = """
+            2015-10-01 * "Held-at-cost, positive"
+              Assets:Account1          3 HOOL {100.00 USD}
+              Assets:Other       -300.00 USD
+
+            2015-10-02 * "Held-at-cost, positive, same cost"
+              Assets:Account1         -2 HOOL {# 100.00 USD}
+              Assets:Other        200.00 USD
+            """
+        let (postings, balances) = try runScenario(content: content)
+        #expect(balances == "1 HOOL {100.00 USD, 2015-10-01}")
+        let expected = try expectedPostings(
+            from: """
+                2015-10-02 *
+                  Assets:Account1         -2 HOOL {100.00 USD, 2015-10-01}
+                  Assets:Other        200.00 USD
+                """
+        )
+        #expect(postings == expected.map { $0.removingMeta() })
+    }
+
+    @Test func testReduceSameCurrency() throws {
+        let content = """
+            2015-10-01 * "Held-at-cost, positive"
+              Assets:Account1          3 HOOL {100.00 USD}
+              Assets:Other       -300.00 USD
+
+            2015-10-02 * "Held-at-cost, positive, same cost"
+              Assets:Account1         -1 HOOL {USD}
+              Assets:Other        100.00 USD
+            """
+        let (postings, balances) = try runScenario(content: content)
+        #expect(balances == "2 HOOL {100.00 USD, 2015-10-01}")
+        let expected = try expectedPostings(
+            from: """
+                2015-10-02 *
+                  Assets:Account1         -1 HOOL {100.00 USD, 2015-10-01}
+                  Assets:Other        100.00 USD
+                """
+        )
+        #expect(postings == expected.map { $0.removingMeta() })
+    }
+
+    @Test func testReduceSameDate() throws {
+        let content = """
+            2015-10-01 * "Held-at-cost, positive"
+              Assets:Account1          3 HOOL {100.00 USD}
+              Assets:Other       -300.00 USD
+
+            2015-10-02 * "Held-at-cost, positive, same cost"
+              Assets:Account1         -1 HOOL {2015-10-01}
+              Assets:Other        100.00 USD
+            """
+        let (postings, balances) = try runScenario(content: content)
+        #expect(balances == "2 HOOL {100.00 USD, 2015-10-01}")
+        let expected = try expectedPostings(
+            from: """
+                2015-10-02 *
+                  Assets:Account1         -1 HOOL {100.00 USD, 2015-10-01}
+                  Assets:Other        100.00 USD
+                """
+        )
+        #expect(postings == expected.map { $0.removingMeta() })
+    }
+
+    @Test func testReduceSameLabel() throws {
+        let content = """
+            2015-10-01 * "Held-at-cost, positive"
+              Assets:Account1          3 HOOL {100.00 USD, "6e425dd7b820"}
+              Assets:Other       -300.00 USD
+
+            2015-10-02 * "Held-at-cost, positive, same cost"
+              Assets:Account1         -1 HOOL {"6e425dd7b820"}
+              Assets:Other        100.00 USD
+            """
+        let (postings, balances) = try runScenario(content: content)
+        #expect(
+            balances
+                == "2 HOOL {100.00 USD, 2015-10-01, \"6e425dd7b820\"}"
+        )
+        let expected = try expectedPostings(
+            from: """
+                2015-10-02 *
+                  Assets:Account1         -1 HOOL {100.00 USD, 2015-10-01, "6e425dd7b820"}
+                  Assets:Other        100.00 USD
+                """
+        )
+        #expect(postings == expected.map { $0.removingMeta() })
     }
 }
