@@ -126,6 +126,10 @@ extension Cost: CustomStringConvertible {
 }
 
 extension CostSpec: CustomStringConvertible {
+    /// Whether this cost spec represents a total-only cost (no per-unit amount).
+    public var isTotal: Bool {
+        numberPerUnit == 0 && numberTotal != nil && numberTotal != .nan
+    }
     /// Returns the cost specification formatted in Beancount syntax.
     ///
     /// Formats cost specification components including per-unit costs,
@@ -138,12 +142,16 @@ extension CostSpec: CustomStringConvertible {
             || (numberTotal != nil && numberTotal != .nan)
         {
             var amountlist: [String] = []
-            if let numberPerUnit, numberPerUnit != .nan {
-                amountlist.append(numberPerUnit.formatted(withCurrency: currency))
-            }
-            if let numberTotal, numberTotal != .nan {
-                amountlist.append("#")
-                amountlist.append(numberTotal.formatted(withCurrency: currency))
+            if isTotal {
+                amountlist.append(numberTotal!.formatted(withCurrency: currency))
+            } else {
+                if let numberPerUnit, numberPerUnit != .nan {
+                    amountlist.append(numberPerUnit.formatted(withCurrency: currency))
+                }
+                if let numberTotal, numberTotal != .nan {
+                    amountlist.append("#")
+                    amountlist.append(numberTotal.formatted(withCurrency: currency))
+                }
             }
             if let currency, currency != .missing {
                 amountlist.append(currency.description)

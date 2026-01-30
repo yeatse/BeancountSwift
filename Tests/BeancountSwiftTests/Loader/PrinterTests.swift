@@ -552,6 +552,20 @@ struct TestPrinterMisc {
             """)
     }
 
+    @Test func testTotalCostRoundTrip() throws {
+        // Total cost should print without a per-unit value.
+        try assertRoundTrip(
+            """
+            2000-01-01 open Assets:Invest:Cash
+            2000-01-01 open Assets:Invest:Stock
+
+            2000-01-03 *
+              Assets:Invest:Stock  10 HOOL {{2000 USD}}
+              Assets:Invest:Cash  -2000 USD
+
+            """)
+    }
+
     @Test func testVerySmallNumber() throws {
         // Python: Ensures very small numbers don't use scientific notation
         let p: ContentProvider = """

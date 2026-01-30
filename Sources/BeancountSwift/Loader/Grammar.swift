@@ -547,13 +547,8 @@ extension CostSpec: Parsable {
         if let amount {
             currency = amount.currency
             if node.nodeType == "total_cost" {
-                if amount.total != nil {
-                    numberTotal = amount.total
-                    numberPer = 0
-                } else {
-                    numberTotal = amount.per
-                    numberPer = 0
-                }
+                numberPer = 0
+                numberTotal = amount.total ?? amount.per
             } else {
                 numberPer = amount.per
                 numberTotal = amount.total
