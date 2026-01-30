@@ -570,6 +570,34 @@ enum Booking {
         }
     }
 
+    struct SelfReductionKey: Hashable {
+        let account: Account
+        let currency: Currency
+    }
+
+    static func hasSelfReduction(
+        postings: [Posting<CostSpec>],
+        methods: DefaultDictionary<Account, BookingMethod>
+    ) -> Bool {
+        var methods = methods
+        var costChanges: [SelfReductionKey: Int] = [:]
+        for posting in postings {
+            guard posting.cost != nil else {
+                continue
+            }
+            if methods[posting.account] == .NONE {
+                continue
+            }
+            let key = SelfReductionKey(account: posting.account, currency: posting.units.currency)
+            let sign = posting.units.number > .zero ? 1 : -1
+            if let existing = costChanges[key], existing != sign {
+                return true
+            }
+            costChanges[key] = sign
+        }
+        return false
+    }
+
     static func bookReductions(
         entry: Directive<CostSpec>,
         groupPostings: [Posting<CostSpec>],

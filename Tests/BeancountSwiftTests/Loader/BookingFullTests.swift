@@ -1862,6 +1862,19 @@ struct BookReductionsTests {
         #expect(posting.cost == nil)
     }
 
+    @Test func testReduceSignChangeSimple() throws {
+        let content = """
+            2016-05-08 * "Reduce sign change"
+              Assets:Account        -13 HOOL {}
+            """
+        let balances: DefaultDictionary<Account, Inventory> = [
+            "Assets:Account": "10 HOOL {33.33 USD, 2016-01-01}"
+        ]
+        let (_, booked, errors) = try runBookReductions(content: content, balances: balances)
+        #expect(booked.isEmpty)
+        #expect(!errors.isEmpty)
+    }
+
     @Test func testReduceNoMatch() throws {
         let content = """
             2016-05-02 * "Reduce no match"
@@ -1939,5 +1952,298 @@ struct BookReductionsTests {
         #expect(cost.numberPerUnit == 117.00)
         #expect(cost.numberTotal == nil)
         #expect(cost.date == entry.date)
+    }
+
+    @Test func testReduceAmbiguousNoneFromMixed() throws {
+        let content = """
+            2016-05-02 * "Reduce ambiguous none from mixed"
+              Assets:Account          -5 HOOL {117.00 USD}
+            """
+        let balances: DefaultDictionary<Account, Inventory> = [
+            "Assets:Account": "1 HOOL {115.00 USD}, -2 HOOL {116.00 USD}"
+        ]
+        let (entry, booked, errors) = try runBookReductions(
+            content: content,
+            balances: balances,
+            method: .NONE
+        )
+        #expect(errors.isEmpty)
+        #expect(booked.count == 1)
+        guard case .incomplete(let posting) = booked[0] else {
+            Issue.record("Expected incomplete posting for NONE booking method")
+            return
+        }
+        let cost = try #require(posting.cost)
+        #expect(cost.currency == "USD")
+        #expect(cost.numberPerUnit == 117.00)
+        #expect(cost.numberTotal == nil)
+        #expect(cost.date == entry.date)
+    }
+
+    @Test func testReduceOtherCurrency() throws {
+        let content = """
+            2016-05-02 * "Reduce other currency"
+              Assets:Account          -5 HOOL {115.00 USD}
+            """
+        let balances: DefaultDictionary<Account, Inventory> = [
+            "Assets:Account":
+                "8 AAPL {115.00 USD, 2016-01-11}, 8 HOOL {115.00 USD, 2016-01-10}"
+        ]
+        let (_, booked, errors) = try runBookReductions(content: content, balances: balances)
+        #expect(errors.isEmpty)
+        #expect(booked.count == 1)
+        guard case .complete(let posting) = booked.first else {
+            Issue.record("Expected complete booked reduction")
+            return
+        }
+        let cost = try #require(posting.cost)
+        #expect(cost.currency == "USD")
+        #expect(cost.date == "2016-01-10")
+    }
+
+    @Test func testReduceMultipleReductions() throws {
+        let content = """
+            2016-05-02 * "Reduce multiple reductions"
+              Assets:Account          -40 HOOL {}
+              Assets:Account          -35 HOOL {}
+            """
+        let balances: DefaultDictionary<Account, Inventory> = [
+            "Assets:Account":
+                "50 HOOL {115.00 USD, 2016-01-15}, 50 HOOL {116.00 USD, 2016-01-16}"
+        ]
+        let (_, booked, errors) = try runBookReductions(
+            content: content,
+            balances: balances,
+            method: .FIFO
+        )
+        #expect(errors.isEmpty)
+        #expect(booked.count == 3)
+    }
+
+    @Test func testReduceMultipleReductionsHifo() throws {
+        let content = """
+            2016-05-02 * "Reduce multiple reductions hifo"
+              Assets:Account          -40 HOOL {}
+              Assets:Account          -35 HOOL {}
+              Assets:Account          -30 HOOL {}
+            """
+        let balances: DefaultDictionary<Account, Inventory> = [
+            "Assets:Account":
+                "50 HOOL {115.00 USD, 2016-01-15}, 50 HOOL {116.00 USD, 2016-01-16}, 50 HOOL {114.00 USD, 2016-01-17}"
+        ]
+        let (_, booked, errors) = try runBookReductions(
+            content: content,
+            balances: balances,
+            method: .HIFO
+        )
+        #expect(errors.isEmpty)
+        #expect(booked.count == 5)
+    }
+
+    @Test func testReduceMultipleReductionsCompetingWithError() throws {
+        let content = """
+            2016-05-02 * "Reduce multiple competing"
+              Assets:Account           -4 HOOL {115.00 USD}
+              Assets:Account           -4 HOOL {2016-01-15}
+            """
+        let balances: DefaultDictionary<Account, Inventory> = [
+            "Assets:Account": "5 HOOL {115.00 USD, 2016-01-15}"
+        ]
+        let (_, booked, errors) = try runBookReductions(content: content, balances: balances)
+        #expect(booked.isEmpty)
+        #expect(!errors.isEmpty)
+    }
+
+    @Test func testReduceMultipleReductionsOverflowingWithError() throws {
+        let content = """
+            2016-05-02 * "Reduce multiple overflowing"
+              Assets:Account          -40 HOOL {}
+              Assets:Account          -65 HOOL {}
+            """
+        let balances: DefaultDictionary<Account, Inventory> = [
+            "Assets:Account":
+                "50 HOOL {115.00 USD, 2016-01-15}, 50 HOOL {116.00 USD, 2016-01-16}"
+        ]
+        let (_, booked, errors) = try runBookReductions(
+            content: content,
+            balances: balances,
+            method: .FIFO
+        )
+        #expect(booked.isEmpty)
+        #expect(!errors.isEmpty)
+    }
+
+    @Test func testReduceMultipleReductionsNoErrorBecauseTotal() throws {
+        let content = """
+            2016-05-02 * "Reduce multiple total ok"
+              Assets:Account          -11 HOOL {115.00 USD}
+            """
+        let balances: DefaultDictionary<Account, Inventory> = [
+            "Assets:Account":
+                "7 HOOL {115.00 USD, 2016-01-15}, 4 HOOL {115.00 USD, 2016-01-16}, 3 HOOL {117.00 USD, 2016-01-15}"
+        ]
+        let (_, booked, errors) = try runBookReductions(content: content, balances: balances)
+        #expect(errors.isEmpty)
+        #expect(booked.count == 2)
+    }
+
+    @Test func testReduceReductionWithSameCurrencyNotAtCost() throws {
+        let content = """
+            2016-05-02 * "Reduce same currency not at cost"
+              Assets:Account          -40 HOOL {14.33 USD} @ 14.33 USD
+            """
+        let balances: DefaultDictionary<Account, Inventory> = [
+            "Assets:Account": "50 HOOL"
+        ]
+        let (_, booked, errors) = try runBookReductions(content: content, balances: balances)
+        #expect(booked.isEmpty)
+        #expect(!errors.isEmpty)
+    }
+
+    @Test func testReduceMissingUnitsNumber() throws {
+        let content = """
+            2016-05-02 * "Reduce missing units number"
+              Assets:Account              HOOL {115.00 USD}
+            """
+        let balances: DefaultDictionary<Account, Inventory> = [
+            "Assets:Account": "10 HOOL {115.00 USD, 2016-01-15}"
+        ]
+        let (_, booked, errors) = try runBookReductions(content: content, balances: balances)
+        #expect(errors.isEmpty)
+        #expect(booked.count == 1)
+        guard case .incomplete(let posting) = booked[0] else {
+            Issue.record("Expected incomplete posting for missing units number")
+            return
+        }
+        #expect(posting.units.number == .nan)
+    }
+}
+
+@Suite("TestHasSelfReductions")
+struct HasSelfReductionsTests {
+
+    private func postings(from content: String) throws -> [Posting<CostSpec>] {
+        let ledger = try ContentProvider(source: content).parseLedger()
+        let entry = try #require(
+            ledger.directives.last { directive in
+                if case .transaction = directive.content { return true }
+                return false
+            })
+        return entry.transaction.postings
+    }
+
+    @Test func testHasSelfReductionsSimple() throws {
+        let content = """
+            2017-01-01 open Assets:Account
+            2017-01-01 * "test-positive"
+              Assets:Account       30 GOOGL {300.00 USD}
+              Assets:Account      -10 GOOGL {}
+            """
+        let postings = try postings(from: content)
+        let methods = DefaultDictionary<Account, BookingMethod>(default: .STRICT)
+        #expect(Booking.hasSelfReduction(postings: postings, methods: methods))
+    }
+
+    @Test func testHasSelfReductionsInvertedSigns() throws {
+        let content = """
+            2017-01-01 open Assets:Account
+            2017-01-01 * "test-inverted-signs"
+              Assets:Account      -30 GOOGL {300.00 USD}
+              Assets:Account       10 GOOGL {}
+            """
+        let postings = try postings(from: content)
+        let methods = DefaultDictionary<Account, BookingMethod>(default: .STRICT)
+        #expect(Booking.hasSelfReduction(postings: postings, methods: methods))
+    }
+
+    @Test func testHasSelfReductionsMultiple() throws {
+        let content = """
+            2017-01-01 open Assets:Account
+            2017-01-01 * "test-multiple"
+              Assets:Account      -30 GOOGL {300.00 USD}
+              Assets:Account       10 GOOGL {}
+            """
+        let postings = try postings(from: content)
+        let methods = DefaultDictionary<Account, BookingMethod>(default: .STRICT)
+        #expect(Booking.hasSelfReduction(postings: postings, methods: methods))
+    }
+
+    @Test func testHasSelfReductionsReducingWithoutCost() throws {
+        let content = """
+            2017-01-01 open Assets:Account
+            2017-01-01 open Assets:Account2
+
+            2017-01-01 * "test-reducing-without-cost"
+              Assets:Account       30 GOOGL {300.00 USD}
+              Assets:Account      -9000 USD
+            """
+        let postings = try postings(from: content)
+        let methods = DefaultDictionary<Account, BookingMethod>(default: .STRICT)
+        #expect(!Booking.hasSelfReduction(postings: postings, methods: methods))
+    }
+
+    @Test func testHasSelfReductionsAugmentingWithoutCost() throws {
+        let content = """
+            2017-01-01 open Assets:Account
+            2017-01-01 * "test-augmenting-without-cost"
+              Assets:Account       9000 USD
+              Assets:Account      -10 GOOGL {900 USD}
+            """
+        let postings = try postings(from: content)
+        let methods = DefaultDictionary<Account, BookingMethod>(default: .STRICT)
+        #expect(!Booking.hasSelfReduction(postings: postings, methods: methods))
+    }
+
+    @Test func testHasSelfReductionsDifferentCurrency() throws {
+        let content = """
+            2017-01-01 open Assets:Account
+            2017-01-01 * "test-different-currency"
+              Assets:Account       30 GOOGL {300.00 USD}
+              Assets:Account      -10 AAPL {}
+            """
+        let postings = try postings(from: content)
+        let methods = DefaultDictionary<Account, BookingMethod>(default: .STRICT)
+        #expect(!Booking.hasSelfReduction(postings: postings, methods: methods))
+    }
+
+    @Test func testHasSelfReductionsDifferentAccount() throws {
+        let content = """
+            2017-01-01 open Assets:Account
+            2017-01-01 open Assets:Account2
+            2017-01-01 * "test-different-account"
+              Assets:Account        30 GOOGL {300.00 USD}
+              Assets:Account2      -10 GOOGL {}
+            """
+        let postings = try postings(from: content)
+        let methods = DefaultDictionary<Account, BookingMethod>(default: .STRICT)
+        #expect(!Booking.hasSelfReduction(postings: postings, methods: methods))
+    }
+
+    @Test(.disabled("Disabled until self-reduction total replacement is supported"))
+    func testHasSelfReductionsTotalReplacement() throws {
+        let content = """
+            2017-01-01 open Assets:Account
+            2017-01-01 open Assets:Account2
+            2017-01-01 * "test-total-replacement"
+              Assets:Account       -30 GOOGL {300.00 USD}
+              Assets:Account        30 GOOGL {301.00 USD}
+              Assets:Account2      -30 USD
+            """
+        let postings = try postings(from: content)
+        let methods = DefaultDictionary<Account, BookingMethod>(default: .STRICT)
+        #expect(!Booking.hasSelfReduction(postings: postings, methods: methods))
+    }
+
+    @Test func testHasSelfReductionsBookingMethodAllowed() throws {
+        let content = """
+            2017-01-01 open Assets:Account "NONE"
+            2017-01-01 * "test-booking-method-allowed"
+              Assets:Account       30 GOOGL {300.00 USD}
+              Assets:Account      -10 GOOGL {}
+            """
+        let postings = try postings(from: content)
+        var methods = DefaultDictionary<Account, BookingMethod>(default: .STRICT)
+        methods["Assets:Account"] = .NONE
+        #expect(!Booking.hasSelfReduction(postings: postings, methods: methods))
     }
 }
