@@ -62,12 +62,12 @@ extension Decimal {
         var result = ""
         let attributed: AttributedString
         if rounded {
-            attributed = formatted(
+            attributed = magnitude.formatted(
                 .currency(code: currency.id).presentation(.narrow).grouping(.never).attributed)
         } else {
-            let attr1 = formatted(
+            let attr1 = magnitude.formatted(
                 .currency(code: currency.id).presentation(.narrow).grouping(.never).attributed)
-            let attr2 = formatted(
+            let attr2 = magnitude.formatted(
                 .currency(code: currency.id).presentation(.narrow).grouping(.never).precision(
                     .fractionLength(0...)
                 ).attributed)
@@ -80,7 +80,8 @@ extension Decimal {
                 result += String(attributed[run.range].characters)
             }
         }
-        return result
+        let sign = isSignMinus ? "-" : ""
+        return "\(sign)\(result.trimmingCharacters(in: .whitespacesAndNewlines))"
     }
 }
 
@@ -92,9 +93,13 @@ extension Amount: CustomStringConvertible {
     ///
     /// - Returns: The amount in Beancount format
     public var description: String {
-        let num = number.formatted(withCurrency: currency, rounded: true)
         let curr = currency.description
-        return "\(num) \(curr)"
+        if number.isNaN {
+            return curr
+        } else {
+            let num = number.formatted(withCurrency: currency, rounded: true)
+            return "\(num) \(curr)"
+        }
     }
 }
 
@@ -129,20 +134,18 @@ extension CostSpec: CustomStringConvertible {
     /// - Returns: The cost specification in Beancount format
     public var description: String {
         var strlist: [String] = []
-        if numberPerUnit != nil || numberTotal != nil {
+        if (numberPerUnit != nil && numberPerUnit != .nan)
+            || (numberTotal != nil && numberTotal != .nan)
+        {
             var amountlist: [String] = []
-            if let numberPerUnit {
+            if let numberPerUnit, numberPerUnit != .nan {
                 amountlist.append(numberPerUnit.formatted(withCurrency: currency))
             }
-            if let numberTotal {
-                if numberPerUnit?.isNormal == true {
-                    amountlist.append("#")
-                } else {
-                    amountlist.removeLast()
-                }
+            if let numberTotal, numberTotal != .nan {
+                amountlist.append("#")
                 amountlist.append(numberTotal.formatted(withCurrency: currency))
             }
-            if let currency {
+            if let currency, currency != .missing {
                 amountlist.append(currency.description)
             }
             strlist.append(amountlist.joined(separator: " "))
@@ -214,7 +217,7 @@ extension Posting: CustomStringConvertible {
     public var description: String {
         let flagStr: String
         if let flag {
-            flagStr = String(flag)
+            flagStr = "\(flag) "
         } else {
             flagStr = ""
         }
@@ -225,7 +228,7 @@ extension Posting: CustomStringConvertible {
         if units != .missing {
             positionStr = units.description
             if let cost {
-                positionStr += " {{\(cost.description)}}"
+                positionStr += " {\(cost.description)}"
             }
             if cost == nil {
                 weightStr = genericWeight.description
@@ -234,11 +237,12 @@ extension Posting: CustomStringConvertible {
             }
         }
         if let price {
-            positionStr +=
-                " @ \(price.number.formatted(.number.grouping(.never))) \(price.currency.description)"
+            let num = price.number.isNaN ? "" : price.number.formatted(.number.grouping(.never))
+            let curr = price.currency.description
+            positionStr += " @ \(num) \(curr)"
         }
 
-        var result = "\(flagStr)\(account.description) \(positionStr)"
+        var result = "\(flagStr)\(account.description)    \(positionStr)"
         if let comment {
             result += "  ; \(comment)"
         } else if cost != nil || price != nil {
