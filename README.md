@@ -17,7 +17,7 @@ Add **BeancountSwift** to your project using Swift Package Manager:
 
 ```swift
 // In Package.swift
-.package(url: "https://github.com/YOUR_ORG/BeancountSwift.git", from: "1.0.0")
+.package(url: "https://github.com/yeatse/BeancountSwift.git", from: "1.0.0")
 ```
 
 Then add `BeancountSwift` to your target dependencies. The main entry point is the `Beancount` type.
