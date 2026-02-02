@@ -42,12 +42,27 @@ enum CategorizationError: LocatableError, LocalizedError {
     }
 }
 
-enum InterpolationError: Error {
+enum InterpolationError: LocalizedError {
     case tooManyMissingNumbers(currency: Currency)
     case cannotInferPerUnitCost
     case cannotInferPrice
     case amountIsZero
     case costIsNegative
+
+    var errorDescription: String? {
+        switch self {
+        case .tooManyMissingNumbers(let currency):
+            "Too many missing numbers for currency \(currency.id)"
+        case .cannotInferPerUnitCost:
+            "Cannot infer per-unit cost"
+        case .cannotInferPrice:
+            "Cannot infer price"
+        case .amountIsZero:
+            "Amount is zero"
+        case .costIsNegative:
+            "Cost is negative"
+        }
+    }
 }
 
 /// Errors emitted while converting CostSpec values into resolved Cost lots.
