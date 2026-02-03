@@ -11,7 +11,7 @@ struct PadPlugin: BeancountPlugin {
     static let name = "pad"
     static let automaticPad = "__automatic__"
 
-    enum PadError: LocatableError {
+    enum PadError: LocatableError, LocalizedError {
         case padWithCost(pad: Directive<Cost>)
         case negativePosition(pos: Position)
         case unusedPad(pad: Directive<Cost>)
@@ -26,6 +26,17 @@ struct PadPlugin: BeancountPlugin {
                 break
             }
             return nil
+        }
+
+        var errorDescription: String? {
+            switch self {
+            case .padWithCost:
+                "Pad directive cannot be applied to postings with cost"
+            case .negativePosition(let pos):
+                "Padding created negative position: \"\(pos)\""
+            case .unusedPad:
+                "Unused Pad directive"
+            }
         }
     }
 
