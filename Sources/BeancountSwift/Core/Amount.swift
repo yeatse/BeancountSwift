@@ -31,6 +31,13 @@ public struct Amount: Equatable, Hashable, Sendable {
     /// The currency or commodity identifier for this amount.
     public var currency: Currency
 
+    /// Optional fractional digit precision captured from parsed input.
+    ///
+    /// When available, this preserves the number of digits after the decimal point
+    /// from the source text (e.g., "0.10" -> precision 2). This is used to infer
+    /// balance tolerances more accurately than `Decimal` can on its own.
+    var precision: Int?
+
     /// A special constant representing a missing or undefined amount.
     /// Uses NaN for the number and a special missing currency.
     public static let missing = Amount(number: .nan, currency: .missing)
@@ -43,6 +50,56 @@ public struct Amount: Equatable, Hashable, Sendable {
     public init(number: Decimal, currency: Currency) {
         self.number = number
         self.currency = currency
+        self.precision = nil
+    }
+
+    init(number: Decimal, currency: Currency, precision: Int?) {
+        self.number = number
+        self.currency = currency
+        self.precision = precision
+    }
+}
+
+extension Amount {
+    /// Returns the least significant digit based on captured precision when available.
+    ///
+    /// Falls back to the Decimal-derived least significant digit when precision
+    /// is not available.
+    var leastSignificantDigit: Decimal {
+        if let precision {
+            return Decimal(sign: .plus, exponent: -precision, significand: 1)
+        }
+        return number.leastSignificantDigit
+    }
+
+    /// Infers fractional digit precision from a numeric string.
+    ///
+    /// Returns nil for unsupported formats (e.g., scientific notation).
+    static func inferredPrecision(from numberText: String) -> Int? {
+        var precision = 0
+        var sawDigit = false
+        for ch in numberText.reversed() {
+            if ch == "." {
+                return precision
+            }
+            if ch.isNumber {
+                sawDigit = true
+                precision += 1
+                continue
+            }
+        }
+        return sawDigit ? 0 : nil
+    }
+}
+
+extension Amount {
+    public static func == (lhs: Amount, rhs: Amount) -> Bool {
+        lhs.number == rhs.number && lhs.currency == rhs.currency
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(number)
+        hasher.combine(currency)
     }
 }
 
@@ -171,8 +228,10 @@ extension Amount: ExpressibleByStringLiteral {
         else {
             fatalError()
         }
-        self.number = Decimal(string: String(match.1))!
+        let numberText = String(match.1)
+        self.number = Decimal(string: numberText)!
         self.currency = Currency(id: String(match.2))
+        self.precision = Amount.inferredPrecision(from: numberText)
     }
 }
 #endif

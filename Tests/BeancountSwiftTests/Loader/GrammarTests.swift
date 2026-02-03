@@ -185,6 +185,26 @@ struct GrammarTests {
         #expect(
             description == "2014-07-09 balance Assets:Checking 1000.00 USD  ; Diff: -10.50 USD\n")
     }
+
+    @Test func balanceAmountPrecision() throws {
+        let p: ContentProvider =
+            """
+              2026-02-01 balance Assets:Cash 0.10 CNY
+
+              2026-02-02 balance Assets:Cash 10 CNY
+            """
+        let ledger = try p.parseLedger()
+        let balances = ledger.directives.compactMap { directive in
+            if case .balance(let balance) = directive.content {
+                return balance
+            }
+            return nil
+        }
+        #expect(balances.count == 2)
+        guard balances.count >= 2 else { return }
+        #expect(balances[0].amount.precision == 2)
+        #expect(balances[1].amount.precision == 0)
+    }
 }
 
 struct TestTotalsAndSigns {

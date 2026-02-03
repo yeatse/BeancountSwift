@@ -79,5 +79,35 @@ struct PadTests {
             """)
     }
 
+    @Test func padRespectsBalancePrecision() throws {
+        let p: ContentProvider =
+            """
+            2026-02-01 open Assets:BOC:Checking
+            2026-02-01 open Equity:Opening-Balances
+
+            2026-02-01 pad Assets:BOC:Checking Equity:Opening-Balances
+
+            2026-02-02 balance Assets:BOC:Checking 0.10 CNY
+            """
+        let ledger = try p.loadLedger()
+        #expect(ledger.errors.isEmpty)
+
+        assertEqualEntries(
+            ledger.directives,
+            """
+            2026-02-01 open Assets:BOC:Checking
+            2026-02-01 open Equity:Opening-Balances
+
+            2026-02-01 pad Assets:BOC:Checking Equity:Opening-Balances
+
+            ;; Check this is inserted.
+            2026-02-01 P "(Padding inserted for Balance of 0.10 CNY for difference 0.10 CNY)"
+              Assets:BOC:Checking                                                   0.10 CNY
+              Equity:Opening-Balances                                              -0.10 CNY
+
+            2026-02-02 balance Assets:BOC:Checking 0.10 CNY
+            """)
+    }
+
     // TODO: add more tests
 }

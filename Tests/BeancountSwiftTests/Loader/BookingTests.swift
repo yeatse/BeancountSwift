@@ -62,6 +62,32 @@ struct BookingTests {
         #expect(bookedLedger.errors.first is InterpolationError)
     }
 
+    @Test func interpolationErrorLocation() throws {
+        let p: ContentProvider =
+            """
+              2013-05-18 * ""
+                Assets:Investments:MSFT      0 MSFT {200.00 USD}
+                Assets:Investments:Cash    1 USD
+            """
+        let ledger = try p.parseLedger()
+        let bookedLedger = Booking.book(ledger: ledger)
+        #expect(bookedLedger.errors.count == 1)
+        guard let error = bookedLedger.errors.first as? InterpolationError else {
+            Issue.record("Expected InterpolationError")
+            return
+        }
+        switch error {
+        case .amountIsZero:
+            break
+        default:
+            Issue.record("Expected amountIsZero InterpolationError")
+            return
+        }
+        let location = error.location
+        #expect(location?.filename == "test.bean")
+        #expect(location?.lineno == 1)
+    }
+
     @Test func emptyCostSpecWithPrice() throws {
         let p: ContentProvider =
             """

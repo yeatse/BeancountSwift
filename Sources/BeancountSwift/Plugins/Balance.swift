@@ -12,7 +12,7 @@ extension Balance {
         if let tolerance {
             return tolerance
         } else {
-            let lsd = amount.number.leastSignificantDigit
+            let lsd = amount.leastSignificantDigit
             if lsd < 1 {
                 return lsd * options.tolerances.multiplier * 2
             } else {

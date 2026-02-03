@@ -42,24 +42,45 @@ enum CategorizationError: LocatableError, LocalizedError {
     }
 }
 
-enum InterpolationError: LocalizedError {
-    case tooManyMissingNumbers(currency: Currency)
-    case cannotInferPerUnitCost
-    case cannotInferPrice
-    case amountIsZero
-    case costIsNegative
+enum InterpolationError: LocatableError, LocalizedError {
+    case tooManyMissingNumbers(currency: Currency, meta: MetaData?)
+    case cannotInferPerUnitCost(meta: MetaData?)
+    case cannotInferPrice(meta: MetaData?)
+    case amountIsZero(meta: MetaData?)
+    case costIsNegative(meta: MetaData?)
+
+    var location: LedgerLocation? {
+        func location(from meta: MetaData?) -> LedgerLocation? {
+            guard let meta, let filename = meta.filename, let lineno = meta.lineno else {
+                return nil
+            }
+            return LedgerLocation(filename: filename, lineno: lineno)
+        }
+        switch self {
+        case .tooManyMissingNumbers(_, let meta):
+            return location(from: meta)
+        case .cannotInferPerUnitCost(let meta):
+            return location(from: meta)
+        case .cannotInferPrice(let meta):
+            return location(from: meta)
+        case .amountIsZero(let meta):
+            return location(from: meta)
+        case .costIsNegative(let meta):
+            return location(from: meta)
+        }
+    }
 
     var errorDescription: String? {
         switch self {
-        case .tooManyMissingNumbers(let currency):
+        case .tooManyMissingNumbers(let currency, _):
             "Too many missing numbers for currency \(currency.id)"
-        case .cannotInferPerUnitCost:
+        case .cannotInferPerUnitCost(_):
             "Cannot infer per-unit cost"
-        case .cannotInferPrice:
+        case .cannotInferPrice(_):
             "Cannot infer price"
-        case .amountIsZero:
+        case .amountIsZero(_):
             "Amount is zero"
-        case .costIsNegative:
+        case .costIsNegative(_):
             "Cost is negative"
         }
     }
@@ -743,7 +764,10 @@ enum Booking {
                 }
             }
         } else if incomplete.count > 1 {
-            errors.append(InterpolationError.tooManyMissingNumbers(currency: currency))
+            let meta = incomplete.first.flatMap { postings[$0.1].meta }
+            errors.append(
+                InterpolationError.tooManyMissingNumbers(currency: currency, meta: meta)
+            )
         } else {
             let (missing, index) = incomplete[0]
             let incompletePosting =
@@ -781,7 +805,9 @@ enum Booking {
                 let unitsNumber: Decimal
                 if let cost = incompletePosting.cost {
                     if cost.numberPerUnit == .zero {
-                        errors.append(InterpolationError.cannotInferPerUnitCost)
+                        errors.append(
+                            InterpolationError.cannotInferPerUnitCost(meta: incompletePosting.meta)
+                        )
                         return (
                             postings.compactMap { $0.complete },
                             errors,
@@ -829,7 +855,9 @@ enum Booking {
             case .price:
                 let units = incompletePosting.units
                 if incompletePosting.cost != nil {
-                    errors.append(InterpolationError.cannotInferPrice)
+                    errors.append(
+                        InterpolationError.cannotInferPrice(meta: incompletePosting.meta)
+                    )
                     return (
                         postings.compactMap { $0.complete },
                         errors,
@@ -862,10 +890,10 @@ enum Booking {
                 continue
             }
             if posting.units.number == .zero {
-                errors.append(InterpolationError.amountIsZero)
+                errors.append(InterpolationError.amountIsZero(meta: posting.meta))
             }
             if cost.number < .zero {
-                errors.append(InterpolationError.costIsNegative)
+                errors.append(InterpolationError.costIsNegative(meta: posting.meta))
             }
         }
         return (outPostings, errors, newPosting != nil)

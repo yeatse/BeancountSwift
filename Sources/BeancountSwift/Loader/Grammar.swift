@@ -75,53 +75,70 @@ extension Bool: Parsable {
     }
 }
 
-extension Decimal: Parsable {
-    init(from node: Node, content: String) throws {
-        switch node.nodeType {
-        case "number":
-            let text = try String(from: node, content: content)
-            guard let decimal = Decimal(string: text.replacingOccurrences(of: ",", with: "")) else {
-                throw SyntaxError.badNode(node, content: content)
-            }
-            self = decimal
-        case "paren_num_expr":
-            guard let val = node.namedChild(at: 0) else {
-                throw SyntaxError.badNode(node, content: content)
-            }
-            self = try Decimal(from: val, content: content)
-        case "unary_num_expr":
-            guard let sign = node.child(at: 0), let val = node.child(at: 1) else {
-                throw SyntaxError.badNode(node, content: content)
-            }
-            let decimal = try Decimal(from: val, content: content)
-            if sign.nodeType == "+" {
-                self = decimal
-            } else {
-                self = -decimal
-            }
-        case "binary_num_expr":
-            guard let left = node.child(at: 0), let oper = node.child(at: 1),
-                let right = node.child(at: 2)
-            else {
-                throw SyntaxError.badNode(node, content: content)
-            }
-            let leftVal = try Decimal(from: left, content: content)
-            let rightVal = try Decimal(from: right, content: content)
-            switch oper.nodeType {
-            case "+":
-                self = leftVal + rightVal
-            case "-":
-                self = leftVal - rightVal
-            case "*":
-                self = leftVal * rightVal
-            case "/":
-                self = leftVal / rightVal
-            default:
-                throw SyntaxError.badNode(node, content: content)
-            }
-        default:
+struct ParsedDecimal {
+    let value: Decimal
+    let precision: Int?
+}
+
+private func parseDecimalNode(
+    _ node: Node,
+    content: String,
+    includePrecision: Bool
+) throws -> ParsedDecimal {
+    switch node.nodeType {
+    case "number":
+        let text = try String(from: node, content: content)
+        let sanitized = text.contains(",") ? text.replacingOccurrences(of: ",", with: "") : text
+        guard let decimal = Decimal(string: sanitized) else {
             throw SyntaxError.badNode(node, content: content)
         }
+        let precision = includePrecision ? Amount.inferredPrecision(from: text) : nil
+        return ParsedDecimal(value: decimal, precision: precision)
+    case "paren_num_expr":
+        guard let val = node.namedChild(at: 0) else {
+            throw SyntaxError.badNode(node, content: content)
+        }
+        return try parseDecimalNode(val, content: content, includePrecision: includePrecision)
+    case "unary_num_expr":
+        guard let sign = node.child(at: 0), let val = node.child(at: 1) else {
+            throw SyntaxError.badNode(node, content: content)
+        }
+        var parsed = try parseDecimalNode(val, content: content, includePrecision: includePrecision)
+        if sign.nodeType == "-" {
+            parsed = ParsedDecimal(value: -parsed.value, precision: parsed.precision)
+        }
+        return parsed
+    case "binary_num_expr":
+        guard let left = node.child(at: 0), let oper = node.child(at: 1),
+            let right = node.child(at: 2)
+        else {
+            throw SyntaxError.badNode(node, content: content)
+        }
+        let leftVal = try parseDecimalNode(left, content: content, includePrecision: false).value
+        let rightVal = try parseDecimalNode(right, content: content, includePrecision: false).value
+        let result: Decimal =
+            switch oper.nodeType {
+            case "+": leftVal + rightVal
+            case "-": leftVal - rightVal
+            case "*": leftVal * rightVal
+            case "/": leftVal / rightVal
+            default: throw SyntaxError.badNode(node, content: content)
+            }
+        return ParsedDecimal(value: result, precision: nil)
+    default:
+        throw SyntaxError.badNode(node, content: content)
+    }
+}
+
+extension Decimal: Parsable {
+    init(from node: Node, content: String) throws {
+        self = try parseDecimalNode(node, content: content, includePrecision: false).value
+    }
+}
+
+extension ParsedDecimal: Parsable {
+    init(from node: Node, content: String) throws {
+        self = try parseDecimalNode(node, content: content, includePrecision: true)
     }
 }
 
@@ -139,13 +156,18 @@ extension Account: Parsable {
 
 extension Amount: Parsable {
     init(from node: Node, content: String) throws {
-        let number = try node.child(byFieldName: "number").map {
-            try Decimal(from: $0, content: content)
+        let numberNode = node.child(byFieldName: "number")
+        let parsedNumber = try numberNode.map {
+            try ParsedDecimal(from: $0, content: content)
         }
         let currency = try node.child(byFieldName: "currency").map {
             try Currency(from: $0, content: content)
         }
-        self.init(number: number ?? .nan, currency: currency ?? .missing)
+        self.init(
+            number: parsedNumber?.value ?? .nan,
+            currency: currency ?? .missing,
+            precision: parsedNumber?.precision
+        )
     }
 }
 
