@@ -406,13 +406,13 @@ public enum Parser {
 
     private static func resolveInclude(_ include: String, relativeTo file: String) -> String {
         let includePath = include as NSString
+        
         if includePath.isAbsolutePath {
-            return include
+            return includePath.standardizingPath
         }
+
         let baseDir = (file as NSString).deletingLastPathComponent
-        if baseDir.isEmpty || baseDir == "." {
-            return include
-        }
-        return (baseDir as NSString).appendingPathComponent(include)
+        let joined = (baseDir as NSString).appendingPathComponent(include)
+        return (joined as NSString).standardizingPath
     }
 }

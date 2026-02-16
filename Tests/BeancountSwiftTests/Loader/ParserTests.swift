@@ -184,6 +184,47 @@ struct ParserTests {
         #expect(expenseDirectives.count == 1)
     }
 
+    @Test func includeResolvesDotSegments() throws {
+        struct MapContentProvider: ContentProviding {
+            let files: [String: String]
+
+            enum TestError: Error {
+                case missing(String)
+            }
+
+            func provideContent(for name: String) throws -> String {
+                guard let content = files[name] else {
+                    throw TestError.missing(name)
+                }
+                return content
+            }
+        }
+
+        let provider = MapContentProvider(files: [
+            "main.beancount":
+                """
+            include "./account/sub/root.bean"
+            2024-01-01 open Assets:Cash USD
+            """,
+            "account/sub/root.bean":
+                """
+            include "./child.bean"
+            2024-01-02 open Expenses:Food USD
+            """,
+            "account/sub/child.bean":
+                """
+            2024-01-03 open Expenses:Travel USD
+            """,
+        ])
+
+        let ledger = try Parser.parse(file: "main.beancount", contentProvider: provider)
+        #expect(ledger.errors.isEmpty)
+
+        let filenames = Set(ledger.directives.compactMap { $0.meta.filename })
+        #expect(filenames.contains("account/sub/root.bean"))
+        #expect(filenames.contains("account/sub/child.bean"))
+    }
+
     @Test func includeExpandsWithProvider() throws {
         struct ExpandingContentProvider: ContentProviding {
             let files: [String: String]
