@@ -76,15 +76,15 @@ extension TxnPostingsType: Comparable {
 /// directive or set of postings at a particular date.
 ///
 /// This is used internally for computing account balances over time.
-struct BalanceIterationResult {
+public struct BalanceIterationResult {
     /// The directive being processed.
-    var entry: Directive<Cost>
+    public var entry: Directive<Cost>
     /// The postings from this directive.
-    var postings: [Posting<Cost>]
+    public var postings: [Posting<Cost>]
     /// The balance change from these postings.
-    var change: Inventory
+    public var change: Inventory
     /// The running balance after applying this change.
-    var balance: Inventory
+    public var balance: Inventory
 }
 
 /// Iterator for computing balance changes over time for an account.
@@ -111,57 +111,81 @@ struct BalanceIterator: IteratorProtocol {
         var postings: [Posting<Cost>]
     }
 
-    var prevDate: Date?
-    var prevDateItems = [DateEntryItem]()
-    var prevDateChange = Inventory()
-    var dateChanged = false
+    /// Buffered entries for the current date bucket.
+    var bufferedDateItems = [DateEntryItem]()
+    /// Read cursor for `bufferedDateItems`.
+    var bufferedDateItemIndex = 0
 
-    mutating func next() -> BalanceIterationResult? {
-        if dateChanged && !prevDateItems.isEmpty {
-            let item = prevDateItems.removeFirst()
-            for posting in item.postings {
-                prevDateChange.addPosition(posting)
-                runningBalance.addPosition(posting)
-            }
-            return BalanceIterationResult(
-                entry: item.entry,
-                postings: item.postings,
-                change: prevDateChange,
-                balance: runningBalance)
-        }
-        dateChanged = false
-
-        guard index < txnPostings.count else {
-            return nil
-        }
-
-        let txnPosting = txnPostings[index]
-        index += 1
-
-        let posting: Posting<Cost>?
-        let entry: Directive<Cost>
-        switch txnPosting {
+    private func unpack(_ item: TxnPostingsType) -> (entry: Directive<Cost>, posting: Posting<Cost>?)
+    {
+        switch item {
         case .directive(let directive):
-            posting = nil
-            entry = directive
+            return (directive, nil)
         case .txnPosting(let txnPosting):
-            posting = txnPosting.posting
-            entry = txnPosting.entry
+            return (txnPosting.entry, txnPosting.posting)
         }
+    }
+
+    private mutating func appendDateItem(entry: Directive<Cost>, posting: Posting<Cost>?) {
         if let posting {
-            if let index = prevDateItems.firstIndex(where: { $0.entry == entry }) {
-                prevDateItems[index].postings.append(posting)
+            if let existing = bufferedDateItems.firstIndex(where: { $0.entry == entry }) {
+                bufferedDateItems[existing].postings.append(posting)
             } else {
-                prevDateItems.append(.init(entry: entry, postings: [posting]))
+                bufferedDateItems.append(.init(entry: entry, postings: [posting]))
             }
         } else {
-            prevDateItems.append(.init(entry: entry, postings: []))
+            bufferedDateItems.append(.init(entry: entry, postings: []))
         }
-        if entry.date != prevDate || index == txnPostings.count {
-            prevDateChange = Inventory()
-            dateChanged = true
+    }
+
+    mutating func next() -> BalanceIterationResult? {
+        while true {
+            if bufferedDateItemIndex < bufferedDateItems.count {
+                let item = bufferedDateItems[bufferedDateItemIndex]
+                bufferedDateItemIndex += 1
+                if bufferedDateItemIndex == bufferedDateItems.count {
+                    bufferedDateItems.removeAll(keepingCapacity: true)
+                    bufferedDateItemIndex = 0
+                }
+
+                var change = Inventory()
+                for posting in item.postings {
+                    change.addPosition(posting)
+                    runningBalance.addPosition(posting)
+                }
+
+                return BalanceIterationResult(
+                    entry: item.entry,
+                    postings: item.postings,
+                    change: change,
+                    balance: runningBalance)
+            }
+
+            guard index < txnPostings.count else {
+                return nil
+            }
+
+            bufferedDateItems.removeAll(keepingCapacity: true)
+            bufferedDateItemIndex = 0
+
+            let first = unpack(txnPostings[index])
+            index += 1
+            let currentDate = first.entry.date
+            appendDateItem(entry: first.entry, posting: first.posting)
+
+            while index < txnPostings.count {
+                let next = unpack(txnPostings[index])
+                if next.entry.date != currentDate {
+                    assert(
+                        next.entry.date > currentDate,
+                        "Invalid date order for postings: \(currentDate) > \(next.entry.date)"
+                    )
+                    break
+                }
+                index += 1
+                appendDateItem(entry: next.entry, posting: next.posting)
+            }
         }
-        return next()
     }
 }
 
@@ -447,7 +471,7 @@ public enum Realization {
     ///
     /// - Parameter postings: The postings and directives to iterate through
     /// - Returns: Sequence of balance changes over time
-    static func balanceChanges(in postings: [TxnPostingsType]) -> any Sequence<
+    public static func balanceChanges(in postings: [TxnPostingsType]) -> any Sequence<
         BalanceIterationResult
     > {
         AnySequence {
