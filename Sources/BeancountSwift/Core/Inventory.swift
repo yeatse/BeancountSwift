@@ -56,7 +56,7 @@ public struct Inventory: Sendable {
         }
     }
 
-    enum MatchResult {
+    public enum MatchResult {
         case created
         case reduced
         case augmented
@@ -261,7 +261,7 @@ extension Inventory {
     }
 
     @discardableResult
-    mutating func addAmount(_ units: Amount, cost: Cost? = nil) -> (Position?, MatchResult) {
+    public mutating func addAmount(_ units: Amount, cost: Cost? = nil) -> (Position?, MatchResult) {
         let key = PositionKey(currency: units.currency, cost: cost)
         let booking: MatchResult
         if let pos = cache[key] {
