@@ -52,7 +52,7 @@ The library is organized around three main components exposed via the `Beancount
 
 - **Core/**: Accounting data structures (`Account`, `Inventory`, `Prices`, `Amount`, `Position`, `Directives`)
 - **Loader/**: File loading, parsing, booking (lot matching), interpolation, printing
-- **Plugins/**: Built-in plugins (Balance, Pad, Forecast, AutoInsertOpen)
+- **Operation/**: Built-in plugins and operations (Balance, Pad, Forecast, AutoInsertOpen)
 - **Utils/**: Small helpers and extensions
 
 ## Plugin System

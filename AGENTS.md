@@ -4,10 +4,10 @@
 - **Sources**: Core library code in `Sources/BeancountSwift`.
   - `Core/`: Accounting data structures and realization (`Account`, `Inventory`, `Prices`).
   - `Loader/`: File loading, parsing, options, interpolation, printing.
-  - `Plugins/`: Built-in plugins (`Balance`, `Pad`, `Forecast`, `AutoInsertOpen`).
+  - `Operation/`: Built-in plugins and operations (`Balance`, `Pad`, `Forecast`, `AutoInsertOpen`).
   - `Utils/`: Small helpers and extensions.
 - **Tests**: Unit tests in `Tests/BeancountSwiftTests`.
-  - Subfolders mirror `Core/`, `Loader/`, `Plugins/`, plus `Integration/`, `Utils/`.
+  - Subfolders mirror `Core/`, `Loader/`, `Operation/`, plus `Integration/`, `Utils/`.
 - **Configuration**: `Package.swift`, `Package.resolved`, and `.swift-format`.
 - **Metadata**: `README.md`, `LICENSE`, and project root files.
 

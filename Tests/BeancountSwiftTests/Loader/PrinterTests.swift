@@ -457,7 +457,7 @@ struct TestPrinterAlignment {
 
             """
 
-        let ledger = try p.parseLedger()
+        let _ = try p.parseLedger()
 
         // Python expected output includes weight comments like:
         // Assets:US:Investments:HOOL  45 HOOL {504.30 USD}  ; 22693.50 USD
