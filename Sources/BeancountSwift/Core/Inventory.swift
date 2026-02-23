@@ -326,7 +326,14 @@ extension Inventory {
     }
 }
 
-extension Inventory: Equatable, Comparable {
+extension Inventory: Hashable, Equatable, Comparable {
+    public func hash(into hasher: inout Hasher) {
+        for (key, position) in cache {
+            hasher.combine(key)
+            hasher.combine(position)
+        }
+    }
+
     public static func < (lhs: Inventory, rhs: Inventory) -> Bool {
         let lkeys = lhs.cache.keys.sorted()
         let rkeys = rhs.cache.keys.sorted()

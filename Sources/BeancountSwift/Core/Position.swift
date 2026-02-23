@@ -135,7 +135,7 @@ extension Position {
     ///
     /// - Parameter position: The position to negate
     /// - Returns: A new position with negated units
-    static prefix func - (position: Position) -> Position {
+    public static prefix func - (position: Position) -> Position {
         Position(units: -position.units, cost: position.cost)
     }
 
@@ -160,7 +160,7 @@ extension Position {
     ///   - lhs: The position to multiply
     ///   - rhs: The scalar multiplier
     /// - Returns: A new position with scaled units
-    static func * (lhs: Position, rhs: Decimal) -> Position {
+    public static func * (lhs: Position, rhs: Decimal) -> Position {
         Position(units: lhs.units * rhs, cost: lhs.cost)
     }
 
