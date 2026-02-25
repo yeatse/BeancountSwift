@@ -237,6 +237,20 @@ extension Inventory {
         return inventory
     }
 
+    /// Returns a new inventory containing only positions in the specified unit currency.
+    ///
+    /// Lot/cost information is preserved for retained positions.
+    ///
+    /// - Parameter currency: The unit currency to retain
+    /// - Returns: A filtered inventory
+    public func filtered(by currency: Currency) -> Inventory {
+        var inventory = Inventory()
+        for position in positions where position.units.currency == currency {
+            _ = inventory.addAmount(position.units, cost: position.cost)
+        }
+        return inventory
+    }
+
     /// Checks if adding the given amount would reduce any position.
     ///
     /// Determines whether adding the specified amount to this inventory
