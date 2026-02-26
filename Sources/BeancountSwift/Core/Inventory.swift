@@ -277,40 +277,33 @@ extension Inventory {
     @discardableResult
     public mutating func addAmount(_ units: Amount, cost: Cost? = nil) -> (Position?, MatchResult) {
         let key = PositionKey(currency: units.currency, cost: cost)
-        let booking: MatchResult
-        if let pos = cache[key] {
-            if pos.units.number.sign != units.number.sign {
-                booking = .reduced
-            } else {
-                booking = .augmented
-            }
+        if let index = cache.index(forKey: key) {
+            let pos = cache.values[index]
+            let booking: MatchResult = pos.units.number.sign != units.number.sign ? .reduced : .augmented
 
             let number = pos.units.number + units.number
             if number == .zero {
-                cache[key] = nil
+                cache.remove(at: index)
             } else {
-                let index = cache.keys.partitioningIndex(where: { $0 > key })
-                cache.updateValue(
-                    Position(
-                        units: Amount(number: number, currency: units.currency),
-                        cost: cost
-                    ), forKey: key, insertingAt: index)
+                cache.values[index] = Position(
+                    units: Amount(number: number, currency: units.currency),
+                    cost: cost
+                )
             }
             return (pos, booking)
-        } else {
-            if units.number == .zero {
-                booking = .ignored
-            } else {
-                let index = cache.keys.partitioningIndex(where: { $0 > key })
-                cache.updateValue(
-                    Position(
-                        units: units,
-                        cost: cost
-                    ), forKey: key, insertingAt: index)
-                booking = .created
-            }
-            return (nil, booking)
         }
+
+        if units.number == .zero {
+            return (nil, .ignored)
+        }
+
+        let index = cache.keys.partitioningIndex(where: { $0 > key })
+        cache.updateValue(
+            Position(
+                units: units,
+                cost: cost
+            ), forKey: key, insertingAt: index)
+        return (nil, .created)
     }
 
     // Add a position to the inventory
