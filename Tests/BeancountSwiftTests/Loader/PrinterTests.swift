@@ -656,6 +656,13 @@ struct AdditionalPrinterTests {
         #expect(ledger.errors.isEmpty)
     }
 
+    @Test func testOptionDescriptionEscapesQuotesInValue() throws {
+        let option = Option(key: "title", value: "He said \"hello\" and it's fine")
+        #expect(
+            option.description == #"option "title" "He said \"hello\" and it\'s fine""#
+        )
+    }
+
     @Test func testCommodity() throws {
         let p: ContentProvider = """
             2000-01-02 commodity VHT

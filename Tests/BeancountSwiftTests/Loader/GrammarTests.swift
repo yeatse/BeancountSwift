@@ -10,6 +10,16 @@ import Testing
 @testable import BeancountSwift
 
 struct GrammarTests {
+    @Test func optionUnescapesEscapedQuotes() throws {
+        let p: ContentProvider =
+            #"""
+              option "title" "He said \"hello\" and it\'s fine"
+            """#
+        let ledger = try p.parseLedger()
+        #expect(ledger.errors.isEmpty)
+        #expect(ledger.options.rawOptions["title"]?.first == "He said \"hello\" and it's fine")
+    }
+
     @Test func costMerge() throws {
         let p: ContentProvider =
             """

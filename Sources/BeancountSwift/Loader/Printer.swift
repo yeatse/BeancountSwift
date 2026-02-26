@@ -24,7 +24,10 @@ extension Option: CustomStringConvertible {
     ///
     /// - Returns: The option in Beancount syntax format
     public var description: String {
-        "option \"\(key)\" \"\(value)\""
+        let escapedValue = value
+            .replacingOccurrences(of: "\"", with: #"\""#)
+            .replacingOccurrences(of: "'", with: #"\'"#)
+        return "option \"\(key)\" \"\(escapedValue)\""
     }
 }
 

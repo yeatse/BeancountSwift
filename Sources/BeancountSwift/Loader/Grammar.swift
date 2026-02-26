@@ -38,7 +38,9 @@ extension String: Parsable {
         if self.hasPrefix("\"") && self.hasSuffix("\"") {
             result = String(dropFirst().dropLast())
         }
-        return result.replacingOccurrences(of: #"\""#, with: "\"")
+        return result
+            .replacingOccurrences(of: #"\""#, with: "\"")
+            .replacingOccurrences(of: #"\'"#, with: "'")
     }
 
     init(from node: Node, content: String) throws {
