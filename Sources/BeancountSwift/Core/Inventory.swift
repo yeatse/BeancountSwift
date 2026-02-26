@@ -105,7 +105,7 @@ extension Inventory {
     /// Returns the single position if inventory contains exactly one position.
     ///
     /// - Returns: The position if there is exactly one, nil otherwise
-    var onlyPosition: Position? {
+    public var onlyPosition: Position? {
         return positions.first
     }
 
@@ -125,7 +125,7 @@ extension Inventory {
     ///
     /// - Parameter currencies: The currencies to segregate by
     /// - Returns: A dictionary mapping currencies to their respective inventories
-    func segregateUnits(by currencies: [Currency]) -> [Currency?: Inventory] {
+    public func segregateUnits(by currencies: [Currency]) -> [Currency?: Inventory] {
         var perCurrencyDict = [Currency?: Inventory]()
         for currency in currencies {
             perCurrencyDict[currency] = Inventory()
