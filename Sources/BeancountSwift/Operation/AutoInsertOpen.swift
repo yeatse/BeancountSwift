@@ -8,7 +8,7 @@
 import Foundation
 
 struct AutoInsertOpenPlugin: BeancountPlugin {
-    static let name = "auto_insert_open"
+    static let name = "beancount.plugins.auto_accounts"
 
     func process(entries: [Directive<Cost>], options: Options, config: String?) throws -> (
         entries: [Directive<Cost>], errors: [Error]
