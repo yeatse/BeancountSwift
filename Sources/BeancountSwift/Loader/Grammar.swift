@@ -33,16 +33,6 @@ enum SyntaxError: Error {
 }
 
 extension String: Parsable {
-    func unescaped() -> String {
-        var result = self
-        if self.hasPrefix("\"") && self.hasSuffix("\"") {
-            result = String(dropFirst().dropLast())
-        }
-        return result
-            .replacingOccurrences(of: #"\""#, with: "\"")
-            .replacingOccurrences(of: #"\'"#, with: "'")
-    }
-
     init(from node: Node, content: String) throws {
         guard let range = Range(node.range, in: content) else {
             throw SyntaxError.badNode(node, content: content)
@@ -260,7 +250,7 @@ extension MetaDataValue: Parsable {
     init(from node: Node, content: String) throws {
         self =
             switch node.nodeType {
-            case "string": .string(try String(from: node, content: content).unescaped())
+            case "string": .string(try String(from: node, content: content).unquoted)
             case "account": .account(try Account(from: node, content: content))
             case "date": .date(try Date(from: node, content: content))
             case "currency": .currency(try Currency(from: node, content: content))
@@ -396,7 +386,7 @@ extension Open: Parsable {
             }
         }
         let booking = try node.child(byFieldName: "booking")
-            .flatMap { try String(from: $0, content: content).unescaped() }
+            .flatMap { try String(from: $0, content: content).unquoted }
             .flatMap { BookingMethod(rawValue: $0) }
         guard let account else { throw SyntaxError.badNode(node, content: content) }
         self.init(account: account, currencies: currencies, booking: booking)
@@ -428,7 +418,7 @@ extension Custom: Parsable {
         guard let nameNode = node.child(byFieldName: "name") else {
             throw SyntaxError.badNode(node, content: content)
         }
-        let name = try String(from: nameNode, content: content).unescaped()
+        let name = try String(from: nameNode, content: content).unquoted
         var values: [MetaDataValue] = []
         var valueNode = nameNode.nextNamedSibling
         while let vn = valueNode, let value = try? MetaDataValue(from: vn, content: content) {
@@ -445,7 +435,7 @@ extension Document: Parsable {
             try Account(from: $0, content: content)
         }
         let filename = try node.child(byFieldName: "filename").map {
-            try String(from: $0, content: content).unescaped()
+            try String(from: $0, content: content).unquoted
         }
         guard let account, let filename else { throw SyntaxError.badNode(node, content: content) }
         if let tagsLinks = node.child(byFieldName: "tags_links") {
@@ -471,10 +461,10 @@ extension Document: AcceptingTagStack {
 extension Event: Parsable {
     init(from node: Node, content: String) throws {
         let desc = try node.child(byFieldName: "description").map {
-            try String(from: $0, content: content).unescaped()
+            try String(from: $0, content: content).unquoted
         }
         let type = try node.child(byFieldName: "type").map {
-            try String(from: $0, content: content).unescaped()
+            try String(from: $0, content: content).unquoted
         }
         guard let desc, let type else { throw SyntaxError.badNode(node, content: content) }
         self.init(type: type, description: desc)
@@ -487,10 +477,10 @@ extension Transaction<CostSpec>: Parsable {
             try Character(from: $0, content: content)
         }
         let payee = try node.child(byFieldName: "payee").map {
-            try String(from: $0, content: content).unescaped()
+            try String(from: $0, content: content).unquoted
         }
         let narration = try node.child(byFieldName: "narration").map {
-            try String(from: $0, content: content).unescaped()
+            try String(from: $0, content: content).unquoted
         }
         var tags: OrderedSet<Tag> = []
         var links: OrderedSet<Link> = []
@@ -557,7 +547,7 @@ extension CostSpec: Parsable {
             case "date":
                 date = try Date(from: costCompNode, content: content)
             case "string":
-                label = try String(from: costCompNode, content: content).unescaped()
+                label = try String(from: costCompNode, content: content).unquoted
             case "compound_amount":
                 amount = try CompoundAmount(from: costCompNode, content: content)
             default:
@@ -691,10 +681,10 @@ extension Price: Parsable {
 extension Query: Parsable {
     init(from node: Node, content: String) throws {
         let name = try node.child(byFieldName: "name").map {
-            try String(from: $0, content: content).unescaped()
+            try String(from: $0, content: content).unquoted
         }
         let query = try node.child(byFieldName: "query").map {
-            try String(from: $0, content: content).unescaped()
+            try String(from: $0, content: content).unquoted
         }
         guard let name, let query else { throw SyntaxError.badNode(node, content: content) }
         self.init(name: name, queryString: query)
@@ -704,10 +694,10 @@ extension Query: Parsable {
 extension Option: Parsable {
     init(from node: Node, content: String) throws {
         let key = try node.child(byFieldName: "key").map {
-            try String(from: $0, content: content).unescaped()
+            try String(from: $0, content: content).unquoted
         }
         let value = try node.child(byFieldName: "value").map {
-            try String(from: $0, content: content).unescaped()
+            try String(from: $0, content: content).unquoted
         }
         guard let key, let value else { throw SyntaxError.badNode(node, content: content) }
         self.init(key: key, value: value)
@@ -717,10 +707,10 @@ extension Option: Parsable {
 extension Plugin: Parsable {
     init(from node: Node, content: String) throws {
         let name = try node.namedChild(at: 0).map {
-            try String(from: $0, content: content).unescaped()
+            try String(from: $0, content: content).unquoted
         }
         let config = try node.namedChild(at: 1).map {
-            try String(from: $0, content: content).unescaped()
+            try String(from: $0, content: content).unquoted
         }
         guard let name else { throw SyntaxError.badNode(node, content: content) }
         self.init(name: name, config: config)
@@ -733,7 +723,7 @@ extension Note: Parsable {
             try Account(from: $0, content: content)
         }
         let note = try node.child(byFieldName: "note").map {
-            try String(from: $0, content: content).unescaped()
+            try String(from: $0, content: content).unquoted
         }
         guard let account, let note else { throw SyntaxError.badNode(node, content: content) }
         self.init(account: account, note: note)

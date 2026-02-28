@@ -277,7 +277,7 @@ extension MetaDataValue: CustomStringConvertible {
     /// - Returns: The metadata value in Beancount format
     public var description: String {
         switch self {
-        case .string(let string): "\"\(string.escaped)\""
+        case .string(let string): string.quoted
         case .account(let account): account.description
         case .currency(let currency): currency.description
         case .date(let date): date.isoDescription
@@ -378,12 +378,12 @@ extension Transaction: DirectivePrintable {
             flag.map(String.init) ?? "*",
         ]
         if let payee {
-            strings.append("\"\(payee.escaped)\"")
+            strings.append(payee.quoted)
         }
         if let narration {
-            strings.append("\"\(narration.escaped)\"")
+            strings.append(narration.quoted)
         } else if payee != nil {
-            strings.append("\"\"")
+            strings.append(#""""#)
         }
 
         for tag in self.tags {
@@ -592,7 +592,7 @@ extension Note: DirectivePrintable {
             date.isoDescription,
             "note",
             account.description,
-            "\"\(note.escaped)\"",
+            note.quoted,
         ]
         if let comment, !comment.isEmpty {
             resultLine.append(" ; \(comment)")
@@ -620,8 +620,8 @@ extension Event: DirectivePrintable {
         var resultLine = [
             date.isoDescription,
             "event",
-            "\"\(type.escaped)\"",
-            "\"\(description.escaped)\"",
+            type.quoted,
+            description.quoted,
         ]
         if let comment, !comment.isEmpty {
             resultLine.append(" ; \(comment)")
@@ -649,8 +649,8 @@ extension Query: DirectivePrintable {
         var resultLine = [
             date.isoDescription,
             "query",
-            "\"\(name.escaped)\"",
-            "\"\(queryString.escaped)\"",
+            name.quoted,
+            queryString.quoted,
         ]
         if let comment, !comment.isEmpty {
             resultLine.append(" ; \(comment)")
@@ -708,7 +708,7 @@ extension Document: DirectivePrintable {
             date.isoDescription,
             "document",
             account.description,
-            "\"\(filename.escaped)\"",
+            filename.quoted,
         ]
         if let tags {
             for tag in tags {

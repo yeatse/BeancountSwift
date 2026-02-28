@@ -112,17 +112,54 @@ extension Date {
 }
 
 extension String {
-    /// Returns the string with special characters escaped for Beancount output.
-    ///
-    /// Escapes backslashes and quotes so the string can be safely included
-    /// in Beancount text format without breaking syntax.
-    ///
-    /// - Returns: The escaped string
-    var escaped: String {
-        return replacingOccurrences(of: "\\", with: #"\\"#)
-            .replacingOccurrences(of: "\"", with: #"\""#)
-    }
+    var quoted: String {
+        var out = "\""
+        out.reserveCapacity(self.count + 2)
 
+        for scalar in self.unicodeScalars {
+            switch scalar.value {
+            case 0x22: out += #"\""#         // "
+            case 0x5C: out += #"\\"#         // \  -> \\ in beancount literal
+            default:
+                out.unicodeScalars.append(scalar)
+            }
+        }
+
+        out += "\""
+        return out
+    }
+    
+    /// Strips surrounding double quotes and unescapes backslash sequences,
+    /// mirroring beancount's cunescape() in tokens.c (non-strict mode).
+    var unquoted: String {
+        guard count >= 2, first == "\"", last == "\"" else {
+            return self
+        }
+        let inner = dropFirst().dropLast()
+        
+        var result = ""
+        result.reserveCapacity(inner.count)
+        
+        var iter = inner.makeIterator()
+        while let ch = iter.next() {
+            guard ch == "\\" else {
+                result.append(ch)
+                continue
+            }
+            guard let escaped = iter.next() else { break }
+            switch escaped {
+            case "\"": result.append("\"")
+            case "n":  result.append("\n")
+            case "t":  result.append("\t")
+            case "r":  result.append("\r")
+            case "f":  result.append("\u{0C}")
+            case "b":  result.append("\u{08}")
+            default:   result.append(escaped)   // non-strict: \X → X（含 \\ → \）
+            }
+        }
+        return result
+    }
+    
     /// Returns the string with each line indented by the specified prefix.
     ///
     /// Adds the prefix string to the beginning of each line, useful for
