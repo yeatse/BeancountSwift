@@ -324,7 +324,7 @@ extension Inventory {
     /// by directly copying the other inventory's cache.
     ///
     /// - Parameter inventory: The inventory to add
-    mutating func addInventory(_ inventory: Inventory) {
+    public mutating func addInventory(_ inventory: Inventory) {
         if isEmpty {
             cache = inventory.cache
         } else {
