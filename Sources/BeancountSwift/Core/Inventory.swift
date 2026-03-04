@@ -308,12 +308,12 @@ extension Inventory {
 
     // Add a position to the inventory
     @discardableResult
-    mutating func addPosition(_ position: Position) -> (Position?, MatchResult) {
+    public mutating func addPosition(_ position: Position) -> (Position?, MatchResult) {
         return addAmount(position.units, cost: position.cost)
     }
 
     @discardableResult
-    mutating func addPosition(_ position: Posting<Cost>) -> (Position?, MatchResult) {
+    public mutating func addPosition(_ position: Posting<Cost>) -> (Position?, MatchResult) {
         return addAmount(position.units, cost: position.cost)
     }
 
