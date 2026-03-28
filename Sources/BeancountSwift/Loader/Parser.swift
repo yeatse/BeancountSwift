@@ -195,25 +195,25 @@ public enum Parser {
         var seenIncludes: Set<String> = [file]
         while !includes.isEmpty {
             let include = includes.popLast()!
-            let expandedFiles = contentProvider.expandInclude(include)
-            for expandedFile in expandedFiles {
-                if seenIncludes.contains(expandedFile) {
-                    ledger.errors.append(ParserError.duplicatedInclude(expandedFile))
-                    continue
+            if seenIncludes.contains(include) {
+                ledger.errors.append(ParserError.duplicatedInclude(include))
+                continue
+            }
+            seenIncludes.insert(include)
+            do {
+                let childContent = try contentProvider.provideContent(for: include)
+                let (childLedger, childIncludes) = try parseContent(
+                    content: childContent,
+                    in: include,
+                )
+                ledger.directives += childLedger.directives
+                ledger.errors += childLedger.errors
+                let expendedIncludes = childIncludes.flatMap {
+                    contentProvider.expandInclude($0).filter { $0 != include }
                 }
-                seenIncludes.insert(expandedFile)
-                do {
-                    let childContent = try contentProvider.provideContent(for: expandedFile)
-                    let (childLedger, childIncludes) = try parseContent(
-                        content: childContent,
-                        in: expandedFile
-                    )
-                    ledger.directives += childLedger.directives
-                    ledger.errors += childLedger.errors
-                    includes.append(contentsOf: childIncludes)
-                } catch {
-                    ledger.errors.append(error)
-                }
+                includes.append(contentsOf: expendedIncludes)
+            } catch {
+                ledger.errors.append(error)
             }
         }
         ledger.directives.sort()

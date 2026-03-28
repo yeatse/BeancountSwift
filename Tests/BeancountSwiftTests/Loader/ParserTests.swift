@@ -278,6 +278,122 @@ struct ParserTests {
         #expect(filenames.contains("account/b.bean"))
     }
 
+    @Test func includeExpandsSelfReferenceIsFiltered() throws {
+        struct ExpandingContentProvider: ContentProviding {
+            let files: [String: String]
+            let expansions: [String: [String]]
+
+            enum TestError: Error {
+                case missing(String)
+            }
+
+            func provideContent(for name: String) throws -> String {
+                guard let content = files[name] else {
+                    throw TestError.missing(name)
+                }
+                return content
+            }
+
+            func expandInclude(_ include: String) -> [String] {
+                expansions[include] ?? [include]
+            }
+        }
+
+        // account/accounts.bean includes "*.bean" which expands to include itself.
+        // The self-reference should be silently filtered out.
+        let provider = ExpandingContentProvider(
+            files: [
+                "main.beancount":
+                    """
+                include "account/accounts.bean"
+                """,
+                "account/accounts.bean":
+                    """
+                include "*.bean"
+                2024-01-01 open Assets:Cash USD
+                """,
+                "account/a.bean":
+                    """
+                2024-01-02 open Expenses:Food USD
+                """,
+            ],
+            expansions: [
+                "account/*.bean": ["account/accounts.bean", "account/a.bean"]
+            ]
+        )
+
+        let ledger = try Parser.parse(file: "main.beancount", contentProvider: provider)
+        #expect(ledger.errors.isEmpty)
+        #expect(ledger.directives.count == 2)
+        let filenames = ledger.directives.compactMap { $0.meta.filename }
+        #expect(filenames.contains("account/accounts.bean"))
+        #expect(filenames.contains("account/a.bean"))
+    }
+
+    @Test func includeExpandsDuplicateReportsError() throws {
+        struct ExpandingContentProvider: ContentProviding {
+            let files: [String: String]
+            let expansions: [String: [String]]
+
+            enum TestError: Error {
+                case missing(String)
+            }
+
+            func provideContent(for name: String) throws -> String {
+                guard let content = files[name] else {
+                    throw TestError.missing(name)
+                }
+                return content
+            }
+
+            func expandInclude(_ include: String) -> [String] {
+                expansions[include] ?? [include]
+            }
+        }
+
+        // Both a.bean and b.bean include a glob that expands to the same shared/common.bean.
+        // The second occurrence should produce a duplicatedInclude error.
+        let provider = ExpandingContentProvider(
+            files: [
+                "main.beancount":
+                    """
+                include "a.bean"
+                include "b.bean"
+                """,
+                "a.bean":
+                    """
+                include "shared/*.bean"
+                2024-01-01 open Assets:Cash USD
+                """,
+                "b.bean":
+                    """
+                include "shared/*.bean"
+                2024-01-02 open Expenses:Food USD
+                """,
+                "shared/common.bean":
+                    """
+                2024-01-03 open Liabilities:Card USD
+                """,
+            ],
+            expansions: [
+                "shared/*.bean": ["shared/common.bean"]
+            ]
+        )
+
+        let ledger = try Parser.parse(file: "main.beancount", contentProvider: provider)
+        #expect(ledger.errors.count == 1)
+        guard let parserError = ledger.errors[0] as? ParserError,
+            case ParserError.duplicatedInclude(let path) = parserError
+        else {
+            Issue.record("Expected duplicatedInclude error")
+            return
+        }
+        #expect(path == "shared/common.bean")
+        let filenames = Set(ledger.directives.compactMap { $0.meta.filename })
+        #expect(filenames.contains("shared/common.bean"))
+        #expect(filenames.filter { $0 == "shared/common.bean" }.count == 1)
+    }
+
     @Test func parseSnippetTransaction() throws {
 
         let content = """
