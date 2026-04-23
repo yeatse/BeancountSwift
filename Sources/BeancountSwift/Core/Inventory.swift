@@ -363,7 +363,7 @@ extension Inventory: Hashable, Equatable, Comparable {
         return ret
     }
 
-    public prefix static func - (inventory: Inventory) -> Inventory {
+    public static prefix func - (inventory: Inventory) -> Inventory {
         var negatedInventory = Inventory()
         for position in inventory.positions {
             var negatedPosition = position

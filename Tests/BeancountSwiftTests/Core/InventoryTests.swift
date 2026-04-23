@@ -203,6 +203,51 @@ struct InventoryTests {
         #expect(-pinv == ninv)
     }
 
+    @Test func negOpEmpty() {
+        let inv = Inventory()
+        #expect(-inv == Inventory())
+        #expect((-inv).isEmpty)
+    }
+
+    @Test func negOpWithLots() {
+        let inv: Inventory = "2.2 HOOL {532.43 USD}, 3.413 EUR"
+        let negInv = -inv
+        checkAmount(inventory: negInv, number: Decimal(string: "-2.2")!, currency: "HOOL")
+        checkAmount(inventory: negInv, number: Decimal(string: "-3.413")!, currency: "EUR")
+        // cost information must be preserved
+        let position = negInv.positions.first { $0.units.currency == "HOOL" }
+        #expect(position?.cost == Cost(number: Decimal(string: "532.43")!, currency: "USD"))
+    }
+
+    @Test func negOpDouble() {
+        let inv: Inventory = "10 USD, -5 CAD, 3 HOOL {100 USD}"
+        #expect(-(-inv) == inv)
+    }
+
+    @Test func subOp() {
+        let inv1: Inventory = "17.00 USD"
+        let inv2: Inventory = "5.00 USD"
+        #expect(inv1 - inv2 == "12.00 USD")
+    }
+
+    @Test func subOpMultiCurrency() {
+        let inv1: Inventory = "10 USD, 20 CAD"
+        let inv2: Inventory = "3 USD, 7 CAD"
+        #expect(inv1 - inv2 == "7 USD, 13 CAD")
+    }
+
+    @Test func subOpDisjointCurrencies() {
+        let inv1: Inventory = "10 USD"
+        let inv2: Inventory = "5 CAD"
+        #expect(inv1 - inv2 == "10 USD, -5 CAD")
+    }
+
+    @Test func subOpToZero() {
+        let inv: Inventory = "10 USD"
+        #expect(inv - inv == Inventory())
+        #expect((inv - inv).isEmpty)
+    }
+
     @Test func absOp() {
         let inv: Inventory = "1.50 USD, 2.00 USD, -1.52 CAD"
         #expect(inv.absolute == "3.50 USD, 1.52 CAD")
