@@ -58,9 +58,16 @@ extension Plugin {
 }
 
 /// Errors that can occur during plugin execution.
-enum PluginError: Error {
+enum PluginError: Error, LocalizedError {
     /// The requested plugin is not implemented or available.
     case notImplemented(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .notImplemented(let name):
+            return "Plugin \"\(name)\" is not implemented or available."
+        }
+    }
 }
 
 /// Protocol that all Beancount plugins must implement.
