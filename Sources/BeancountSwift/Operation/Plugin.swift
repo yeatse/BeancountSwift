@@ -104,5 +104,9 @@ var allPlugins: [String: BeancountPlugin] {
         BalanceCheckPlugin.name: BalanceCheckPlugin(),
         ForecastPlugin.name: ForecastPlugin(),
         PadPlugin.name: PadPlugin(),
+        PeriodicAmortizePlugin.name: PeriodicAmortizePlugin(),
+        PeriodicDepreciatePlugin.name: PeriodicDepreciatePlugin(),
+        PeriodicRecurPlugin.name: PeriodicRecurPlugin(),
+        PeriodicSplitPlugin.name: PeriodicSplitPlugin(),
     ]
 }
