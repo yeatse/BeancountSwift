@@ -281,7 +281,7 @@ extension MetaDataValue: CustomStringConvertible {
         case .account(let account): account.description
         case .currency(let currency): currency.description
         case .date(let date): date.isoDescription
-        case .tag(let tag): tag.id
+        case .tag(let tag): "#\(tag.id)"
         case .number(let decimal): decimal.formatted(.number.grouping(.never))
         case .bool(let bool): bool ? "TRUE" : "FALSE"
         case .amount(let amount): amount.description

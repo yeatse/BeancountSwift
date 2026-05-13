@@ -313,6 +313,24 @@ struct TestEntryPrinter {
         // Python expects: '  something: "a\\\"\\\\c"\\n'
         #expect(description.contains("something:"))
     }
+
+    @Test func testMetadataTagValue() throws {
+        // Tag metadata values must be printed with a leading '#' so they round-trip.
+        try assertRoundTrip(
+            """
+            2014-01-01 open Assets:Account1
+              category: #vacation
+
+            """)
+
+        let p: ContentProvider = """
+            2014-01-01 open Assets:Account1
+              category: #vacation
+            """
+        let ledger = try p.parseLedger()
+        let description = ledger.directives[0].description
+        #expect(description.contains("category: #vacation"))
+    }
 }
 
 // MARK: - TestPrinterSpacing
