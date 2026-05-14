@@ -5,7 +5,10 @@
 //  Created by Yeatse on 2024/1/28.
 //
 
+import Foundation
 import Testing
+
+@testable import BeancountSwift
 
 struct PadTests {
 
@@ -109,5 +112,67 @@ struct PadTests {
             """)
     }
 
-    // TODO: add more tests
+    /// Regression: when two pad directives in different files share the same
+    /// line number, the generated padding transactions must be attributed to
+    /// the correct pad and not leak across files.
+    @Test func padAcrossFilesWithCollidingLinenos() throws {
+        struct MapContentProvider: ContentProviding {
+            let files: [String: String]
+            enum TestError: Error { case missing(String) }
+            func provideContent(for name: String) throws -> String {
+                guard let content = files[name] else { throw TestError.missing(name) }
+                return content
+            }
+        }
+
+        // Both included files have the `pad` directive at the same line number.
+        let provider = MapContentProvider(files: [
+            "main.bean":
+                """
+                2020-01-01 open Assets:BOC USD
+                2020-01-01 open Assets:WeChat USD
+                2020-01-01 open Equity:Opening-Balances
+
+                include "boc.bean"
+                include "wechat.bean"
+                """,
+            "boc.bean":
+                """
+                2021-07-01 pad Assets:BOC Equity:Opening-Balances
+                2021-07-02 balance Assets:BOC 100.00 USD
+                """,
+            "wechat.bean":
+                """
+                2021-07-01 pad Assets:WeChat Equity:Opening-Balances
+                2021-07-02 balance Assets:WeChat 50.00 USD
+                """,
+        ])
+
+        let ledger = try Loader.load(file: "main.bean", contentProvider: provider)
+        #expect(
+            ledger.errors.isEmpty,
+            "Expected no errors, got: \(ledger.errors.map { "\($0)" })")
+
+        // Each pad should produce exactly one padding transaction with the
+        // right amount on the right account. No doubling, no leakage.
+        let paddingTxns = ledger.directives.compactMap {
+            entry -> Transaction<Cost>? in
+            if case .transaction(let txn) = entry.content, txn.flag == .paddingFlag {
+                return txn
+            }
+            return nil
+        }
+        #expect(paddingTxns.count == 2)
+
+        let bocPad = paddingTxns.first { txn in
+            txn.postings.contains { $0.account.id == "Assets:BOC" }
+        }
+        let wechatPad = paddingTxns.first { txn in
+            txn.postings.contains { $0.account.id == "Assets:WeChat" }
+        }
+        #expect(bocPad?.postings.first(where: { $0.account.id == "Assets:BOC" })?.units.number
+            == Decimal(string: "100.00"))
+        #expect(wechatPad?.postings.first(where: { $0.account.id == "Assets:WeChat" })?.units.number
+            == Decimal(string: "50.00"))
+    }
 }
