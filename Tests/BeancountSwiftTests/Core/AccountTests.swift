@@ -29,6 +29,25 @@ struct AccountTests {
         #expect(!Account(id: "Assets:US:RBS:Checking&").isValid)
         #expect(!Account(id: "Assets:US:RBS:checking").isValid)
         #expect(!Account(id: "Assets:us:RBS:checking").isValid)
+
+        // Official beancount checks only the first two segments strictly
+        // (grammar.py uses `.match()`); later segments only need to satisfy
+        // the lexer, which accepts any non-ASCII codepoint.
+        #expect(Account(id: "Assets:CMB:招商银行").isValid)
+        // But a non-ASCII letter as the start of the second segment fails
+        // the strict `[\p{Lu}\p{Nd}]` rule applied to it.
+        #expect(!Account(id: "Assets:招商银行").isValid)
+        // The first segment is also strict (must start with `\p{Lu}`), so a
+        // Chinese root name is rejected even though the lexer would tokenize
+        // it. Beancount only accepts such names via configured `name_*`
+        // options, which is outside the scope of this syntactic check.
+        #expect(!Account(id: "资产:CMB:招商银行").isValid)
+        // Non-ASCII letters are fine inside a segment body (matches `\p{L}`).
+        #expect(Account(id: "Assets:Bank招商").isValid)
+        #expect(Account(id: "Assets:Bank-招商").isValid)
+        // Digits are allowed as the start of any segment except the first.
+        #expect(Account(id: "Assets:401k").isValid)
+        #expect(!Account(id: "401k:Assets").isValid)
     }
 
     @Test func joinAccount() {
@@ -120,6 +139,12 @@ struct AccountTests {
         #expect(Account(id: "Expenses").isValidRoot)
         #expect(Account(id: "Opening-Balances").isValidRoot)
 
+        // Non-ASCII letters are allowed inside the body (matches `\p{L}`),
+        // but the first character must be `\p{Lu}` per `is_valid_root`.
+        #expect(Account(id: "Bank招商").isValidRoot)
+        #expect(Account(id: "Bank-招商").isValidRoot)
+        #expect(!Account(id: "资产").isValidRoot)
+
         #expect(!Account(id: "assets").isValidRoot)
         #expect(!Account(id: "Assets:US").isValidRoot)
         #expect(!Account(id: "123Assets").isValidRoot)
@@ -135,6 +160,14 @@ struct AccountTests {
         #expect(Account(id: "Assets").isValidLeaf)
         #expect(Account(id: "Opening-Balances").isValidLeaf)
         #expect(Account(id: "123Account").isValidLeaf)
+
+        // `is_valid_leaf` is the strict per-component check; each segment
+        // must start with `\p{Lu}` or `\p{Nd}`, so a CJK ideograph (Lo)
+        // at the start of any component is rejected.
+        #expect(Account(id: "US:Bank招商").isValidLeaf)
+        #expect(!Account(id: "Assets:招商银行").isValidLeaf)
+        #expect(!Account(id: "Assets:CMB:招商银行").isValidLeaf)
+        #expect(!Account(id: "资产:招商银行").isValidLeaf)
 
         #expect(!Account(id: "assets:US:Bank").isValidLeaf)
         #expect(!Account(id: "Assets:us:Bank").isValidLeaf)
