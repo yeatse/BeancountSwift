@@ -48,26 +48,56 @@ public struct Account: Identifiable, Equatable, Hashable, Sendable {
 
 // MARK: relationships
 extension Account {
+    // Mirrors the actual parse behavior of the official beancount project, which
+    // combines the lexer (beancount/parser/lexer.l) and the grammar callback
+    // (beancount/parser/grammar.py:Builder.account):
+    //
+    //   - The lexer tokenizes the account: ACCOUNTTYPE(:ACCOUNTNAME)+ where each
+    //     segment may use any non-ASCII codepoint anywhere (UTF-8-ONLY).
+    //   - grammar.py then applies `valid_account_regexp.match(account)` with
+    //     `[\p{Lu}][\p{L}\p{Nd}-]*(:[\p{Lu}\p{Nd}][\p{L}\p{Nd}-]*)+`. Because it
+    //     uses `match`, not `fullmatch`, only the first two segments are
+    //     enforced strictly; trailing segments only need to satisfy the lexer.
+    //
+    // The pattern below encodes that combined behavior: strict segments for the
+    // type and the first name, lexer-permissive segments after that.
     static var regex: Regex<Substring> {
-        #/(?:[\p{Lu}][\p{L}\p{Nd}-]*)(?::[\p{Lu}\p{Nd}][\p{L}\p{Nd}-]*)+/#
+        #/(?:[\p{Lu}][\p{L}\p{Nd}-]*)(?::[\p{Lu}\p{Nd}][\p{L}\p{Nd}-]*)(?::[A-Z0-9\u{80}-\u{10FFFF}][A-Za-z0-9\u{80}-\u{10FFFF}\-]*)*/#
     }
 
-    /// Validates whether the account name conforms to Beancount naming conventions.
+    /// Validates whether the account name parses as a beancount account.
     ///
-    /// Account names must start with a capital letter and contain only letters,
-    /// numbers, and hyphens, with components separated by colons.
+    /// Replicates the official beancount parser: the first segment must look
+    /// like an ACCOUNTTYPE (`\p{Lu}` start, `[\p{L}\p{Nd}-]` body), the second
+    /// segment must satisfy the stricter ACCOUNTNAME grammar
+    /// (`[\p{Lu}\p{Nd}]` start, `[\p{L}\p{Nd}-]` body), and any further
+    /// segments only need to satisfy the lexer (ASCII `[A-Z0-9]` or any
+    /// non-ASCII codepoint as start; ASCII letters/digits/hyphen or any
+    /// non-ASCII codepoint as body). At least two segments are required.
+    ///
+    /// As a consequence, `Assets:CMB:招商银行` is valid (the `招商银行`
+    /// segment falls under the lexer-only third-segment rule) while
+    /// `Assets:招商银行` is not (the second segment is checked strictly and
+    /// `招` is `\p{Lo}`, not `\p{Lu}`/`\p{Nd}`).
     public var isValid: Bool {
         try! Account.regex.wholeMatch(in: id) != nil
     }
 
     /// Return true if the given string is a valid root account name.
-    /// This just checks for valid syntax.
+    ///
+    /// Matches `account.is_valid_root` from official beancount, which is used
+    /// to validate option-supplied root names (e.g. `option "name_assets" …`).
+    /// A single segment of the ACCOUNTTYPE shape: `\p{Lu}` start, then
+    /// `[\p{L}\p{Nd}-]`.
     public var isValidRoot: Bool {
         return try! #/^[\p{Lu}][\p{L}\p{Nd}-]*$/#.wholeMatch(in: id) != nil
     }
 
     /// Return true if the given string is a valid leaf account name.
-    /// This just checks for valid syntax.
+    ///
+    /// Matches `account.is_valid_leaf` from official beancount: each
+    /// colon-separated component must satisfy the strict ACCOUNTNAME shape
+    /// (`[\p{Lu}\p{Nd}]` start, `[\p{L}\p{Nd}-]` body).
     public var isValidLeaf: Bool {
         // Check for empty components by looking for consecutive colons
         if id.contains("::") {
