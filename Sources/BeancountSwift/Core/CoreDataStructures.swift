@@ -492,10 +492,16 @@ extension OrderedDictionary where Key == String, Value == MetaDataValue {
     /// - Returns: A new metadata dictionary with system keys removed
     public var removingSystemKeys: MetaData {
         return self.filter { key, value in
-            if key == "lineno", case .number = value { return false }
-            if key == "filename", case .string = value { return false }
-            if key == "range", case .range = value { return false }
-            return true
+            switch (key, value) {
+            case
+                ("lineno", .number),
+                ("filename", .string),
+                ("range", .range),
+                ("__automatic__", _),
+                ("<auto_accounts>", _): return false
+            default:
+                return true
+            }
         }
     }
 }
