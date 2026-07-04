@@ -7,9 +7,11 @@
 
 /// Provides string formatting and printing capabilities for Beancount data structures.
 ///
-/// This module implements CustomStringConvertible for all major Beancount types,
-/// enabling them to be converted back to their original Beancount text format.
-/// This is essential for round-trip processing, debugging, and generating output files.
+/// This module implements the ``Printable`` protocol for all major Beancount
+/// types, enabling them to be converted back to their original Beancount text
+/// format. `Printable` refines `CustomStringConvertible`, so these types also
+/// work in string interpolation and debugging. This is essential for round-trip
+/// processing and generating output files.
 ///
 /// The printing functionality corresponds to the format_entry functions in the
 /// original Beancount Python library, maintaining compatibility with the standard format.
@@ -17,13 +19,60 @@
 import Foundation
 import OrderedCollections
 
-extension Option: CustomStringConvertible {
+/// Formatting options used when rendering directives back to Beancount text.
+///
+/// Mirrors the role of Beancount's `EntryPrinter` configuration (notably its
+/// `prefix`): it lets callers control the indentation applied to postings and
+/// metadata continuation lines. Pass a context to ``Printable/formatted(_:)``;
+/// ``CustomStringConvertible`` conformances fall back to ``FormatContext/default``.
+public struct FormatContext: Sendable, Equatable {
+    /// The prefix prepended to each indented line (postings and metadata).
+    public var indent: String
+
+    /// Creates a context with an explicit indent prefix.
+    ///
+    /// - Parameter indent: The whitespace prefix used for one indentation level
+    ///   (default: four spaces, matching Beancount's conventional output).
+    public init(indent: String = "    ") {
+        self.indent = indent
+    }
+
+    /// Creates a context that indents by a number of spaces.
+    ///
+    /// - Parameter indentWidth: The number of spaces per indentation level.
+    public init(indentWidth: Int) {
+        self.indent = String(repeating: " ", count: max(0, indentWidth))
+    }
+
+    /// The default context: four-space indentation.
+    public static let `default` = FormatContext()
+}
+
+/// A Beancount value that can render itself as source text.
+///
+/// Conformers implement ``formatted(_:)`` to produce their Beancount
+/// representation, controlling indentation of any nested lines via a
+/// ``FormatContext``. `Printable` refines `CustomStringConvertible` and
+/// provides a default ``description`` derived from ``FormatContext/default``,
+/// so conformers get string interpolation and round-trip printing for free.
+public protocol Printable: CustomStringConvertible {
+    /// Returns the Beancount source representation using the given context.
+    ///
+    /// - Parameter context: Formatting options controlling indentation. Values
+    ///   without nested lines may ignore it.
+    func formatted(_ context: FormatContext) -> String
+}
+
+extension Printable {
+    /// The Beancount representation using the default (four-space) context.
+    public var description: String { formatted(.default) }
+}
+
+extension Option: Printable {
     /// Returns the option formatted as Beancount option directive syntax.
     ///
     /// Formats as: `option "key" "value"`
-    ///
-    /// - Returns: The option in Beancount syntax format
-    public var description: String {
+    public func formatted(_ context: FormatContext) -> String {
         let escapedValue = value
             .replacingOccurrences(of: "\"", with: #"\""#)
             .replacingOccurrences(of: "'", with: #"\'"#)
@@ -31,18 +80,14 @@ extension Option: CustomStringConvertible {
     }
 }
 
-extension Account: CustomStringConvertible {
+extension Account: Printable {
     /// Returns the account ID.
-    ///
-    /// - Returns: The account identifier string
-    public var description: String { id }
+    public func formatted(_ context: FormatContext) -> String { id }
 }
 
-extension Currency: CustomStringConvertible {
+extension Currency: Printable {
     /// Returns the currency ID.
-    ///
-    /// - Returns: The currency identifier string
-    public var description: String { id }
+    public func formatted(_ context: FormatContext) -> String { id }
 }
 
 extension Decimal {
@@ -88,14 +133,12 @@ extension Decimal {
     }
 }
 
-extension Amount: CustomStringConvertible {
+extension Amount: Printable {
     /// Returns the amount formatted in Beancount syntax.
     ///
     /// Formats as: `number CURRENCY` (e.g., "100.00 USD")
     /// Preserves original precision to maintain round-trip accuracy.
-    ///
-    /// - Returns: The amount in Beancount format
-    public var description: String {
+    public func formatted(_ context: FormatContext) -> String {
         let curr = currency.description
         if number.isNaN {
             return curr
@@ -106,14 +149,12 @@ extension Amount: CustomStringConvertible {
     }
 }
 
-extension Cost: CustomStringConvertible {
+extension Cost: Printable {
     /// Returns the cost formatted in Beancount syntax.
     ///
     /// Formats cost components (amount, date, label) separated by commas.
     /// Omits components that are not set or have default values.
-    ///
-    /// - Returns: The cost in Beancount format
-    public var description: String {
+    public func formatted(_ context: FormatContext) -> String {
         var strlist: [String] = []
         if number != .nan {
             strlist.append(Amount(number: number, currency: currency).description)
@@ -128,7 +169,7 @@ extension Cost: CustomStringConvertible {
     }
 }
 
-extension CostSpec: CustomStringConvertible {
+extension CostSpec: Printable {
     /// Whether this cost spec represents a total-only cost (no per-unit amount).
     public var isTotal: Bool {
         numberPerUnit == 0 && numberTotal != nil && numberTotal != .nan
@@ -137,9 +178,7 @@ extension CostSpec: CustomStringConvertible {
     ///
     /// Formats cost specification components including per-unit costs,
     /// total costs, dates, labels, and merge flags.
-    ///
-    /// - Returns: The cost specification in Beancount format
-    public var description: String {
+    public func formatted(_ context: FormatContext) -> String {
         var strlist: [String] = []
         if (numberPerUnit != nil && numberPerUnit != .nan)
             || (numberTotal != nil && numberTotal != .nan)
@@ -174,14 +213,12 @@ extension CostSpec: CustomStringConvertible {
     }
 }
 
-extension Position: CustomStringConvertible {
+extension Position: Printable {
     /// Returns the position formatted in Beancount syntax.
     ///
     /// Formats as: `amount {cost}` where cost is included if present.
     /// Uses double braces for cost specification formatting.
-    ///
-    /// - Returns: The position in Beancount format
-    public var description: String {
+    public func formatted(_ context: FormatContext) -> String {
         var posStr = units.description
         if let cost {
             posStr += " {{\(cost.description)}}"
@@ -190,18 +227,16 @@ extension Position: CustomStringConvertible {
     }
 }
 
-extension Inventory: CustomStringConvertible {
+extension Inventory: Printable {
     /// Returns the inventory formatted in Beancount syntax.
     ///
     /// Formats as a comma-separated list of positions.
-    ///
-    /// - Returns: The inventory in Beancount format
-    public var description: String {
+    public func formatted(_ context: FormatContext) -> String {
         positions.map(\.description).joined(separator: ", ")
     }
 }
 
-extension Posting: CustomStringConvertible {
+extension Posting: Printable {
     /// Computes the generic weight for any posting type.
     ///
     /// Handles both Cost and CostSpec posting types by casting and
@@ -218,14 +253,15 @@ extension Posting: CustomStringConvertible {
         }
     }
 
-    /// Returns the posting formatted in Beancount syntax.
+    /// Returns the posting formatted in Beancount syntax using the given context.
     ///
     /// Formats the complete posting including flag, account, units, cost,
-    /// price, weight comment, and metadata. Follows standard Beancount
-    /// posting format with proper indentation and alignment.
+    /// price, weight comment, and metadata. Nested metadata is indented using
+    /// the context's indentation prefix.
     ///
+    /// - Parameter context: Formatting options controlling indentation.
     /// - Returns: The posting in Beancount format
-    public var description: String {
+    public func formatted(_ context: FormatContext) -> String {
         let flagStr: String
         if let flag {
             flagStr = "\(flag) "
@@ -262,20 +298,18 @@ extension Posting: CustomStringConvertible {
             result += "  ; \(weightStr)"
         }
         if let meta {
-            result += "\n\(meta.toString.lineAligned())"
+            result += "\n\(meta.toString.lineAligned(by: context.indent))"
         }
         return result
     }
 }
 
-extension MetaDataValue: CustomStringConvertible {
+extension MetaDataValue: Printable {
     /// Returns the metadata value formatted for Beancount output.
     ///
     /// Formats each metadata value type according to Beancount conventions,
     /// including proper quoting for strings and appropriate formatting for dates.
-    ///
-    /// - Returns: The metadata value in Beancount format
-    public var description: String {
+    public func formatted(_ context: FormatContext) -> String {
         switch self {
         case .string(let string): string.quoted
         case .account(let account): account.description
@@ -317,29 +351,31 @@ extension OrderedDictionary where Key == String, Value == MetaDataValue {
     }
 }
 
-extension Directive: CustomStringConvertible {
-    /// Returns the directive formatted in Beancount syntax.
+extension Directive: Printable {
+    /// Returns the directive formatted in Beancount syntax using the given context.
     ///
     /// Formats the complete directive including date, metadata, and content
-    /// according to Beancount conventions.
+    /// according to Beancount conventions, applying the context's indentation to
+    /// postings and metadata continuation lines.
     ///
+    /// - Parameter context: Formatting options controlling indentation.
     /// - Returns: The directive in Beancount format with trailing newline
-    public var description: String {
+    public func formatted(_ context: FormatContext) -> String {
         let text =
             switch content {
-            case .transaction(let txn): txn.print(date: date, meta: meta, comment: comment)
-            case .open(let open): open.print(date: date, meta: meta, comment: comment)
-            case .custom(let custom): custom.print(date: date, meta: meta, comment: comment)
-            case .pad(let pad): pad.print(date: date, meta: meta, comment: comment)
-            case .balance(let balance): balance.print(date: date, meta: meta, comment: comment)
-            case .close(let close): close.print(date: date, meta: meta, comment: comment)
+            case .transaction(let txn): txn.print(date: date, meta: meta, comment: comment, context: context)
+            case .open(let open): open.print(date: date, meta: meta, comment: comment, context: context)
+            case .custom(let custom): custom.print(date: date, meta: meta, comment: comment, context: context)
+            case .pad(let pad): pad.print(date: date, meta: meta, comment: comment, context: context)
+            case .balance(let balance): balance.print(date: date, meta: meta, comment: comment, context: context)
+            case .close(let close): close.print(date: date, meta: meta, comment: comment, context: context)
             case .commodity(let commodity):
-                commodity.print(date: date, meta: meta, comment: comment)
-            case .note(let note): note.print(date: date, meta: meta, comment: comment)
-            case .event(let event): event.print(date: date, meta: meta, comment: comment)
-            case .query(let query): query.print(date: date, meta: meta, comment: comment)
-            case .price(let price): price.print(date: date, meta: meta, comment: comment)
-            case .document(let document): document.print(date: date, meta: meta, comment: comment)
+                commodity.print(date: date, meta: meta, comment: comment, context: context)
+            case .note(let note): note.print(date: date, meta: meta, comment: comment, context: context)
+            case .event(let event): event.print(date: date, meta: meta, comment: comment, context: context)
+            case .query(let query): query.print(date: date, meta: meta, comment: comment, context: context)
+            case .price(let price): price.print(date: date, meta: meta, comment: comment, context: context)
+            case .document(let document): document.print(date: date, meta: meta, comment: comment, context: context)
             }
         return text.appending("\n")
     }
@@ -356,8 +392,9 @@ private protocol DirectivePrintable {
     ///   - date: The directive date
     ///   - meta: The directive metadata
     ///   - comment: Optional directive comment
+    ///   - context: Formatting options controlling indentation
     /// - Returns: The formatted directive string
-    func print(date: Date, meta: MetaData, comment: String?) -> String
+    func print(date: Date, meta: MetaData, comment: String?, context: FormatContext) -> String
 }
 
 extension Transaction: DirectivePrintable {
@@ -371,7 +408,7 @@ extension Transaction: DirectivePrintable {
     ///   - meta: Transaction metadata
     ///   - comment: Optional transaction comment
     /// - Returns: The formatted transaction string
-    func print(date: Date, meta: MetaData, comment: String?) -> String {
+    func print(date: Date, meta: MetaData, comment: String?, context: FormatContext) -> String {
         var lines: [String] = []
         var strings: [String] = [
             date.isoDescription,
@@ -396,12 +433,12 @@ extension Transaction: DirectivePrintable {
             strings.append("  ; \(comment)")
         }
         lines.append(strings.joined(separator: " "))
-        let metaline = meta.toString.lineAligned()
+        let metaline = meta.toString.lineAligned(by: context.indent)
         if !metaline.isEmpty {
             lines.append(metaline)
         }
         for posting in self.postings {
-            lines.append(posting.description.lineAligned())
+            lines.append(posting.formatted(context).lineAligned(by: context.indent))
         }
         return lines.joined(separator: "\n")
     }
@@ -417,7 +454,7 @@ extension Open: DirectivePrintable {
     ///   - meta: Open directive metadata
     ///   - comment: Optional directive comment
     /// - Returns: The formatted open directive string
-    func print(date: Date, meta: MetaData, comment: String?) -> String {
+    func print(date: Date, meta: MetaData, comment: String?, context: FormatContext) -> String {
         let currencies = self.currencies.map(\.description).joined(separator: ",")
         let booking = self.booking.map { "\"\($0.rawValue)\"" } ?? ""
 
@@ -432,7 +469,7 @@ extension Open: DirectivePrintable {
             resultLine.append(" ; \(comment)")
         }
         var result = resultLine.joined(separator: " ")
-        let metaline = meta.toString.lineAligned()
+        let metaline = meta.toString.lineAligned(by: context.indent)
         if !metaline.isEmpty {
             result += "\n" + metaline
         }
@@ -450,13 +487,13 @@ extension Custom: DirectivePrintable {
     ///   - meta: Custom directive metadata
     ///   - comment: Optional directive comment
     /// - Returns: The formatted custom directive string
-    func print(date: Date, meta: MetaData, comment: String?) -> String {
+    func print(date: Date, meta: MetaData, comment: String?, context: FormatContext) -> String {
         let customValues = values.map(\.description).joined(separator: " ")
         var result = "\(date.isoDescription) custom \"\(type)\" \(customValues)"
         if let comment, !comment.isEmpty {
             result += "    ; \(comment)"
         }
-        let metaline = meta.toString.lineAligned()
+        let metaline = meta.toString.lineAligned(by: context.indent)
         if !metaline.isEmpty {
             result += "\n" + metaline
         }
@@ -474,7 +511,7 @@ extension Pad: DirectivePrintable {
     ///   - meta: Pad directive metadata
     ///   - comment: Optional directive comment
     /// - Returns: The formatted pad directive string
-    func print(date: Date, meta: MetaData, comment: String?) -> String {
+    func print(date: Date, meta: MetaData, comment: String?, context: FormatContext) -> String {
         var resultLine = [
             date.isoDescription, "pad", account.description, sourceAccount.description,
         ]
@@ -482,7 +519,7 @@ extension Pad: DirectivePrintable {
             resultLine.append(" ; \(comment)")
         }
         var result = resultLine.joined(separator: " ")
-        let metaline = meta.toString.lineAligned()
+        let metaline = meta.toString.lineAligned(by: context.indent)
         if !metaline.isEmpty {
             result += "\n" + metaline
         }
@@ -501,7 +538,7 @@ extension Balance: DirectivePrintable {
     ///   - meta: Balance directive metadata
     ///   - comment: Optional directive comment
     /// - Returns: The formatted balance directive string
-    func print(date: Date, meta: MetaData, comment: String?) -> String {
+    func print(date: Date, meta: MetaData, comment: String?, context: FormatContext) -> String {
         var resultLine = [date.isoDescription, "balance", account.description]
 
         // Format amount with optional tolerance
@@ -521,7 +558,7 @@ extension Balance: DirectivePrintable {
         }
 
         var result = resultLine.joined(separator: " ")
-        let metaline = meta.toString.lineAligned()
+        let metaline = meta.toString.lineAligned(by: context.indent)
         if !metaline.isEmpty {
             result += "\n" + metaline
         }
@@ -539,13 +576,13 @@ extension Close: DirectivePrintable {
     ///   - meta: Close directive metadata
     ///   - comment: Optional directive comment
     /// - Returns: The formatted close directive string
-    func print(date: Date, meta: MetaData, comment: String?) -> String {
+    func print(date: Date, meta: MetaData, comment: String?, context: FormatContext) -> String {
         var resultLine = [date.isoDescription, "close", account.description]
         if let comment, !comment.isEmpty {
             resultLine.append(" ; \(comment)")
         }
         var result = resultLine.joined(separator: " ")
-        let metaline = meta.toString.lineAligned()
+        let metaline = meta.toString.lineAligned(by: context.indent)
         if !metaline.isEmpty {
             result += "\n" + metaline
         }
@@ -563,13 +600,13 @@ extension Commodity: DirectivePrintable {
     ///   - meta: Commodity directive metadata
     ///   - comment: Optional directive comment
     /// - Returns: The formatted commodity directive string
-    func print(date: Date, meta: MetaData, comment: String?) -> String {
+    func print(date: Date, meta: MetaData, comment: String?, context: FormatContext) -> String {
         var resultLine = [date.isoDescription, "commodity", currency.description]
         if let comment, !comment.isEmpty {
             resultLine.append(" ; \(comment)")
         }
         var result = resultLine.joined(separator: " ")
-        let metaline = meta.toString.lineAligned()
+        let metaline = meta.toString.lineAligned(by: context.indent)
         if !metaline.isEmpty {
             result += "\n" + metaline
         }
@@ -587,7 +624,7 @@ extension Note: DirectivePrintable {
     ///   - meta: Note directive metadata
     ///   - comment: Optional directive comment
     /// - Returns: The formatted note directive string
-    func print(date: Date, meta: MetaData, comment: String?) -> String {
+    func print(date: Date, meta: MetaData, comment: String?, context: FormatContext) -> String {
         var resultLine = [
             date.isoDescription,
             "note",
@@ -598,7 +635,7 @@ extension Note: DirectivePrintable {
             resultLine.append(" ; \(comment)")
         }
         var result = resultLine.joined(separator: " ")
-        let metaline = meta.toString.lineAligned()
+        let metaline = meta.toString.lineAligned(by: context.indent)
         if !metaline.isEmpty {
             result += "\n" + metaline
         }
@@ -616,7 +653,7 @@ extension Event: DirectivePrintable {
     ///   - meta: Event directive metadata
     ///   - comment: Optional directive comment
     /// - Returns: The formatted event directive string
-    func print(date: Date, meta: MetaData, comment: String?) -> String {
+    func print(date: Date, meta: MetaData, comment: String?, context: FormatContext) -> String {
         var resultLine = [
             date.isoDescription,
             "event",
@@ -627,7 +664,7 @@ extension Event: DirectivePrintable {
             resultLine.append(" ; \(comment)")
         }
         var result = resultLine.joined(separator: " ")
-        let metaline = meta.toString.lineAligned()
+        let metaline = meta.toString.lineAligned(by: context.indent)
         if !metaline.isEmpty {
             result += "\n" + metaline
         }
@@ -645,7 +682,7 @@ extension Query: DirectivePrintable {
     ///   - meta: Query directive metadata
     ///   - comment: Optional directive comment
     /// - Returns: The formatted query directive string
-    func print(date: Date, meta: MetaData, comment: String?) -> String {
+    func print(date: Date, meta: MetaData, comment: String?, context: FormatContext) -> String {
         var resultLine = [
             date.isoDescription,
             "query",
@@ -656,7 +693,7 @@ extension Query: DirectivePrintable {
             resultLine.append(" ; \(comment)")
         }
         var result = resultLine.joined(separator: " ")
-        let metaline = meta.toString.lineAligned()
+        let metaline = meta.toString.lineAligned(by: context.indent)
         if !metaline.isEmpty {
             result += "\n" + metaline
         }
@@ -674,7 +711,7 @@ extension Price: DirectivePrintable {
     ///   - meta: Price directive metadata
     ///   - comment: Optional directive comment
     /// - Returns: The formatted price directive string
-    func print(date: Date, meta: MetaData, comment: String?) -> String {
+    func print(date: Date, meta: MetaData, comment: String?, context: FormatContext) -> String {
         var resultLine = [
             date.isoDescription,
             "price",
@@ -685,7 +722,7 @@ extension Price: DirectivePrintable {
             resultLine.append(" ; \(comment)")
         }
         var result = resultLine.joined(separator: " ")
-        let metaline = meta.toString.lineAligned()
+        let metaline = meta.toString.lineAligned(by: context.indent)
         if !metaline.isEmpty {
             result += "\n" + metaline
         }
@@ -703,7 +740,7 @@ extension Document: DirectivePrintable {
     ///   - meta: Document directive metadata
     ///   - comment: Optional directive comment
     /// - Returns: The formatted document directive string
-    func print(date: Date, meta: MetaData, comment: String?) -> String {
+    func print(date: Date, meta: MetaData, comment: String?, context: FormatContext) -> String {
         var resultLine = [
             date.isoDescription,
             "document",
@@ -724,7 +761,7 @@ extension Document: DirectivePrintable {
             resultLine.append(" ; \(comment)")
         }
         var result = resultLine.joined(separator: " ")
-        let metaline = meta.toString.lineAligned()
+        let metaline = meta.toString.lineAligned(by: context.indent)
         if !metaline.isEmpty {
             result += "\n" + metaline
         }
