@@ -549,9 +549,9 @@ public enum Summarize {
     private static func formatInventory(_ inventory: Inventory) -> String {
         inventory.positions.sorted().map { position in
             if let cost = position.cost {
-                return "\(position.units) {\(cost)}"
+                return "\(position.units.narrationFormatted()) {\(cost)}"
             }
-            return "\(position.units)"
+            return position.units.narrationFormatted()
         }.joined(separator: ", ")
     }
 

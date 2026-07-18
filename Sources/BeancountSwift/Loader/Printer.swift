@@ -29,19 +29,42 @@ public struct FormatContext: Sendable, Equatable {
     /// The prefix prepended to each indented line (postings and metadata).
     public var indent: String
 
+    /// Explicit fractional digits keyed by currency.
+    ///
+    /// Values originate from Beancount's `display_precision` options and take
+    /// precedence over ISO currency defaults.
+    public var displayPrecision: [Currency: Int]
+
     /// Creates a context with an explicit indent prefix.
     ///
     /// - Parameter indent: The whitespace prefix used for one indentation level
     ///   (default: four spaces, matching Beancount's conventional output).
-    public init(indent: String = "    ") {
+    public init(indent: String = "    ", displayPrecision: [Currency: Int] = [:]) {
         self.indent = indent
+        self.displayPrecision = displayPrecision
     }
 
     /// Creates a context that indents by a number of spaces.
     ///
     /// - Parameter indentWidth: The number of spaces per indentation level.
-    public init(indentWidth: Int) {
+    public init(indentWidth: Int, displayPrecision: [Currency: Int] = [:]) {
         self.indent = String(repeating: " ", count: max(0, indentWidth))
+        self.displayPrecision = displayPrecision
+    }
+
+    /// Creates a context using the ledger's `display_precision` options.
+    public init(options: Options, indent: String = "    ") {
+        self.indent = indent
+        self.displayPrecision = [:]
+        for option in options.rawOptions["display_precision"] ?? [] {
+            let components = option.split(separator: ":", maxSplits: 1).map(String.init)
+            guard components.count == 2,
+                let precision = Amount.inferredPrecision(from: components[1])
+            else {
+                continue
+            }
+            self.displayPrecision[Currency(id: components[0])] = precision
+        }
     }
 
     /// The default context: four-space indentation.
@@ -68,12 +91,21 @@ extension Printable {
     public var description: String { formatted(.default) }
 }
 
+extension ParsedLedger {
+    /// Formats every directive using the ledger's display options.
+    public func formatted(indent: String = "    ") -> String {
+        let context = FormatContext(options: options, indent: indent)
+        return directives.map { $0.formatted(context) }.joined()
+    }
+}
+
 extension Option: Printable {
     /// Returns the option formatted as Beancount option directive syntax.
     ///
     /// Formats as: `option "key" "value"`
     public func formatted(_ context: FormatContext) -> String {
-        let escapedValue = value
+        let escapedValue =
+            value
             .replacingOccurrences(of: "\"", with: #"\""#)
             .replacingOccurrences(of: "'", with: #"\'"#)
         return "option \"\(key)\" \"\(escapedValue)\""
@@ -98,56 +130,45 @@ extension Decimal {
     /// user's regional settings.
     private static let beancountLocale = Locale(identifier: "en_US_POSIX")
 
-    /// Formats a decimal number with currency-specific formatting.
-    ///
-    /// Uses AttributedString-based currency formatting to determine appropriate decimal
-    /// precision while stripping the currency symbol from the output. When `rounded` is false,
-    /// selects the longer of two precision options to preserve significant digits.
-    ///
-    /// - Parameters:
-    ///   - currency: The currency for formatting context
-    ///   - rounded: Whether to use standard currency rounding (default: false).
-    ///              When false, preserves maximum precision between default and flexible formats.
-    /// - Returns: The formatted decimal string without currency symbol
-    fileprivate func formatted(withCurrency currency: Currency?, rounded: Bool = false) -> String {
-        guard let currency else {
-            return formatted(.number.grouping(.never).locale(Self.beancountLocale))
+    /// ISO 4217 fractional digits resolved once through Foundation currency data.
+    private static let isoCurrencyFractionDigits: [String: Int] = {
+        var result: [String: Int] = [:]
+        for code in Locale.commonISOCurrencyCodes {
+            let formatter = NumberFormatter()
+            formatter.locale = beancountLocale
+            formatter.numberStyle = .currency
+            formatter.currencyCode = code
+            result[code] = formatter.maximumFractionDigits
         }
+        return result
+    }()
 
-        var result = ""
-        let attributed: AttributedString
-        if rounded {
-            attributed = magnitude.formatted(
-                .currency(code: currency.id)
-                    .presentation(.narrow)
-                    .grouping(.never)
-                    .locale(Self.beancountLocale)
-                    .attributed)
-        } else {
-            let attr1 = magnitude.formatted(
-                .currency(code: currency.id)
-                    .presentation(.narrow)
-                    .grouping(.never)
-                    .locale(Self.beancountLocale)
-                    .attributed)
-            let attr2 = magnitude.formatted(
-                .currency(code: currency.id)
-                    .presentation(.narrow)
-                    .grouping(.never)
-                    .precision(.fractionLength(0...))
-                    .locale(Self.beancountLocale)
-                    .attributed)
-            attributed = attr1.characters.count >= attr2.characters.count ? attr1 : attr2
-        }
-        for run in attributed.runs {
-            if run.numberSymbol == .currency {
-                continue
-            } else {
-                result += String(attributed[run.range].characters)
-            }
-        }
-        let sign = isSignMinus ? "-" : ""
-        return "\(sign)\(result.trimmingCharacters(in: .whitespacesAndNewlines))"
+    fileprivate static func hasISODefault(for currency: Currency) -> Bool {
+        isoCurrencyFractionDigits[currency.id] != nil
+    }
+
+    /// Returns a locale-independent canonical decimal representation.
+    fileprivate var beancountRawDescription: String {
+        var value = self
+        return NSDecimalString(&value, Self.beancountLocale)
+    }
+
+    /// Formats using an explicit precision, an ISO currency default, or two digits.
+    fileprivate func beancountCurrencyDescription(
+        currency: Currency,
+        context: FormatContext
+    ) -> String {
+        let fractionalDigits =
+            context.displayPrecision[currency]
+            ?? Self.isoCurrencyFractionDigits[currency.id]
+            ?? 2
+        let value = rounded(fractionalDigits, .bankers)
+        return value.formatted(
+            .number
+                .grouping(.never)
+                .precision(.fractionLength(fractionalDigits))
+                .locale(Self.beancountLocale)
+        )
     }
 }
 
@@ -161,9 +182,22 @@ extension Amount: Printable {
         if number.isNaN {
             return curr
         } else {
-            let num = number.formatted(withCurrency: currency, rounded: true)
+            let num = number.beancountCurrencyDescription(currency: currency, context: context)
             return "\(num) \(curr)"
         }
+    }
+
+    /// Returns the amount with its Decimal canonical representation.
+    func rawFormatted() -> String {
+        if number.isNaN {
+            return currency.description
+        }
+        return "\(number.beancountRawDescription) \(currency)"
+    }
+
+    /// Formats generated explanatory text while preserving custom commodities.
+    func narrationFormatted() -> String {
+        Decimal.hasISODefault(for: currency) ? formatted(.default) : rawFormatted()
     }
 }
 
@@ -175,7 +209,7 @@ extension Cost: Printable {
     public func formatted(_ context: FormatContext) -> String {
         var strlist: [String] = []
         if number != .nan {
-            strlist.append(Amount(number: number, currency: currency).description)
+            strlist.append(Amount(number: number, currency: currency).formatted(context))
         }
         if let date, date != .distantPast {
             strlist.append(date.isoDescription)
@@ -203,14 +237,14 @@ extension CostSpec: Printable {
         {
             var amountlist: [String] = []
             if isTotal {
-                amountlist.append(numberTotal!.formatted(withCurrency: currency))
+                amountlist.append(numberTotal!.beancountRawDescription)
             } else {
                 if let numberPerUnit, numberPerUnit != .nan {
-                    amountlist.append(numberPerUnit.formatted(withCurrency: currency))
+                    amountlist.append(numberPerUnit.beancountRawDescription)
                 }
                 if let numberTotal, numberTotal != .nan {
                     amountlist.append("#")
-                    amountlist.append(numberTotal.formatted(withCurrency: currency))
+                    amountlist.append(numberTotal.beancountRawDescription)
                 }
             }
             if let currency, currency != .missing {
@@ -237,9 +271,9 @@ extension Position: Printable {
     /// Formats as: `amount {cost}` where cost is included if present.
     /// Uses double braces for cost specification formatting.
     public func formatted(_ context: FormatContext) -> String {
-        var posStr = units.description
+        var posStr = units.formatted(context)
         if let cost {
-            posStr += " {{\(cost.description)}}"
+            posStr += " {{\(cost.formatted(context))}}"
         }
         return posStr
     }
@@ -250,7 +284,7 @@ extension Inventory: Printable {
     ///
     /// Formats as a comma-separated list of positions.
     public func formatted(_ context: FormatContext) -> String {
-        positions.map(\.description).joined(separator: ", ")
+        positions.map { $0.formatted(context) }.joined(separator: ", ")
     }
 }
 
@@ -291,20 +325,22 @@ extension Posting: Printable {
         var positionStr: String = ""
 
         if units != .missing {
-            positionStr = units.description
+            positionStr = units.formatted(context)
             if let cost = cost as? CostSpec, cost.isTotal {
-                positionStr += " {{\(cost.description)}}"
-            } else if let cost {
-                positionStr += " {\(cost.description)}"
+                positionStr += " {{\(cost.formatted(context))}}"
+            } else if let cost = cost as? CostSpec {
+                positionStr += " {\(cost.formatted(context))}"
+            } else if let cost = cost as? Cost {
+                positionStr += " {\(cost.formatted(context))}"
             }
             if cost == nil {
-                weightStr = genericWeight.description
+                weightStr = genericWeight.rawFormatted()
             } else if let cost = cost as? Cost, cost.number != .nan {
-                weightStr = genericWeight.description
+                weightStr = genericWeight.rawFormatted()
             }
         }
         if let price {
-            let num = price.number.isNaN ? "" : price.number.formatted(withCurrency: nil)
+            let num = price.number.isNaN ? "" : price.number.beancountRawDescription
             let curr = price.currency.description
             positionStr += " @ \(num) \(curr)"
         }
@@ -316,7 +352,7 @@ extension Posting: Printable {
             result += "  ; \(weightStr)"
         }
         if let meta {
-            result += "\n\(meta.toString.lineAligned(by: context.indent))"
+            result += "\n\(meta.formatted(context).lineAligned(by: context.indent))"
         }
         return result
     }
@@ -334,9 +370,9 @@ extension MetaDataValue: Printable {
         case .currency(let currency): currency.description
         case .date(let date): date.isoDescription
         case .tag(let tag): "#\(tag.id)"
-        case .number(let decimal): decimal.formatted(withCurrency: nil)
+        case .number(let decimal): decimal.beancountRawDescription
         case .bool(let bool): bool ? "TRUE" : "FALSE"
-        case .amount(let amount): amount.description
+        case .amount(let amount): amount.formatted(context)
         case .range: ""
         }
     }
@@ -357,13 +393,13 @@ extension OrderedDictionary where Key == String, Value == MetaDataValue {
     /// one per line, suitable for inclusion in Beancount output.
     ///
     /// - Returns: The formatted metadata string
-    fileprivate var toString: String {
+    fileprivate func formatted(_ context: FormatContext) -> String {
         var lines: [String] = []
         for (key, value) in self {
             guard !Self.keysToIgnore.contains(key) && !key.hasPrefix("__") else {
                 continue
             }
-            lines.append("\(key): \(value.description)")
+            lines.append("\(key): \(value.formatted(context))")
         }
         return lines.joined(separator: "\n")
     }
@@ -381,19 +417,30 @@ extension Directive: Printable {
     public func formatted(_ context: FormatContext) -> String {
         let text =
             switch content {
-            case .transaction(let txn): txn.print(date: date, meta: meta, comment: comment, context: context)
-            case .open(let open): open.print(date: date, meta: meta, comment: comment, context: context)
-            case .custom(let custom): custom.print(date: date, meta: meta, comment: comment, context: context)
-            case .pad(let pad): pad.print(date: date, meta: meta, comment: comment, context: context)
-            case .balance(let balance): balance.print(date: date, meta: meta, comment: comment, context: context)
-            case .close(let close): close.print(date: date, meta: meta, comment: comment, context: context)
+            case .transaction(let txn):
+                txn.print(date: date, meta: meta, comment: comment, context: context)
+            case .open(let open):
+                open.print(date: date, meta: meta, comment: comment, context: context)
+            case .custom(let custom):
+                custom.print(date: date, meta: meta, comment: comment, context: context)
+            case .pad(let pad):
+                pad.print(date: date, meta: meta, comment: comment, context: context)
+            case .balance(let balance):
+                balance.print(date: date, meta: meta, comment: comment, context: context)
+            case .close(let close):
+                close.print(date: date, meta: meta, comment: comment, context: context)
             case .commodity(let commodity):
                 commodity.print(date: date, meta: meta, comment: comment, context: context)
-            case .note(let note): note.print(date: date, meta: meta, comment: comment, context: context)
-            case .event(let event): event.print(date: date, meta: meta, comment: comment, context: context)
-            case .query(let query): query.print(date: date, meta: meta, comment: comment, context: context)
-            case .price(let price): price.print(date: date, meta: meta, comment: comment, context: context)
-            case .document(let document): document.print(date: date, meta: meta, comment: comment, context: context)
+            case .note(let note):
+                note.print(date: date, meta: meta, comment: comment, context: context)
+            case .event(let event):
+                event.print(date: date, meta: meta, comment: comment, context: context)
+            case .query(let query):
+                query.print(date: date, meta: meta, comment: comment, context: context)
+            case .price(let price):
+                price.print(date: date, meta: meta, comment: comment, context: context)
+            case .document(let document):
+                document.print(date: date, meta: meta, comment: comment, context: context)
             }
         return text.appending("\n")
     }
@@ -451,7 +498,7 @@ extension Transaction: DirectivePrintable {
             strings.append("  ; \(comment)")
         }
         lines.append(strings.joined(separator: " "))
-        let metaline = meta.toString.lineAligned(by: context.indent)
+        let metaline = meta.formatted(context).lineAligned(by: context.indent)
         if !metaline.isEmpty {
             lines.append(metaline)
         }
@@ -487,7 +534,7 @@ extension Open: DirectivePrintable {
             resultLine.append(" ; \(comment)")
         }
         var result = resultLine.joined(separator: " ")
-        let metaline = meta.toString.lineAligned(by: context.indent)
+        let metaline = meta.formatted(context).lineAligned(by: context.indent)
         if !metaline.isEmpty {
             result += "\n" + metaline
         }
@@ -506,12 +553,12 @@ extension Custom: DirectivePrintable {
     ///   - comment: Optional directive comment
     /// - Returns: The formatted custom directive string
     func print(date: Date, meta: MetaData, comment: String?, context: FormatContext) -> String {
-        let customValues = values.map(\.description).joined(separator: " ")
+        let customValues = values.map { $0.formatted(context) }.joined(separator: " ")
         var result = "\(date.isoDescription) custom \"\(type)\" \(customValues)"
         if let comment, !comment.isEmpty {
             result += "    ; \(comment)"
         }
-        let metaline = meta.toString.lineAligned(by: context.indent)
+        let metaline = meta.formatted(context).lineAligned(by: context.indent)
         if !metaline.isEmpty {
             result += "\n" + metaline
         }
@@ -537,7 +584,7 @@ extension Pad: DirectivePrintable {
             resultLine.append(" ; \(comment)")
         }
         var result = resultLine.joined(separator: " ")
-        let metaline = meta.toString.lineAligned(by: context.indent)
+        let metaline = meta.formatted(context).lineAligned(by: context.indent)
         if !metaline.isEmpty {
             result += "\n" + metaline
         }
@@ -561,22 +608,25 @@ extension Balance: DirectivePrintable {
 
         // Format amount with optional tolerance
         if let tolerance {
-            let num = amount.number.formatted(withCurrency: amount.currency)
-            let tol = tolerance.formatted(withCurrency: nil)
+            let num = amount.number.beancountCurrencyDescription(
+                currency: amount.currency,
+                context: context
+            )
+            let tol = tolerance.beancountRawDescription
             let curr = amount.currency.description
             resultLine.append("\(num) ~ \(tol) \(curr)")
         } else {
-            resultLine.append(amount.description)
+            resultLine.append(amount.formatted(context))
         }
 
         if let comment, !comment.isEmpty {
             resultLine.append(" ; \(comment)")
         } else if let diffAmount {
-            resultLine.append(" ; Diff: \(diffAmount.description)")
+            resultLine.append(" ; Diff: \(diffAmount.formatted(context))")
         }
 
         var result = resultLine.joined(separator: " ")
-        let metaline = meta.toString.lineAligned(by: context.indent)
+        let metaline = meta.formatted(context).lineAligned(by: context.indent)
         if !metaline.isEmpty {
             result += "\n" + metaline
         }
@@ -600,7 +650,7 @@ extension Close: DirectivePrintable {
             resultLine.append(" ; \(comment)")
         }
         var result = resultLine.joined(separator: " ")
-        let metaline = meta.toString.lineAligned(by: context.indent)
+        let metaline = meta.formatted(context).lineAligned(by: context.indent)
         if !metaline.isEmpty {
             result += "\n" + metaline
         }
@@ -624,7 +674,7 @@ extension Commodity: DirectivePrintable {
             resultLine.append(" ; \(comment)")
         }
         var result = resultLine.joined(separator: " ")
-        let metaline = meta.toString.lineAligned(by: context.indent)
+        let metaline = meta.formatted(context).lineAligned(by: context.indent)
         if !metaline.isEmpty {
             result += "\n" + metaline
         }
@@ -653,7 +703,7 @@ extension Note: DirectivePrintable {
             resultLine.append(" ; \(comment)")
         }
         var result = resultLine.joined(separator: " ")
-        let metaline = meta.toString.lineAligned(by: context.indent)
+        let metaline = meta.formatted(context).lineAligned(by: context.indent)
         if !metaline.isEmpty {
             result += "\n" + metaline
         }
@@ -682,7 +732,7 @@ extension Event: DirectivePrintable {
             resultLine.append(" ; \(comment)")
         }
         var result = resultLine.joined(separator: " ")
-        let metaline = meta.toString.lineAligned(by: context.indent)
+        let metaline = meta.formatted(context).lineAligned(by: context.indent)
         if !metaline.isEmpty {
             result += "\n" + metaline
         }
@@ -711,7 +761,7 @@ extension Query: DirectivePrintable {
             resultLine.append(" ; \(comment)")
         }
         var result = resultLine.joined(separator: " ")
-        let metaline = meta.toString.lineAligned(by: context.indent)
+        let metaline = meta.formatted(context).lineAligned(by: context.indent)
         if !metaline.isEmpty {
             result += "\n" + metaline
         }
@@ -734,13 +784,13 @@ extension Price: DirectivePrintable {
             date.isoDescription,
             "price",
             currency.description,
-            amount.description,
+            amount.rawFormatted(),
         ]
         if let comment, !comment.isEmpty {
             resultLine.append(" ; \(comment)")
         }
         var result = resultLine.joined(separator: " ")
-        let metaline = meta.toString.lineAligned(by: context.indent)
+        let metaline = meta.formatted(context).lineAligned(by: context.indent)
         if !metaline.isEmpty {
             result += "\n" + metaline
         }
@@ -779,7 +829,7 @@ extension Document: DirectivePrintable {
             resultLine.append(" ; \(comment)")
         }
         var result = resultLine.joined(separator: " ")
-        let metaline = meta.toString.lineAligned(by: context.indent)
+        let metaline = meta.formatted(context).lineAligned(by: context.indent)
         if !metaline.isEmpty {
             result += "\n" + metaline
         }

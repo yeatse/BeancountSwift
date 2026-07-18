@@ -660,6 +660,52 @@ struct TestPrinterMisc {
 @Suite("Additional Printer Tests")
 struct AdditionalPrinterTests {
 
+    @Test func amountsUseCurrencyPrecisionWithTwoDigitCommodityFallback() {
+        #expect(Amount(number: 12, currency: "JPY").formatted(.default) == "12 JPY")
+        #expect(
+            Amount(number: Decimal(string: "1.2345")!, currency: "KWD").formatted(.default)
+                == "1.234 KWD")
+        #expect(
+            Amount(number: Decimal(string: "1.2")!, currency: "HOOL").formatted(.default)
+                == "1.20 HOOL")
+    }
+
+    @Test func explicitDisplayPrecisionOverridesCurrencyDefault() {
+        let context = FormatContext(displayPrecision: ["USD": 4])
+        let amount = Amount(number: Decimal(string: "1.2")!, currency: "USD")
+
+        #expect(amount.formatted(context) == "1.2000 USD")
+    }
+
+    @Test func ledgerFormattingAppliesDisplayPrecisionAndKeepsPricesRaw() throws {
+        let source = """
+            option "display_precision" "USD:1.000"
+
+            2026-07-18 balance Assets:Cash 1.23456 USD
+            2026-07-18 price HOOL 1.23456 USD
+
+            """
+        let ledger = try ContentProvider(source: source).parseLedger()
+        let rendered = ledger.formatted()
+
+        #expect(rendered.contains("balance Assets:Cash 1.235 USD"))
+        #expect(rendered.contains("price HOOL 1.23456 USD"))
+    }
+
+    @Test func postingPricesAndDebugWeightsKeepRawDecimals() throws {
+        let source = """
+            2026-07-18 * "Raw price and weight"
+                Assets:Stock  2 HOOL @ 1.2345 USD
+                Assets:Cash
+
+            """
+        let ledger = try ContentProvider(source: source).parseLedger()
+        let rendered = ledger.directives.map(\.description).joined()
+
+        #expect(rendered.contains("@ 1.2345 USD"))
+        #expect(rendered.contains("; 2.469 USD"))
+    }
+
     @Test func amountUsesBeancountDecimalSeparator() throws {
         let amount = Amount(number: Decimal(string: "12.34")!, currency: "RUB")
 
