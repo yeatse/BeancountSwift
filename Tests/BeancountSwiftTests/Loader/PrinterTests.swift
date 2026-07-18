@@ -660,6 +660,45 @@ struct TestPrinterMisc {
 @Suite("Additional Printer Tests")
 struct AdditionalPrinterTests {
 
+    @Test func amountUsesBeancountDecimalSeparator() throws {
+        let amount = Amount(number: Decimal(string: "12.34")!, currency: "RUB")
+
+        #expect(amount.description == "12.34 RUB")
+
+        let source = """
+            2026-07-18 * "Locale-independent amount"
+                Assets:Cash  12.34 RUB
+                Equity:Opening-Balances
+
+            """
+        let ledger = try ContentProvider(source: source).parseLedger()
+        let rendered = ledger.directives.map(\.description).joined()
+        let reparsed = try ContentProvider(source: rendered).parseLedger()
+
+        #expect(reparsed.errors.isEmpty)
+        #expect(reparsed.directives.first?.description.contains("12.34 RUB") == true)
+    }
+
+    @Test func directDecimalsUseBeancountDecimalSeparator() throws {
+        let source = """
+            2026-07-18 balance Assets:Cash 100.00 ~ 0.01 RUB
+
+            2026-07-18 * "Price"
+                ratio: 0.01
+                Assets:Cash  1 RUB @ 0.01 USD
+                Equity:Opening-Balances
+
+            """
+        let ledger = try ContentProvider(source: source).parseLedger()
+        let rendered = ledger.directives.map(\.description).joined()
+        let reparsed = try ContentProvider(source: rendered).parseLedger()
+
+        #expect(rendered.contains("100.00 ~ 0.01 RUB"))
+        #expect(rendered.contains("ratio: 0.01"))
+        #expect(rendered.contains("@ 0.01 USD"))
+        #expect(reparsed.errors.isEmpty)
+    }
+
     @Test func testOptionDirective() throws {
         // Test option directive printing
         // Options are stored separately in ParsedLedger.options, not as directives
