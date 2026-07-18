@@ -91,6 +91,13 @@ extension Currency: Printable {
 }
 
 extension Decimal {
+    /// Locale used for machine-readable Beancount source.
+    ///
+    /// Beancount reserves `.` for the decimal separator and `,` for optional
+    /// thousands grouping, so source formatting must stay independent of the
+    /// user's regional settings.
+    private static let beancountLocale = Locale(identifier: "en_US_POSIX")
+
     /// Formats a decimal number with currency-specific formatting.
     ///
     /// Uses AttributedString-based currency formatting to determine appropriate decimal
@@ -104,21 +111,32 @@ extension Decimal {
     /// - Returns: The formatted decimal string without currency symbol
     fileprivate func formatted(withCurrency currency: Currency?, rounded: Bool = false) -> String {
         guard let currency else {
-            return formatted(.number.grouping(.never))
+            return formatted(.number.grouping(.never).locale(Self.beancountLocale))
         }
 
         var result = ""
         let attributed: AttributedString
         if rounded {
             attributed = magnitude.formatted(
-                .currency(code: currency.id).presentation(.narrow).grouping(.never).attributed)
+                .currency(code: currency.id)
+                    .presentation(.narrow)
+                    .grouping(.never)
+                    .locale(Self.beancountLocale)
+                    .attributed)
         } else {
             let attr1 = magnitude.formatted(
-                .currency(code: currency.id).presentation(.narrow).grouping(.never).attributed)
+                .currency(code: currency.id)
+                    .presentation(.narrow)
+                    .grouping(.never)
+                    .locale(Self.beancountLocale)
+                    .attributed)
             let attr2 = magnitude.formatted(
-                .currency(code: currency.id).presentation(.narrow).grouping(.never).precision(
-                    .fractionLength(0...)
-                ).attributed)
+                .currency(code: currency.id)
+                    .presentation(.narrow)
+                    .grouping(.never)
+                    .precision(.fractionLength(0...))
+                    .locale(Self.beancountLocale)
+                    .attributed)
             attributed = attr1.characters.count >= attr2.characters.count ? attr1 : attr2
         }
         for run in attributed.runs {
