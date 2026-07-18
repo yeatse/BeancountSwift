@@ -22,7 +22,7 @@ extension Balance {
     }
 }
 
-enum BalanceError: LocatableError, LocalizedError {
+enum BalanceError: LocatableError, LocalizedError, CustomStringConvertible {
     case unknownAccount(account: Account, entry: Directive<Cost>)
     case invalidCurrency(currency: Currency, entry: Directive<Cost>)
     case balanceFailed(account: Account, expected: Amount, balance: Amount, entry: Directive<Cost>)
@@ -52,9 +52,11 @@ enum BalanceError: LocatableError, LocalizedError {
             let diff = balance - expected
             let direction = diff.number > 0 ? "too much" : "too little"
             return
-                "Balance failed for '\(account.id)': expected \(expected) != accumulated \(balance) (\(abs(diff.number)) \(direction))"
+                "Balance failed for '\(account.id)': expected \(expected.rawFormatted()) != accumulated \(balance.rawFormatted()) (\(abs(diff.number)) \(direction))"
         }
     }
+
+    var description: String { errorDescription ?? "Balance error" }
 }
 
 struct BalanceCheckPlugin: BeancountPlugin {
