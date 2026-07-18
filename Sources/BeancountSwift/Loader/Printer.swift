@@ -304,7 +304,7 @@ extension Posting: Printable {
             }
         }
         if let price {
-            let num = price.number.isNaN ? "" : price.number.formatted(.number.grouping(.never))
+            let num = price.number.isNaN ? "" : price.number.formatted(withCurrency: nil)
             let curr = price.currency.description
             positionStr += " @ \(num) \(curr)"
         }
@@ -334,7 +334,7 @@ extension MetaDataValue: Printable {
         case .currency(let currency): currency.description
         case .date(let date): date.isoDescription
         case .tag(let tag): "#\(tag.id)"
-        case .number(let decimal): decimal.formatted(.number.grouping(.never))
+        case .number(let decimal): decimal.formatted(withCurrency: nil)
         case .bool(let bool): bool ? "TRUE" : "FALSE"
         case .amount(let amount): amount.description
         case .range: ""
@@ -562,7 +562,7 @@ extension Balance: DirectivePrintable {
         // Format amount with optional tolerance
         if let tolerance {
             let num = amount.number.formatted(withCurrency: amount.currency)
-            let tol = tolerance.formatted(.number.grouping(.never))
+            let tol = tolerance.formatted(withCurrency: nil)
             let curr = amount.currency.description
             resultLine.append("\(num) ~ \(tol) \(curr)")
         } else {
