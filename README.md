@@ -4,7 +4,11 @@ BeancountSwift is a Swift package for working with Beancount plain-text accounti
 It targets Apple platforms including iOS, macOS, watchOS, tvOS, and visionOS.
 It builds on the official Tree-sitter grammar for Beancount.
 The library exposes APIs for parsing ledgers, loading files, and realising account trees.
-For background, see the [Beancount documentation](https://beancount.github.io/docs/).
+
+Used in [Cocono App - Beancount Agent for iOS](https://cocono.app)
+
+[![Download on th AppStore](https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/en-us?releaseDate=1776211200)](https://apps.apple.com/app/id6497061011) [![Download on th AppStore](https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/zh-cn?releaseDate=1776211200)](https://apps.apple.com/cn/app/cocono-%E8%AE%B0%E8%B4%A6-beancount-%E7%A7%BB%E5%8A%A8%E5%AE%A2%E6%88%B7%E7%AB%AF/id6497061011?itscg=30200&itsct=apps_box_badge&mttnsubad=6497061011)
+    
 
 ## Requirements
 
