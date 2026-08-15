@@ -85,7 +85,27 @@ struct BookingTests {
         }
         let location = error.location
         #expect(location?.filename == "test.bean")
-        #expect(location?.lineno == 1)
+        #expect(location?.lineno == 2)
+    }
+
+    /// ``CategorizationError`` only carries the transaction, so it locates the
+    /// error by stepping back from the first posting to the transaction header.
+    /// The offset is relative and therefore unaffected by the 1-based numbering,
+    /// but it does assume the first posting directly follows the header.
+    @Test func categorizationErrorLocation() throws {
+        let p: ContentProvider =
+            """
+              2013-05-18 * "Too many auto postings"
+                Assets:A
+                Assets:B
+            """
+        let ledger = try p.parseLedger()
+        let bookedLedger = Booking.book(ledger: ledger)
+        guard let error = bookedLedger.errors.first as? CategorizationError else {
+            Issue.record("Expected CategorizationError")
+            return
+        }
+        #expect(error.location?.lineno == 1)
     }
 
     @Test func emptyCostSpecWithPrice() throws {

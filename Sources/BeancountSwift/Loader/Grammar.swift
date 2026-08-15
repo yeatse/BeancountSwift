@@ -22,13 +22,21 @@ protocol AcceptingMetaStack {
 }
 
 enum SyntaxError: Error {
-    case badNode(lineno: UInt32, source: String?)
+    case badNode(lineno: Int, source: String?)
 
     static func badNode(_ node: SwiftTreeSitter.Node, content: String) -> SyntaxError {
         .badNode(
-            lineno: node.pointRange.lowerBound.row,
+            lineno: node.lineno,
             source: try? .init(from: node, content: content)
         )
+    }
+}
+
+extension SwiftTreeSitter.Node {
+    /// The 1-based line the node starts on, converted from the 0-based row
+    /// tree-sitter reports, so that line numbers match Beancount.
+    var lineno: Int {
+        Int(pointRange.lowerBound.row) + 1
     }
 }
 
@@ -617,7 +625,7 @@ extension Posting<CostSpec>: Parsable {
                 .trimmingCharacters(in: .whitespacesAndNewlines)
         }
         var meta: MetaData = [
-            "lineno": .number(Decimal(accountNode.pointRange.lowerBound.row))
+            "lineno": .number(Decimal(accountNode.lineno))
         ]
         if let metadata = try node.child(byFieldName: "metadata").map({
             try MetaData(from: $0, content: content)

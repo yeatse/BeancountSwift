@@ -17,11 +17,11 @@ enum ParserError: LocatableError, LocalizedError {
     /// The file content could not be parsed as valid syntax.
     case badContent(file: String, content: String)
     /// Invalid syntax encountered at a specific location.
-    case invalidSyntax(file: String, lineno: UInt32, content: String?)
+    case invalidSyntax(file: String, lineno: Int, content: String?)
     /// An include file was referenced multiple times.
     case duplicatedInclude(String)
     /// Attempted to pop a tag that wasn't pushed.
-    case popAbsentTag(file: String, lineno: UInt32, tag: Tag)
+    case popAbsentTag(file: String, lineno: Int, tag: Tag)
     /// Tags were pushed but not popped at end of file.
     case unbalancedTags(file: String, tags: [Tag])
 
@@ -341,7 +341,7 @@ public enum Parser {
                     } else {
                         throw ParserError.popAbsentTag(
                             file: file,
-                            lineno: child.pointRange.lowerBound.row,
+                            lineno: child.lineno,
                             tag: tag
                         )
                     }

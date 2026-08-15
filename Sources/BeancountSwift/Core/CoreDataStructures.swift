@@ -444,17 +444,21 @@ public enum MetaDataValue: Hashable, Sendable {
 }
 
 extension OrderedDictionary where Key == String, Value == MetaDataValue {
-    /// Extracts the line number from metadata.
+    /// Extracts the 1-based line number from metadata.
     ///
     /// Looks for a "lineno" key with a numeric value, or falls back to
-    /// extracting the line number from the source range if available.
+    /// extracting the line number from the source range if available. Line
+    /// numbers follow Beancount, which counts from 1; the tree-sitter rows the
+    /// parser works with are 0-based and converted when the metadata is built.
+    /// Directives synthesized by operations such as ``Summarize`` use `0` or
+    /// `-1` as a sentinel, matching Beancount's `<summarize>` entries.
     ///
     /// - Returns: The line number if available, nil otherwise
-    public var lineno: UInt32? {
+    public var lineno: Int? {
         if case .number(let val) = self["lineno"] {
-            return NSDecimalNumber(decimal: val).uint32Value
+            return NSDecimalNumber(decimal: val).intValue
         }
-        return range?.points.lowerBound.row
+        return range.map { Int($0.points.lowerBound.row) + 1 }
     }
 
     /// Extracts the filename from metadata.

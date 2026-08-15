@@ -81,10 +81,24 @@ struct ParserTests {
         #expect(txn.postings[0].units.number == 101.23)
     }
 
+    /// Line numbers count from 1, like Beancount. The expectations here and in
+    /// ``multiLineno()`` were verified by running the same ledger through Python
+    /// `bean-query`, whose parser numbers lines from 1 while the tree-sitter rows
+    /// this parser reads are 0-based.
     @Test func lineno() throws {
         let p: ContentProvider = "2020-07-30 open Assets:Test"
         let ledger = try p.parseLedger()
-        #expect(ledger.directives[0].meta.lineno == 0)
+        #expect(ledger.directives[0].meta.lineno == 1)
+    }
+
+    /// Directives synthesized by operations such as ``Summarize`` carry an explicit
+    /// line number that is already in Beancount's numbering and must be reported
+    /// unchanged, including the negative `<conversions>` sentinel.
+    @Test func explicitLinenoIsReportedUnchanged() throws {
+        let summarized: MetaData = ["filename": .string("<summarize>"), "lineno": .number(0)]
+        let converted: MetaData = ["filename": .string("<conversions>"), "lineno": .number(-1)]
+        #expect(summarized.lineno == 0)
+        #expect(converted.lineno == -1)
     }
 
     @Test func multiLineno() throws {
@@ -102,17 +116,17 @@ struct ParserTests {
             """
         let ledger = try p.parseLedger()
         #expect(ledger.directives.count == 4)
-        #expect(ledger.directives[0].meta.lineno == 0)
-        #expect(ledger.directives[1].meta.lineno == 2)
-        #expect(ledger.directives[2].meta.lineno == 6)
-        #expect(ledger.directives[3].meta.lineno == 8)
+        #expect(ledger.directives[0].meta.lineno == 1)
+        #expect(ledger.directives[1].meta.lineno == 3)
+        #expect(ledger.directives[2].meta.lineno == 7)
+        #expect(ledger.directives[3].meta.lineno == 9)
 
         guard case .transaction(let txn) = ledger.directives[1].content else {
             Issue.record("Expected transaction directive")
             return
         }
-        #expect(txn.postings[0].meta?.lineno == 3)
-        #expect(txn.postings[1].meta?.lineno == 4)
+        #expect(txn.postings[0].meta?.lineno == 4)
+        #expect(txn.postings[1].meta?.lineno == 5)
     }
 
     @Test func filename() throws {

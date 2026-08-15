@@ -50,7 +50,7 @@ struct PadPlugin: BeancountPlugin {
         // padding transactions to be inserted under sibling pads in other files.
         struct PadKey: Hashable {
             var filename: String?
-            var lineno: UInt32?
+            var lineno: Int?
         }
 
         struct PadState {
