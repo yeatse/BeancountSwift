@@ -36,4 +36,11 @@ We follow conventional commits (e.g. `feat:`, `fix:`) and ask contributors to fo
 
 ## License
 
-This project is licensed under the terms of the MIT License. See [LICENSE](LICENSE).
+Copyright (C) 2023 YANG Chao.
+
+This project is licensed under the terms of the GNU General Public License, version 2 only.
+See [LICENSE](LICENSE).
+
+BeancountSwift is a Swift port of [Beancount](https://github.com/beancount/beancount), which is
+distributed under the GPL-2.0-only license. Parts of this project, including test fixtures, are
+derived from the Beancount source tree.
