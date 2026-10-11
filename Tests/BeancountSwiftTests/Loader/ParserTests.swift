@@ -500,4 +500,73 @@ struct ParserTests {
         #expect(directives[1].date == "2020-07-29")
         #expect(directives[2].date == "2020-07-31")
     }
+
+    private func validationProblems(_ content: String) -> [SnippetError] {
+        do {
+            try Parser.validateSnippets(content)
+            return []
+        } catch {
+            return error.problems
+        }
+    }
+
+    @Test func validateSnippetsAcceptsCleanSnippet() throws {
+        let content = """
+            ; leading comment
+            2026-10-11 * "JD" "" #trip
+              payer: "Me"
+              Expenses:Food  (120.00 - 10.00) CNY  ; discounted
+              Assets:Cash
+            2026-10-11 open Assets:Bank CNY
+            """
+        #expect(validationProblems(content).isEmpty)
+        #expect(Parser.parseSnippets(from: content).count == 2)
+    }
+
+    @Test(arguments: [
+        ("2026-10-11 * \"A\"\nExpenses:Food  4.50 USD\n  Assets:Cash", 2),
+        ("2026-10-11 * \"A\"\n  Expenses:Food  4.50 USD USD\n  Assets:Cash", 2),
+        ("2026-10-11 * \"A\"\n  expenses:food  4.50 USD\n  Assets:Cash", 2),
+        ("2026-10-11 * Latte\n  Expenses:Food  4.50 USD\n  Assets:Cash", 1),
+        ("2026-10-11 * \"A\"\n  Expenses:Food  4.50 USD\n    k: 1\n  Assets:Cash", 3),
+        ("2026-13-41 * \"A\"\n  Expenses:Food  4.50 USD\n  Assets:Cash", 1),
+    ])
+    func validateSnippetsReportsRecoveredErrors(content: String, lineno: Int) throws {
+        #expect(validationProblems(content).map(\.lineno) == [lineno])
+    }
+
+    @Test func validateSnippetsRejectsNonDirectives() throws {
+        let problems = validationProblems(
+            """
+            option "title" "x"
+            plugin "beancount.plugins.auto"
+            include "other.bean"
+            2026-10-11 open Assets:Bank CNY
+            trailing junk
+            """
+        )
+        #expect(problems.map(\.lineno) == [1, 2, 3, 5])
+        #expect(problems[0].message == "Only directives are allowed, found option")
+    }
+
+    @Test func validateSnippetsRejectsUnbalancedTransactions() throws {
+        let problems = validationProblems(
+            """
+            2026-10-11 * "Balanced by omission"
+              Expenses:Food  4.50 USD
+              Assets:Cash
+            2026-10-11 * "Unbalanced"
+              Expenses:Food  4.50 USD
+              Assets:Cash  -4.00 USD
+            2026-10-11 * "Two omissions"
+              Expenses:Food  4.50 USD
+              Assets:Cash
+              Assets:Bank
+            """
+        )
+        #expect(problems.map(\.lineno) == [4, 7])
+        #expect(problems[0].message == "Transaction does not balance: residual 0.50 USD")
+        #expect(
+            problems[1].message == "2 postings omit their amount; at most one posting may omit it")
+    }
 }

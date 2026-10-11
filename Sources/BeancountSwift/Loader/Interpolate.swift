@@ -143,3 +143,58 @@ enum Interpolate {
         return abs(tolerance.exponent) < maxToleranceDigits
     }
 }
+
+/// The outcome of checking whether a standalone transaction balances.
+enum TransactionBalance: Sendable, Equatable {
+    /// Every currency balances within tolerance, or exactly one posting omits
+    /// its amount and absorbs the remainder.
+    case balanced
+    /// More than one posting omits its amount.
+    case tooManyMissingAmounts(count: Int)
+    /// The residual amounts that exceed tolerance, one per currency.
+    case unbalanced(residual: [Amount])
+    /// Balance depends on lots that only booking against a ledger can resolve,
+    /// such as a reduction written with an empty cost `{}`.
+    case undetermined
+}
+
+extension Transaction<CostSpec> {
+    /// Checks whether this transaction balances on its own, without booking it
+    /// against a ledger.
+    ///
+    /// - Parameter options: Ledger options supplying default tolerances.
+    /// - Returns: The balance outcome.
+    func checkBalance(options: Options) -> TransactionBalance {
+        let missingCount = postings.count { posting in
+            posting.units.number.isNaN || posting.units.currency == .missing
+        }
+        if missingCount > 1 { return .tooManyMissingAmounts(count: missingCount) }
+        if missingCount == 1 { return .balanced }
+
+        var residual = Inventory()
+        for posting in postings {
+            let weight: Amount
+            if let costSpec = posting.cost {
+                guard
+                    let cost = Booking.convertSpecToCost(units: posting.units, costSpec: costSpec),
+                    !cost.number.isNaN, cost.currency != .missing
+                else { return .undetermined }
+                weight = Amount(number: cost.number * posting.units.number, currency: cost.currency)
+            } else {
+                weight = posting.weight
+            }
+            if weight.number.isNaN || weight.currency == .missing { return .undetermined }
+            residual.addAmount(weight)
+        }
+
+        let tolerances = Interpolate.inferTolerances(postings: postings, options: options)
+        let exceeding = residual.positions
+            .filter { position in
+                let tolerance = tolerances.mapping[
+                    position.units.currency, default: tolerances.default]
+                return abs(position.units.number) > tolerance
+            }
+            .map(\.units)
+        return exceeding.isEmpty ? .balanced : .unbalanced(residual: exceeding)
+    }
+}

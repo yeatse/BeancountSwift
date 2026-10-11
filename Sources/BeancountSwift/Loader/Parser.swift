@@ -60,6 +60,53 @@ enum ParserError: LocatableError, LocalizedError {
     }
 }
 
+/// Thrown by `Parser.validateSnippets(_:options:)` with every problem found.
+public struct SnippetValidationError: LocalizedError, Sendable, Equatable {
+    /// The problems found, in document order.
+    public var problems: [SnippetError]
+
+    public init(problems: [SnippetError]) {
+        self.problems = problems
+    }
+
+    public var errorDescription: String? {
+        problems.map { $0.localizedDescription }.joined(separator: "\n")
+    }
+}
+
+/// A problem found while validating a snippet.
+public struct SnippetError: LocalizedError, Sendable, Equatable {
+    /// The 1-based line within the snippet where the problem starts.
+    public var lineno: Int
+    /// The offending source text, if available.
+    public var source: String?
+    /// A short description of the problem.
+    public var message: String
+
+    public init(lineno: Int, source: String?, message: String) {
+        self.lineno = lineno
+        self.source = source
+        self.message = message
+    }
+
+    init(node: Node, content: String, message: String) {
+        let source = (try? String(from: node, content: content))?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        self.init(
+            lineno: node.lineno,
+            source: source.flatMap { $0.isEmpty ? nil : String($0.prefix(60)) },
+            message: message
+        )
+    }
+
+    public var errorDescription: String? {
+        if let source {
+            return "Line \(lineno): \(message) near \"\(source)\""
+        }
+        return "Line \(lineno): \(message)"
+    }
+}
+
 extension DirectiveContent {
     /// Determines the sort order for directives on the same date.
     ///
@@ -297,6 +344,121 @@ public enum Parser {
         return result
     }
 
+    /// Validates a snippet before it is parsed with `parseSnippets(from:)` or
+    /// `parseSnippet(from:)`.
+    ///
+    /// Those parsers skip problems silently: Tree-sitter recovers from malformed
+    /// input by dropping or reinterpreting tokens, so a misindented posting or
+    /// an unquoted narration simply disappears. Validate untrusted input first
+    /// so that its parsed result matches the source exactly. Validation reports:
+    /// - any error or missing syntax node, and any directive that fails to convert;
+    /// - any non-directive entry (option, include, plugin, pushtag, ...);
+    /// - transactions that do not balance on their own. At most one posting
+    ///   may omit its amount, which then counts as balanced. Balances that
+    ///   depend on lot matching, such as an empty cost `{}`, are left to booking.
+    ///
+    /// - Parameters:
+    ///   - content: The text content containing zero or more directives
+    ///   - options: Ledger options supplying balance tolerances; defaults apply when nil
+    /// - Throws: `SnippetValidationError` listing every problem found
+    public static func validateSnippets(
+        _ content: String,
+        options: Options? = nil
+    ) throws(SnippetValidationError) {
+        let options = options ?? Options(from: [])
+        var problems: [SnippetError] = []
+        let treeSitter = makeTreeSitter()
+        guard let rootNode = treeSitter.parse(content)?.rootNode else {
+            throw SnippetValidationError(
+                problems: [.init(lineno: 1, source: nil, message: "Unparseable content")]
+            )
+        }
+        for i in 0..<rootNode.namedChildCount {
+            guard let child = rootNode.namedChild(at: i), let nodeType = child.nodeType else {
+                continue
+            }
+            if nodeType == "comment" { continue }
+            guard snippetDirectiveTypes.contains(nodeType) else {
+                problems.append(
+                    .init(
+                        node: child,
+                        content: content,
+                        message: nodeType == "ERROR"
+                            ? "Invalid syntax" : "Only directives are allowed, found \(nodeType)"
+                    )
+                )
+                continue
+            }
+            if child.hasError {
+                let bad = firstErrorNode(in: child) ?? child
+                problems.append(
+                    .init(
+                        node: bad,
+                        content: content,
+                        message: bad.isMissing
+                            ? "Missing \(bad.nodeType ?? "token")" : "Invalid syntax"
+                    )
+                )
+                continue
+            }
+            let directive: Directive<CostSpec>
+            do {
+                directive = try Directive(from: child, content: content)
+            } catch SyntaxError.badNode(let lineno, let source) {
+                problems.append(
+                    .init(
+                        lineno: lineno,
+                        source: source.map { String($0.prefix(60)) },
+                        message: "Invalid value"
+                    )
+                )
+                continue
+            } catch {
+                problems.append(
+                    .init(node: child, content: content, message: error.localizedDescription)
+                )
+                continue
+            }
+            if let message = balanceProblem(in: directive, options: options) {
+                problems.append(.init(lineno: child.lineno, source: nil, message: message))
+            }
+        }
+        if !problems.isEmpty {
+            throw SnippetValidationError(problems: problems)
+        }
+    }
+
+    private static func balanceProblem(
+        in directive: Directive<CostSpec>,
+        options: Options
+    ) -> String? {
+        guard case .transaction(let transaction) = directive.content else { return nil }
+        switch transaction.checkBalance(options: options) {
+        case .balanced, .undetermined:
+            return nil
+        case .tooManyMissingAmounts(let count):
+            return "\(count) postings omit their amount; at most one posting may omit it"
+        case .unbalanced(let residual):
+            let amounts = residual.map(\.description).joined(separator: ", ")
+            return "Transaction does not balance: residual \(amounts)"
+        }
+    }
+
+    private static let snippetDirectiveTypes: Set<String> = [
+        "transaction", "balance", "open", "close", "pad", "document", "note", "event", "price",
+        "commodity", "query", "custom",
+    ]
+
+    /// Finds the innermost-first error or missing node below `node`, in document order.
+    private static func firstErrorNode(in node: Node) -> Node? {
+        for i in 0..<node.childCount {
+            guard let child = node.child(at: i) else { continue }
+            if child.nodeType == "ERROR" || child.isMissing { return child }
+            if child.hasError, let nested = firstErrorNode(in: child) { return nested }
+        }
+        return nil
+    }
+
     /// Parses the content of a single file.
     ///
     /// Processes the syntax tree to extract directives, options, plugins, and includes.
@@ -406,7 +568,7 @@ public enum Parser {
 
     private static func resolveInclude(_ include: String, relativeTo file: String) -> String {
         let includePath = include as NSString
-        
+
         if includePath.isAbsolutePath {
             return includePath.standardizingPath
         }
